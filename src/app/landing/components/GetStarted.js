@@ -40,7 +40,7 @@ export default function GetStarted() {
                 <div className="flex-none w-8 h-8 rounded-full bg-[#6366f1]/20 text-[#6366f1] flex items-center justify-center font-bold">3</div>
                 <div>
                   <h4 className="font-bold text-lg">Route Requests</h4>
-                  <p className="text-sm text-gray-500 mt-1">Point your CLI tools to http://localhost:20128</p>
+                  <p className="text-sm text-gray-500 mt-1">Point your CLI tools to http://127.0.0.1:20128</p>
                 </div>
               </div>
             </div>
@@ -83,8 +83,8 @@ export default function GetStarted() {
                 
                 <div className="text-gray-400 text-xs">
                   <span className="text-purple-400">Data Location:</span><br/>
-                  <span className="text-gray-500">  macOS/Linux:</span> ~/.9router/db.json<br/>
-                  <span className="text-gray-500">  Windows:</span> %APPDATA%/9router/db.json
+                  <span className="text-gray-500">  macOS/Linux:</span> ~/.9router/db/data.sqlite<br/>
+                  <span className="text-gray-500">  Windows:</span> %APPDATA%/9router/db/data.sqlite
                 </div>
               </div>
             </div>
