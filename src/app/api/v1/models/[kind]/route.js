@@ -1,5 +1,5 @@
 import { buildModelsList } from "@/sse/services/allowedModels.js";
-import { isValidApiKey, extractApiKey, isProviderAllowed, isComboAllowed } from "@/sse/services/auth.js";
+import { isValidApiKey, extractApiKey, isProviderAllowed, isComboAllowed, isKindAllowed } from "@/sse/services/auth.js";
 
 import { getSettings } from "@/lib/localDb";
 
@@ -57,6 +57,10 @@ export async function GET(request, { params }) {
           { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
         );
       }
+    }
+
+    if (apiKeyInfo && !kindFilter.some(k => isKindAllowed(apiKeyInfo, k))) {
+      return Response.json({ object: "list", data: [] }, { headers: { "Access-Control-Allow-Origin": "*" } });
     }
 
     let data = await buildModelsList(kindFilter);

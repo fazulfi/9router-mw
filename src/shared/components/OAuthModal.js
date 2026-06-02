@@ -218,6 +218,8 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         redirectUri = "http://localhost:1455/auth/callback";
       } else if (provider === "xai") {
         redirectUri = "http://127.0.0.1:56121/callback";
+      } else if (provider === "antigravity" || provider === "gemini-cli") {
+        redirectUri = `http://localhost:${appPort}/callback`;
       } else {
         redirectUri = `https://api.bevansatria.my.id/callback`;
       }

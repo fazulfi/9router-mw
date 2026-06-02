@@ -7,9 +7,20 @@ import { useRouter } from "next/navigation";
 export default function MasukPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [resetHint, setResetHint] = useState("");
+  const [retryAfter, setRetryAfter] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasPassword, setHasPassword] = useState(null);
+  const [authMode, setAuthMode] = useState("password");
+  const [oidcConfigured, setOidcConfigured] = useState(false);
+  const [oidcLoginLabel, setOidcLoginLabel] = useState("Masuk dengan OIDC");
   const router = useRouter();
+
+  useEffect(() => {
+    if (retryAfter <= 0) return;
+    const id = setInterval(() => setRetryAfter((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [retryAfter]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -18,20 +29,7 @@ export default function MasukPage() {
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
       try {
-        const res = await fetch(`${baseUrl}/api/auth/check`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          router.push("/dashboard");
-          router.refresh();
-          return;
-        }
-      } catch {}
-
-      try {
-        const res = await fetch(`${baseUrl}/api/settings`, {
+        const res = await fetch(`${baseUrl}/api/auth/status`, {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
@@ -44,6 +42,9 @@ export default function MasukPage() {
             return;
           }
           setHasPassword(!!data.hasPassword);
+          setAuthMode(data.authMode || "password");
+          setOidcConfigured(data.oidcConfigured === true);
+          setOidcLoginLabel(data.oidcLoginLabel || "Masuk dengan OIDC");
         } else {
           setHasPassword(true);
         }
@@ -59,6 +60,7 @@ export default function MasukPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setResetHint("");
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -73,6 +75,8 @@ export default function MasukPage() {
       } else {
         const data = await res.json();
         setError(data.error || "Password salah");
+        if (data.resetHint) setResetHint(data.resetHint);
+        if (data.retryAfter) setRetryAfter(Number(data.retryAfter));
       }
     } catch (err) {
       setError("Terjadi kesalahan. Silakan coba lagi.");
@@ -80,6 +84,13 @@ export default function MasukPage() {
       setLoading(false);
     }
   };
+
+  const handleOidcLogin = () => {
+    window.location.href = "/api/auth/oidc/start";
+  };
+
+  const oidcAvailable = oidcConfigured && ["oidc", "both"].includes(authMode);
+  const passwordAvailable = authMode !== "oidc" || !oidcConfigured;
 
   if (hasPassword === null) {
     return (
@@ -106,37 +117,83 @@ export default function MasukPage() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-primary mb-2">VansAI</h1>
-          <p className="text-text-muted">Masukkan password untuk mengakses dashboard</p>
+          <p className="text-text-muted">
+            {authMode === "oidc" && oidcConfigured
+              ? "Masuk dengan OIDC provider untuk mengakses dashboard"
+              : "Masukkan password untuk mengakses dashboard"}
+          </p>
         </div>
 
         <Card>
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Password</label>
-              <Input
-                type="password"
-                placeholder="Masukkan password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoFocus
-              />
-              {error && <p className="text-xs text-red-500">{error}</p>}
-            </div>
+          <div className="flex flex-col gap-4">
+            {oidcAvailable && (
+              <Button type="button" variant="primary" className="w-full" onClick={handleOidcLogin}>
+                {oidcLoginLabel}
+              </Button>
+            )}
 
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full"
-              loading={loading}
-            >
-              Masuk
-            </Button>
+            {oidcAvailable && passwordAvailable && <div className="h-px bg-border/60" />}
 
-            <p className="text-xs text-center text-text-muted mt-2">
-              Password default adalah <code className="bg-sidebar px-1 rounded">123456</code>
-            </p>
-          </form>
+            {passwordAvailable ? (
+              <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                {((authMode === "oidc" && !oidcConfigured) || (authMode === "both" && !oidcConfigured)) && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                    OIDC login aktif, tapi issuer/client belum dikonfigurasi. Password login masih tersedia.
+                  </p>
+                )}
+
+                {authMode === "both" && oidcConfigured && (
+                  <p className="text-xs text-text-muted text-center">
+                    Password dan OIDC login keduanya aktif.
+                  </p>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Password</label>
+                  <Input
+                    type="password"
+                    placeholder="Masukkan password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoFocus={!oidcAvailable}
+                  />
+                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  {retryAfter > 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Terkunci. Coba lagi dalam <span className="font-mono">{retryAfter}s</span>.
+                    </p>
+                  )}
+                  {resetHint && (
+                    <p className="text-xs text-text-muted">
+                      Lupa password? Buka <code className="bg-sidebar px-1 rounded">9router</code> CLI di host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full"
+                  loading={loading}
+                  disabled={retryAfter > 0}
+                >
+                  {retryAfter > 0 ? `Tunggu ${retryAfter}s` : "Masuk"}
+                </Button>
+
+                <p className="text-xs text-center text-text-muted mt-2">
+                  Password default adalah <code className="bg-sidebar px-1 rounded">123456</code>
+                </p>
+                {hasPassword === false && (
+                  <p className="text-xs text-center text-text-muted">
+                    Custom password belum diset. Password default di atas akan berfungsi sampai diganti.
+                  </p>
+                )}
+              </form>
+            ) : (
+              error && <p className="text-xs text-red-500">{error}</p>
+            )}
+          </div>
         </Card>
       </div>
     </div>

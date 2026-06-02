@@ -32,7 +32,7 @@ const PUBLIC_API_PATHS = [
 ];
 
 // Public top-level prefixes (LLM API endpoints with their own API key auth).
-const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta"];
+const PUBLIC_PREFIXES = ["/v1", "/v1beta", "/api/v1", "/api/v1beta", "/codex"];
 
 // Always require JWT token regardless of requireLogin setting
 const ALWAYS_PROTECTED = [
@@ -190,15 +190,7 @@ export async function proxy(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // /v1/* and /api/v1/* - block browser, handler enforces requireApiKey
-  if (V1_API_PREFIXES.some((p) => pathname.startsWith(p))) {
-    if (isBrowserRequest(request)) {
-      return new NextResponse(null, { status: 404 });
-    }
-    return NextResponse.next();
-  }
-
-  // /masuk - redirect to dashboard if already authenticated
+  // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
   if (pathname === "/masuk" || pathname === "/masuk/") {
     if (await isAuthenticated(request)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
