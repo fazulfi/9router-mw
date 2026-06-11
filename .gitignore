@@ -81,3 +81,6 @@ test_fetch.js
 
 # Kiro steering secrets
 .kiro/steering/secrets.md
+
+# Windows build workaround (empty HOME to avoid junction-point EPERM glob)
+.fakehome/
