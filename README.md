@@ -22,7 +22,37 @@
 
 ---
 
-## 🤔 Why 9Router?
+> ## 🔱 VansRoute — a hardened fork of [9Router](https://github.com/decolua/9router)
+>
+> **VansRoute keeps everything that makes 9Router great — RTK token saver, smart 3-tier fallback, 40+ providers, 100+ models — and rebuilds the runtime to be production-tough and truly cross-platform.**
+>
+> We didn't reinvent the router; we hardened it. This fork exists for people who run 9Router *seriously* — on Windows, on Linux, on VPS, in PM2 — and need it to start clean every time without babysitting.
+>
+> **What this fork does better:**
+>
+> | Area | Upstream 9Router | 🔱 VansRoute (this fork) |
+> |------|------------------|--------------------------|
+> | **Production start** | `next start` → warns & ignores standalone output | `npm start` runs the real `.next/standalone/server.js` — zero warnings |
+> | **Build → run** | Manual `cp -r public ...` (breaks on Windows cmd/PowerShell) | `npm run build` **auto-copies** `public/` + `.next/static` via Node — same command on Windows **and** Linux |
+> | **Misconfigured start** | Raw Node crash if not built | Friendly guard: *"jalankan npm run build"* hint, clean exit |
+> | **Antigravity quota fetch** | Cryptic `Error: This operation was aborted`, logged as error | Clear, **non-fatal** warning · timeout vs network distinguished · configurable via `ANTIGRAVITY_TIMEOUT_MS` (default 15s) |
+> | **Cross-platform scripts** | Bash-only copy steps | Pure `node -e` — no bash, no `cp`, works everywhere |
+>
+> **Plus fork-only features built on top of 9Router:**
+>
+> - 🔑 **Per-API-key ACL** — scope each API key to specific providers, combos, and model *kinds* (chat / embedding / image…). Hand out keys that can only touch what you allow.
+> - 🛡️ **Secured `/v1` by default** + `allowRemoteNoApiKey` toggle for deliberate open remote access — safe to expose on a VPS without leaking every provider.
+> - 🔐 **VansAI rebrand & dedicated `/masuk` login** — clean auth entry point instead of the bare dashboard.
+> - 🧩 **Kiro format support** with provider/combo/kind ACLs, and `combo/{name}` tickers surfaced in `/v1/models`.
+> - 🩹 **Reliability hardening** — Kimi K2.6 / NVIDIA NIM tool-call fixes, 502 recovery, `max_tokens` clamp to stop degeneration loops; Codex streaming timeout hardening.
+> - 📉 **Compact request handling** in `chatCore` — trims redundant context before dispatch for extra token savings.
+> - 🪟 **Windows-first build** — `.fakehome` HOME workaround + Node copy steps so the whole pipeline runs on Windows out of the box.
+>
+> 🙏 **Full credit to [@decolua](https://github.com/decolua) and the 9Router project** — VansRoute stands on their work and stays format-compatible. Everything in the docs below applies; the sections marked 🔱 highlight the fork's hardening.
+
+---
+
+## 🤔 Why VansRoute?
 
 **Stop wasting money, tokens and hitting limits:**
 
@@ -32,7 +62,7 @@
 - ❌ Expensive APIs ($20-50/month per provider)
 - ❌ Manual switching between providers
 
-**9Router solves this:**
+**VansRoute solves this:**
 
 - ✅ **RTK Token Saver** - Auto-compress tool_result content, save 20-40% tokens per request
 - ✅ **Maximize subscriptions** - Track quota, use every bit before reset
@@ -109,9 +139,15 @@ PORT=20128 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run dev
 Production mode:
 
 ```bash
+# build + auto-copy static assets into .next/standalone
 npm run build
-PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run start
+
+# run the standalone server (works on Windows & Linux)
+PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm start
 ```
+
+> `npm run build` now bundles **and** copies `public/` + `.next/static` into `.next/standalone` automatically.
+> `npm start` runs `node .next/standalone/server.js` (the standalone output) — no more `next start` warning. If you run `npm start` before building, it prints a clear hint to run `npm run build` first.
 
 Default URLs:
 - Dashboard: `http://localhost:20128/dashboard`
@@ -1038,12 +1074,12 @@ export NEXT_PUBLIC_CLOUD_URL="https://9router.com"
 export API_KEY_SECRET="endpoint-proxy-api-key-secret"
 export MACHINE_ID_SALT="endpoint-proxy-salt"
 
-# Start
-npm run start
+# Start (runs .next/standalone/server.js)
+npm start
 
-# Or use PM2
+# Or use PM2 (point it at the standalone server)
 npm install -g pm2
-pm2 start npm --name 9router -- start
+pm2 start .next/standalone/server.js --name 9router
 pm2 save
 pm2 startup
 ```
@@ -1111,6 +1147,7 @@ docker pull decolua/9router:latest   # update to latest
 | `ENABLE_REQUEST_LOGS` | `false` | Enables request/response logs under `logs/` |
 | `AUTH_COOKIE_SECURE` | `false` | Force `Secure` auth cookie (set `true` behind HTTPS reverse proxy) |
 | `REQUIRE_API_KEY` | `false` | Enforce Bearer API key on `/v1/*` routes (recommended for internet-exposed deploys) |
+| `ANTIGRAVITY_TIMEOUT_MS` | `15000` | Timeout (ms) for the Antigravity subscription/quota fetch. Increase if you see "quota fetch timed out" warnings on slow networks. |
 | `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` | empty | Optional outbound proxy for upstream provider calls |
 
 Notes:
