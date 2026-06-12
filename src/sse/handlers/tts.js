@@ -2,6 +2,7 @@ import {
   extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable,
   isProviderAllowed, isComboAllowed, isKindAllowed,
+  isTrustedInternalRequest,
 } from "../services/auth.js";
 
 import { getSettings } from "@/lib/localDb";
@@ -37,7 +38,9 @@ export async function handleTts(request) {
 
   const settings = await getSettings();
   let apiKeyInfo = null;
-  if (settings.requireApiKey) {
+  // Trusted internal (dashboard/CLI) requests act as the local owner — bypass ACL.
+  const trustedInternal = await isTrustedInternalRequest(request);
+  if (!trustedInternal && settings.requireApiKey) {
     const apiKey = extractApiKey(request);
     if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     apiKeyInfo = await isValidApiKey(apiKey);

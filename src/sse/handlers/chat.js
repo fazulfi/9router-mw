@@ -9,6 +9,7 @@ import {
   isProviderAllowed,
   isComboAllowed,
   isKindAllowed,
+  isTrustedInternalRequest,
 } from "../services/auth.js";
 
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
@@ -73,19 +74,25 @@ export async function handleChat(request, clientRawRequest = null) {
   // Enforce API key if enabled in settings
   const settings = await getSettings();
   let apiKeyInfo = null;
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
+  // Trusted internal (dashboard/CLI) requests bypass the per-API-key ACL entirely:
+  // they act as the local owner. This keeps the "model not available" 404 limited
+  // to genuine external API consumers (e.g. testing/adding a not-yet-listed model).
+  const trustedInternal = await isTrustedInternalRequest(request);
+  if (!trustedInternal) {
+    if (settings.requireApiKey) {
+      if (!apiKey) {
+        log.warn("AUTH", "Missing API key (requireApiKey=true)");
+        return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
+      }
+      apiKeyInfo = await isValidApiKey(apiKey);
+      if (!apiKeyInfo) {
+        log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+        return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+      }
     }
-    apiKeyInfo = await isValidApiKey(apiKey);
-    if (!apiKeyInfo) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    if (!apiKeyInfo && apiKey) {
+      apiKeyInfo = await isValidApiKey(apiKey);
     }
-  }
-  if (!apiKeyInfo && apiKey) {
-    apiKeyInfo = await isValidApiKey(apiKey);
   }
 
   if (!modelStr) {

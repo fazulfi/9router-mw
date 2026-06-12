@@ -5,6 +5,11 @@ import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS, AI_PROVIDERS, getProviderAlias } from "@/shared/constants/providers.js";
 import * as log from "../utils/logger.js";
 
+// Re-export the internal-trust gate so handlers can import it alongside the
+// other ACL helpers. Implementation lives in internalTrust.js (dependency-light
+// + independently unit-tested for exploit resistance).
+export { isTrustedInternalRequest } from "./internalTrust.js";
+
 // Mutex to prevent race conditions during account selection
 let selectionMutex = Promise.resolve();
 

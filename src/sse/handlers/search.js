@@ -7,6 +7,7 @@ import {
   isProviderAllowed,
   isComboAllowed,
   isKindAllowed,
+  isTrustedInternalRequest,
 } from "../services/auth.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
@@ -51,7 +52,9 @@ export async function handleSearch(request) {
   // Enforce API key if enabled in settings
   const settings = await getSettings();
   let apiKeyInfo = null;
-  if (settings.requireApiKey) {
+  // Trusted internal (dashboard/CLI) requests act as the local owner — bypass ACL.
+  const trustedInternal = await isTrustedInternalRequest(request);
+  if (!trustedInternal && settings.requireApiKey) {
     if (!apiKey) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
