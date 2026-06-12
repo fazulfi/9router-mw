@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack --port 20128",
-    "build": "next build --webpack && node -e \"const fs=require('fs');fs.cpSync('public','.next/standalone/public',{recursive:true});fs.cpSync('.next/static','.next/standalone/.next/static',{recursive:true})\"",
+    "build": "node scripts/build.js",
     "start": "node -e \"const fs=require('fs');if(!fs.existsSync('.next/standalone/server.js')){console.error('[start] .next/standalone belum ada. Jalankan: npm run build');process.exit(1)}\" && node .next/standalone/server.js",
     "dev:bun": "bun --bun next dev --webpack --port 20128",
     "build:bun": "bun --bun next build --webpack",
