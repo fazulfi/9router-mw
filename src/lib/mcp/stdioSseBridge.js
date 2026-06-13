@@ -2,8 +2,13 @@
 // broadcasts JSON-RPC frames over SSE, accepts client messages via HTTP POST.
 
 const { spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 const crypto = require("crypto");
-const { LOCAL_STDIO_PLUGINS } = require("@/shared/constants/coworkPlugins");
+const { LOCAL_STDIO_PLUGINS, ALLOWED_MCP_COMMANDS } = require("@/shared/constants/coworkPlugins");
+const { DATA_DIR } = require("@/lib/dataDir");
+
+const CUSTOM_FILE = path.join(DATA_DIR, "mcp", "customPlugins.json");
 
 const G_KEY = "__9routerMcpBridges";
 const MAX_TEXT_CHARS = 50000;
@@ -101,9 +106,33 @@ const getStore = () => {
   return globalThis[G_KEY];
 };
 
-// Only preset stdio plugins may spawn. No user-defined commands (RCE prevention).
+const getCustomStore = () => {
+  if (!globalThis.__9routerCustomPlugins) globalThis.__9routerCustomPlugins = new Map();
+  return globalThis.__9routerCustomPlugins;
+};
+
+function isAllowedCommand(cmd) {
+  const bin = path.basename(String(cmd || ""));
+  return ALLOWED_MCP_COMMANDS.has(bin);
+}
+
+function registerCustomPlugin(def) {
+  if (!isAllowedCommand(def?.command)) {
+    throw new Error(`Blocked: command '${def?.command}' not in MCP allowlist`);
+  }
+  getCustomStore().set(def.name, def);
+}
+
 function findPlugin(name) {
-  return LOCAL_STDIO_PLUGINS.find((p) => p.name === name) || null;
+  const fromMem = getCustomStore().get(name) || LOCAL_STDIO_PLUGINS.find((p) => p.name === name);
+  if (fromMem) return fromMem;
+  // Lazy-load custom plugins from disk (survives app restart); re-validate allowlist.
+  try {
+    const list = JSON.parse(fs.readFileSync(CUSTOM_FILE, "utf-8"));
+    const def = Array.isArray(list) ? list.find((p) => p.name === name && p.command) : null;
+    if (def && isAllowedCommand(def.command)) { getCustomStore().set(def.name, def); return def; }
+  } catch { /* file missing or invalid */ }
+  return null;
 }
 
 function getOrSpawn(name) {
@@ -166,4 +195,4 @@ function isRunning(name) {
   return !!(entry?.proc && !entry.proc.killed && entry.proc.exitCode === null);
 }
 
-module.exports = { getOrSpawn, registerSession, unregisterSession, sendToChild, isRunning, findPlugin };
+module.exports = { getOrSpawn, registerSession, unregisterSession, sendToChild, isRunning, findPlugin, registerCustomPlugin };
