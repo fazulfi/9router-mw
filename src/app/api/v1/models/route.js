@@ -13,6 +13,11 @@ import { extractApiKey, isValidApiKey, isProviderAllowed, isComboAllowed, isKind
 import { stripComboPrefix } from "open-sse/services/combo.js";
 import { fetchModelsFetcherIds } from "@/sse/services/allowedModels.js";
 
+// Detects custom compatible-provider IDs that embed a connection hash suffix
+// (e.g. "openai-compatible-a1b2c3d4"). Such IDs aren't real upstream provider
+// aliases, so we skip the "no models found" passthrough for them.
+const UPSTREAM_CONNECTION_RE = /[-_][0-9a-f]{8,}$/i;
+
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
 // Adding a provider here makes /v1/models prefer the live catalog for it.
