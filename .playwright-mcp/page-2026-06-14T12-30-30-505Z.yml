@@ -1,0 +1,17 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img [ref=e6]
+      - heading "VansAI" [level=1] [ref=e11]
+      - paragraph [ref=e12]: Masukkan password untuk mengakses dashboard
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - generic [ref=e17]: Password
+        - textbox "Password" [active] [ref=e20]:
+          - /placeholder: Masukkan password
+      - button "Masuk" [ref=e21] [cursor=pointer]
+      - paragraph [ref=e22]:
+        - text: Password default adalah
+        - code [ref=e23]: "123456"
+  - button "Open Next.js Dev Tools" [ref=e29] [cursor=pointer]:
+    - img [ref=e30]

@@ -1,0 +1,63 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e4]:
+      - link "VansAI v0.4.80" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e12]
+        - generic [ref=e17]:
+          - heading "VansAI" [level=1] [ref=e18]
+          - generic [ref=e19]: v0.4.80
+      - navigation [ref=e20]:
+        - link "Endpoint" [ref=e21] [cursor=pointer]:
+          - /url: /dashboard/endpoint
+          - generic [ref=e22]: Endpoint
+        - link "Providers" [ref=e23] [cursor=pointer]:
+          - /url: /dashboard/providers
+          - generic [ref=e24]: Providers
+        - link "Combos" [ref=e25] [cursor=pointer]:
+          - /url: /dashboard/combos
+          - generic [ref=e26]: Combos
+        - link "Usage" [ref=e27] [cursor=pointer]:
+          - /url: /dashboard/usage
+          - generic [ref=e28]: Usage
+        - link "Quota Tracker" [ref=e29] [cursor=pointer]:
+          - /url: /dashboard/quota
+          - generic [ref=e30]: Quota Tracker
+        - link "MITM" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/mitm
+          - generic [ref=e32]: MITM
+        - link "CLI Tools" [ref=e33] [cursor=pointer]:
+          - /url: /dashboard/cli-tools
+          - generic [ref=e34]: CLI Tools
+        - generic [ref=e35]:
+          - paragraph [ref=e36]: System
+          - button "Media Providers" [ref=e37]:
+            - generic [ref=e38]: Media Providers
+          - link "Proxy Pools" [ref=e39] [cursor=pointer]:
+            - /url: /dashboard/proxy-pools
+            - generic [ref=e40]: Proxy Pools
+          - link "Skills" [ref=e41] [cursor=pointer]:
+            - /url: /dashboard/skills
+            - generic [ref=e42]: Skills
+          - link "Console Log" [ref=e43] [cursor=pointer]:
+            - /url: /dashboard/console-log
+            - generic [ref=e44]: Console Log
+          - button "Remote" [ref=e45]:
+            - generic [ref=e46]: Remote
+          - link "Settings" [ref=e47] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e48]: Settings
+    - main [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e52]:
+          - heading "Endpoint" [level=1] [ref=e54]
+          - paragraph [ref=e55]: API endpoint configuration
+        - generic [ref=e56]:
+          - button "Donate" [ref=e57]:
+            - generic [ref=e58]: Donate
+          - button "Switch to dark mode" [ref=e59]
+          - button "🇺🇸" [ref=e60]:
+            - generic [ref=e61]: 🇺🇸
+          - button "Menu" [ref=e63]
+  - button "Open Next.js Dev Tools" [ref=e84] [cursor=pointer]:
+    - img [ref=e85]

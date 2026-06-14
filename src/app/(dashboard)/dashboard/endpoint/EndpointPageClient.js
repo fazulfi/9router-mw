@@ -207,11 +207,6 @@ export default function APIPageClient({ machineId }) {
     if (tsLogRef.current) tsLogRef.current.scrollTop = tsLogRef.current.scrollHeight;
   }, [tsInstallLog]);
 
-  useEffect(() => {
-    fetchData();
-    loadSettings();
-  }, [fetchData, loadSettings]);
-
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
   useEffect(() => {
@@ -453,6 +448,14 @@ export default function APIPageClient({ machineId }) {
       setLoading(false);
     }
   }, []);
+
+  // Mount: load keys/combos/nodes + settings. Declared after fetchData/loadSettings
+  // useCallbacks so their identifiers are initialized before this effect's dep array
+  // is evaluated (avoids const temporal-dead-zone at render time).
+  useEffect(() => {
+    fetchData();
+    loadSettings();
+  }, [fetchData, loadSettings]);
 
   // u2500u2500u2500 Cloudflare Tunnel handlers
   // Ping tunnel health until reachable. Race multiple URLs (shortlink + direct) — 1 OK is enough.
