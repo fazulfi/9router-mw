@@ -1,0 +1,60 @@
+- generic [ref=e2]:
+  - generic [ref=e220]:
+    - generic [ref=e222]:
+      - img "logo" [ref=e225]
+      - generic [ref=e226]:
+        - generic [ref=e227]: Welcome to Z.ai
+        - generic [ref=e228]: Unlock all features by logging in
+      - generic [ref=e269]:
+        - generic [ref=e270]:
+          - generic [ref=e271]: Email
+          - generic [ref=e272]:
+            - img [ref=e273]
+            - textbox "Enter Your Email" [ref=e275]: hlowe@guerrillamailblock.com
+        - generic [ref=e276]: Password
+        - generic [ref=e277]:
+          - generic [ref=e278]:
+            - img [ref=e279]
+            - textbox "Enter Your Password" [ref=e283]: Z2mZDEUIflbj2y!1
+          - button "Forgot Password?" [ref=e285] [cursor=pointer]
+        - generic [ref=e289]:
+          - generic [ref=e291] [cursor=pointer]:
+            - generic [ref=e292]:
+              - img [ref=e293]
+              - generic [ref=e295]: Click to start verification
+            - img [ref=e297]
+          - generic [ref=e316]:
+            - generic [ref=e317]:
+              - generic [ref=e318]: Please complete security verification
+              - button "“关闭验证\"" [ref=e320] [cursor=pointer]: 
+            - generic [ref=e321]:
+              - img [ref=e322]
+              - button "刷新验证码" [ref=e323] [cursor=pointer]: 
+              - img [ref=e324]
+            - generic [ref=e325]:
+              - generic [ref=e326]: 
+              - generic [ref=e328] [cursor=pointer]: Please drag the slider to complete the puzzle
+            - generic [ref=e329]: "CertifyId: wxZ0M1Aff9"
+        - button "Sign in" [ref=e298] [cursor=pointer]
+        - button "Skip for now" [ref=e299] [cursor=pointer]
+        - generic [ref=e300]:
+          - generic [ref=e301]:
+            - text: Don't have an account?
+            - button "Sign up" [ref=e302] [cursor=pointer]
+          - generic [ref=e304]:
+            - generic [ref=e305]: "Quick Login:"
+            - button [ref=e306] [cursor=pointer]:
+              - img [ref=e307]
+            - button [ref=e313] [cursor=pointer]:
+              - img [ref=e314]
+    - generic [ref=e263]:
+      - text: By logging in, you agree to our
+      - link "Terms of Service" [ref=e264] [cursor=pointer]:
+        - /url: https://chat.z.ai/legal-agreement/terms-of-service
+      - text: and
+      - link "Privacy Policy" [ref=e265] [cursor=pointer]:
+        - /url: https://chat.z.ai/legal-agreement/privacy-policy
+    - generic [ref=e266]:
+      - generic [ref=e267]: copyright © 2026
+      - generic [ref=e268]: Powered by Open WebUI
+  - region "Notifications alt+T"

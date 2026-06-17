@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPricing, updatePricing, resetPricing, resetAllPricing } from "@/lib/localDb.js";
-import { getDefaultPricing } from "@/shared/constants/pricing.js";
-
-const VALID_PRICING_FIELDS = new Set(["input", "output", "cached", "reasoning", "cache_creation"]);
+import { getDefaultPricing } from "open-sse/providers/pricing.js";
 
 /**
  * GET /api/pricing
@@ -56,8 +54,9 @@ export async function PATCH(request) {
         }
 
         // Validate pricing fields
+        const validFields = ["input", "output", "cached", "reasoning", "cache_creation"];
         for (const [key, value] of Object.entries(pricing)) {
-          if (!VALID_PRICING_FIELDS.has(key)) {
+          if (!validFields.includes(key)) {
             return NextResponse.json(
               { error: `Invalid pricing field: ${key} for ${provider}/${model}` },
               { status: 400 }

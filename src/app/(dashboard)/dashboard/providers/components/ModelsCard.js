@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Card, Button, Modal } from "@/shared/components";
-import { getModelsByProviderId } from "@/shared/constants/models";
+import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
@@ -24,7 +24,7 @@ export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCusto
         </div>
         {onTest && (
           <div className="relative group/btn">
-            <button type="button" onClick={onTest} disabled={isTesting} className={`p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-opacity ${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+            <button onClick={onTest} disabled={isTesting} className={`p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary transition-opacity ${isTesting ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
               <span className="material-symbols-outlined text-sm" style={isTesting ? { animation: "spin 1s linear infinite" } : undefined}>
                 {isTesting ? "progress_activity" : "science"}
               </span>
@@ -35,7 +35,7 @@ export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCusto
           </div>
         )}
         <div className="relative group/btn">
-          <button type="button" onClick={() => onCopy(fullModel, `model-${model.id}`)} className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary">
+          <button onClick={() => onCopy(fullModel, `model-${model.id}`)} className="p-0.5 hover:bg-sidebar rounded text-text-muted hover:text-primary">
             <span className="material-symbols-outlined text-sm">{copied === `model-${model.id}` ? "check" : "content_copy"}</span>
           </button>
           <span className="pointer-events-none absolute mt-1 top-5 left-1/2 -translate-x-1/2 text-[10px] text-text-muted whitespace-nowrap opacity-0 group-hover/btn:opacity-100 transition-opacity">
@@ -44,7 +44,7 @@ export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCusto
         </div>
         {isFree && <span className="text-[10px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">FREE</span>}
         {isCustom && (
-          <button type="button" onClick={onDeleteAlias} className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" title="Remove custom model">
+          <button onClick={onDeleteAlias} className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" title="Remove custom model">
             <span className="material-symbols-outlined text-sm">close</span>
           </button>
         )}
@@ -80,14 +80,14 @@ function AddCustomModelModal({ isOpen, onSave, onClose }) {
     <Modal isOpen={isOpen} title="Add Custom Model" onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div>
-          <label htmlFor="models-card-model-id" className="text-xs text-text-muted mb-1 block">Model ID</label>
+          <label className="text-xs text-text-muted mb-1 block">Model ID</label>
           <input
-            id="models-card-model-id"
             className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
             value={modelId}
             onChange={(e) => setModelId(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
             placeholder="e.g. tts-1-hd"
+            autoFocus
           />
         </div>
         <div className="flex gap-2">
@@ -128,11 +128,9 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         fetch("/api/providers", { cache: "no-store" }),
         fetch("/api/models/custom", { cache: "no-store" }),
       ]);
-      const [aliasData, connData, customData] = await Promise.all([
-        aliasRes.json(),
-        connRes.json(),
-        customRes.json(),
-      ]);
+      const aliasData = await aliasRes.json();
+      const connData = await connRes.json();
+      const customData = await customRes.json();
       if (aliasRes.ok) setModelAliases(aliasData.aliases || {});
       if (connRes.ok) setConnections((connData.connections || []).filter((c) => c.provider === providerId));
       if (customRes.ok) setCustomModels(customData.models || []);
@@ -208,14 +206,14 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   const builtInModels = kindFilter
     ? allBuiltIn.filter((m) => {
         if (m.kinds) return m.kinds.includes(kindFilter);
-        return (m.type || "llm") === kindFilter;
+        return getModelKind(m, "llm") === kindFilter;
       })
     : allBuiltIn;
 
   // Custom models for this provider + kind, dedupe vs built-in
   const myCustomModels = customModels.filter(
     (m) => m.providerAlias === providerAlias
-      && (m.type || "llm") === effectiveType
+      && getModelKind(m, "llm") === effectiveType
       && !builtInModels.some((b) => b.id === m.id)
   );
 
@@ -267,7 +265,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
             />
           ))}
 
-          <button type="button"
+          <button
             onClick={() => setShowAddCustomModel(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-black/15 dark:border-white/15 text-xs text-text-muted hover:text-primary hover:border-primary/40 transition-colors"
           >

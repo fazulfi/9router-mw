@@ -4,11 +4,13 @@ import "./utils/proxyFetch.js";
 // Config
 export { PROVIDERS } from "./config/providers.js";
 export { OAUTH_ENDPOINTS, CLAUDE_SYSTEM_PROMPT } from "./config/appConstants.js";
-export { DEFAULT_MAX_TOKENS, BACKOFF_CONFIG } from "./config/runtimeConfig.js";
+export { CACHE_TTL, DEFAULT_MAX_TOKENS, COOLDOWN_MS, BACKOFF_CONFIG } from "./config/runtimeConfig.js";
 export { 
   PROVIDER_MODELS, 
   getProviderModels,
   getDefaultModel, 
+  isValidModel,
+  findModelName,
   getModelTargetFormat,
   PROVIDER_ID_TO_ALIAS,
   getModelsByProviderId
@@ -41,7 +43,17 @@ export {
 } from "./services/accountFallback.js";
 
 export {
+  TOKEN_EXPIRY_BUFFER_MS,
+  refreshAccessToken,
+  refreshClaudeOAuthToken,
   refreshGoogleToken,
+  refreshQwenToken,
+  refreshCodexToken,
+  refreshIflowToken,
+  refreshGitHubToken,
+  refreshCopilotToken,
+  getAccessToken,
+  refreshTokenByProvider
 } from "./services/tokenRefresh.js";
 
 export {
@@ -53,7 +65,7 @@ export {
 } from "./services/oauthCredentialManager.js";
 
 // Handlers
-export { handleChatCore } from "./handlers/chatCore.js";
+export { handleChatCore, isTokenExpiringSoon } from "./handlers/chatCore.js";
 export { createStreamController, pipeWithDisconnect, createDisconnectAwareStream } from "./utils/streamHandler.js";
 
 // Executors

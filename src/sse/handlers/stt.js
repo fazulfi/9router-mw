@@ -1,12 +1,9 @@
 import {
   extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable,
-  isProviderAllowed, isKindAllowed,
-  isTrustedInternalRequest,
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
-import { isModelAllowed } from "../services/allowedModels.js";
 import { handleSttCore } from "open-sse/handlers/sttCore.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
@@ -15,10 +12,9 @@ import * as log from "../utils/logger.js";
 
 // Providers requiring credentials for STT
 const CREDENTIALED_PROVIDERS = new Set(
-  Object.entries(AI_PROVIDERS).reduce((acc, [id, p]) => {
-    if (p.serviceKinds?.includes("stt") && !p.noAuth && p.sttConfig?.authType !== "none") acc.push(id);
-    return acc;
-  }, [])
+  Object.entries(AI_PROVIDERS)
+    .filter(([, p]) => p.serviceKinds?.includes("stt") && !p.noAuth && p.sttConfig?.authType !== "none")
+    .map(([id]) => id)
 );
 
 export async function handleStt(request) {
@@ -33,42 +29,25 @@ export async function handleStt(request) {
   log.request("POST", `/v1/audio/transcriptions | ${modelStr}`);
 
   const settings = await getSettings();
-  let apiKeyInfo = null;
-  // Trusted internal (dashboard/CLI) requests act as the local owner — bypass ACL.
-  const trustedInternal = await isTrustedInternalRequest(request);
-  if (!trustedInternal && settings.requireApiKey) {
+  if (settings.requireApiKey) {
     const apiKey = extractApiKey(request);
     if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    apiKeyInfo = await isValidApiKey(apiKey);
-    if (!apiKeyInfo) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    const valid = await isValidApiKey(apiKey);
+    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
   }
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
-  if (!isKindAllowed(apiKeyInfo, "stt")) return errorResponse(HTTP_STATUS.FORBIDDEN, "STT requests are not allowed for this API key");
   if (!formData.get("file")) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: file");
 
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
-
-  if (!(await isProviderAllowed(apiKeyInfo, provider))) {
-    return errorResponse(HTTP_STATUS.FORBIDDEN, `Provider "${provider}" is not allowed for this API key`);
-  }
-
-  const resolvedModelStr = `${provider}/${model}`;
-  const isAllowed = (modelStr === resolvedModelStr)
-    ? await isModelAllowed(resolvedModelStr, apiKeyInfo)
-    : (await isModelAllowed(modelStr, apiKeyInfo) || await isModelAllowed(resolvedModelStr, apiKeyInfo));
-  if (!isAllowed) {
-    return errorResponse(HTTP_STATUS.NOT_FOUND, `Model "${resolvedModelStr}" is not available. Only models listed in /v1/models can be used.`);
-  }
-
   log.info("ROUTING", `Provider: ${provider}, Model: ${model}`);
 
   // noAuth providers
   if (!CREDENTIALED_PROVIDERS.has(provider)) {
-    const result = await handleSttCore({ provider, model, formData });
+    const result = await handleSttCore({ provider, model, formData, sttConfig: AI_PROVIDERS[provider]?.sttConfig });
     if (result.success) return result.response;
     return errorResponse(result.status || HTTP_STATUS.BAD_GATEWAY, result.error || "STT failed");
   }
@@ -93,7 +72,7 @@ export async function handleStt(request) {
 
     log.info("AUTH", `\x1b[32mUsing ${provider} account: ${credentials.connectionName}\x1b[0m`);
 
-    const result = await handleSttCore({ provider, model, formData, credentials });
+    const result = await handleSttCore({ provider, model, formData, credentials, sttConfig: AI_PROVIDERS[provider]?.sttConfig });
 
     if (result.success) return result.response;
 

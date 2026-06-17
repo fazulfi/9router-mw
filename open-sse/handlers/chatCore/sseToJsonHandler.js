@@ -2,7 +2,11 @@ import { convertResponsesStreamToJson } from "../../transformer/streamToJsonConv
 import { createErrorResult } from "../../utils/error.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { FORMATS } from "../../translator/formats.js";
+import { PROVIDERS } from "../../config/providers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats } from "./requestDetail.js";
+
+// Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
+const isResponsesProvider = (p) => PROVIDERS[p]?.format === FORMATS.OPENAI_RESPONSES;
 import { saveRequestDetail, appendRequestLog } from "@/lib/usageDb.js";
 
 function textFromResponsesMessageItem(item) {
@@ -80,7 +84,7 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
   const message = { role: "assistant", content: contentParts.join("") || (toolCallMap.size > 0 ? null : "") };
   if (reasoningParts.length > 0) message.reasoning_content = reasoningParts.join("");
   if (toolCallMap.size > 0) {
-    message.tool_calls = [...toolCallMap.entries()].toSorted((a, b) => a[0] - b[0]).map(([, tc]) => tc);
+    message.tool_calls = [...toolCallMap.entries()].sort((a, b) => a[0] - b[0]).map(([, tc]) => tc);
   }
 
   const result = {
@@ -98,22 +102,21 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
  * Handle case: provider forced streaming but client wants JSON.
  * Supports both Codex/Responses API SSE and standard Chat Completions SSE.
  */
-export async function handleForcedSSEToJson({ providerResponse, sourceFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, trackDone, appendLog }) {
+export async function handleForcedSSEToJson({ providerResponse, sourceFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, trackDone, appendLog }) {
   const contentType = providerResponse.headers.get("content-type") || "";
-  const isSSE = contentType.includes("text/event-stream") || (contentType === "" && provider === "codex");
+  const isSSE = contentType.includes("text/event-stream") || (contentType === "" && isResponsesProvider(provider));
   if (!isSSE) return null; // not handled here
 
   trackDone();
 
   const ctx = {
     provider, model, connectionId,
-    apiKey, apiKeyName,
     request: extractRequestConfig(body, stream),
     providerRequest: finalBody || translatedBody || null
   };
 
   // Codex/Responses API SSE path
-  const isCodexResponsesApi = provider === "codex" || sourceFormat === FORMATS.OPENAI_RESPONSES;
+  const isCodexResponsesApi = isResponsesProvider(provider) || sourceFormat === FORMATS.OPENAI_RESPONSES;
   if (isCodexResponsesApi) {
     try {
       const jsonResponse = await convertResponsesStreamToJson(providerResponse.body);

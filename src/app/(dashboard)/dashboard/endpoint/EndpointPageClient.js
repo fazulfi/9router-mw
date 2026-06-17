@@ -5,93 +5,23 @@ import PropTypes from "prop-types";
 import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
-import { getAclProviderList } from "@/shared/constants/providers";
-
-// Canonical, always-complete provider list for API-key ACL pickers.
-// Derived from AI_PROVIDERS via getAclProviderList() so new providers appear
-// automatically. Computed once at module load.
-const PROVIDER_LIST = getAclProviderList();
-
-// Locales that unlock wenyan (classical Chinese) caveman levels
-const WENYAN_LOCALES = ["zh-CN", "zh-TW"];
-
-const TUNNEL_BENEFITS = [
-  { icon: "public", title: "Access Anywhere", desc: "Use your API from any network" },
-  { icon: "group", title: "Share Endpoint", desc: "Share URL with team members" },
-  { icon: "code", title: "Use in Cursor/Cline", desc: "Connect AI tools remotely" },
-  { icon: "lock", title: "Encrypted", desc: "End-to-end TLS via Cloudflare" },
-];
-
-function maskKey(fullKey) {
-  if (!fullKey) return "";
-  return fullKey.length > 8 ? fullKey.slice(0, 8) + "..." : fullKey;
-}
-
-async function patchSetting(patch) {
-  try {
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-  } catch (error) {
-    console.log("Error updating setting:", error);
-  }
-}
-
-const TUNNEL_PING_INTERVAL_MS = 2000;
-const TUNNEL_PING_MAX_MS = 300000;
-const STATUS_POLL_FAST_MS = 5000;
-const STATUS_POLL_SLOW_MS = 30000;
-const REACHABLE_MISS_THRESHOLD = 5;
-const CLIENT_PING_FAST_MS = 10000;
-const CLIENT_PING_SLOW_MS = 60000;
-const CLIENT_PING_TIMEOUT_MS = 5000;
-
-// Browser-side health probe: must reach origin (not just CF/TS edge).
-// cors mode → res.ok=false for 5xx (e.g. Cloudflare 530 when origin dead).
-// /api/health route sets Access-Control-Allow-Origin: * → CORS works through tunnel.
-async function clientPingUrl(url) {
-  if (!url) return false;
-  try {
-    const res = await fetch(`${url}/api/health`, {
-      mode: "cors",
-      cache: "no-store",
-      signal: AbortSignal.timeout(CLIENT_PING_TIMEOUT_MS),
-    });
-    return res.ok;
-  } catch { return false; }
-}
-
-// Race multiple URLs: resolve true as soon as any one passes ping.
-async function clientPingAny(...urls) {
-  const checks = urls.reduce((acc, u) => { if (u) acc.push(clientPingUrl(u)); return acc; }, []);
-  if (!checks.length) return false;
-  return new Promise((resolve) => {
-    let pending = checks.length;
-    checks.forEach((p) => p.then((ok) => {
-      if (ok) resolve(true);
-      else if (--pending === 0) resolve(false);
-    }));
-  });
-}
-
-const CAVEMAN_LEVELS = [
-  { id: "lite", label: "Lite", desc: "Drop filler, keep grammar" },
-  { id: "full", label: "Full", desc: "Drop articles, fragments OK" },
-  { id: "ultra", label: "Ultra", desc: "Telegraphic, max compression" },
-  { id: "wenyan-lite", label: "文 Lite", desc: "Classical Chinese, light compression", wenyan: true },
-  { id: "wenyan", label: "文 Full", desc: "Maximum 文言文, 80-90% reduction", wenyan: true },
-  { id: "wenyan-ultra", label: "文 Ultra", desc: "Extreme classical compression", wenyan: true },
-];
-const PONYTAIL_LEVELS = [
-  { id: "lite", label: "Lite", desc: "Build it, name the lazier option" },
-  { id: "full", label: "Full", desc: "YAGNI ladder enforced, shortest diff" },
-  { id: "ultra", label: "Ultra", desc: "YAGNI extremist, deletion first" },
-];
+import {
+  WENYAN_LOCALES,
+  TUNNEL_BENEFITS,
+  TUNNEL_PING_INTERVAL_MS,
+  TUNNEL_PING_MAX_MS,
+  STATUS_POLL_FAST_MS,
+  REACHABLE_MISS_THRESHOLD,
+  CLIENT_PING_FAST_MS,
+  CAVEMAN_LEVELS,
+} from "./endpointConstants";
+import { clientPingUrl, clientPingAny } from "./endpointPing";
+import EndpointRow from "./components/EndpointRow";
+import StatusAlert from "./components/StatusAlert";
+import Tooltip from "./components/Tooltip";
+import SecurityWarning from "./components/SecurityWarning";
 export default function APIPageClient({ machineId }) {
   const [keys, setKeys] = useState([]);
-  const [customProviders, setCustomProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
@@ -99,16 +29,13 @@ export default function APIPageClient({ machineId }) {
   const [confirmState, setConfirmState] = useState(null);
 
   const [requireApiKey, setRequireApiKey] = useState(false);
-  const [allowRemoteNoApiKey, setAllowRemoteNoApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
   const [hasPassword, setHasPassword] = useState(true);
   const [tunnelDashboardAccess, setTunnelDashboardAccess] = useState(false);
   const [rtkEnabled, setRtkEnabledState] = useState(true);
   const [cavemanEnabled, setCavemanEnabled] = useState(false);
   const [cavemanLevel, setCavemanLevel] = useState("full");
-  const [ponytailEnabled, setPonytailEnabled] = useState(false);
-  const [ponytailLevel, setPonytailLevel] = useState("full");
-  const [locale, setLocale] = useState(() => getCurrentLocale());
+  const [locale, setLocale] = useState("en");
 
   // Cloudflare Tunnel state
   const [tunnelChecking, setTunnelChecking] = useState(true);
@@ -134,8 +61,7 @@ export default function APIPageClient({ machineId }) {
   const [tsInstalled, setTsInstalled] = useState(null); // null=checking, true/false
   const [tsInstalling, setTsInstalling] = useState(false);
   const [tsInstallLog, setTsInstallLog] = useState([]);
-  const tsLogIdRef = useRef(0);
-  const tsSudoPasswordRef = useRef("");
+  const [tsSudoPassword, setTsSudoPassword] = useState("");
   const [tsConnecting, setTsConnecting] = useState(false);
   const [showTsModal, setShowTsModal] = useState(false);
   const [showDisableTsModal, setShowDisableTsModal] = useState(false);
@@ -157,42 +83,33 @@ export default function APIPageClient({ machineId }) {
 
   // API key visibility toggle state
   const [visibleKeys, setVisibleKeys] = useState(new Set());
-  const [editingProviders, setEditingProviders] = useState(null);
-  const [editingCombos, setEditingCombos] = useState(null);
-  const [editingKinds, setEditingKinds] = useState(null);
-  const [availableCombos, setAvailableCombos] = useState([]);
-
 
   // Client-side local/remote detection (UI hint only, not a security gate)
-  const [isRemoteHost, setIsRemoteHost] = useState(() => {
+  const [isRemoteHost, setIsRemoteHost] = useState(false);
+  useEffect(() => {
     if (typeof window !== "undefined")
-      return !["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-    return false;
-  });
+      setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
+  }, []);
 
   // Track app UI locale to gate wenyan caveman levels
   useEffect(() => {
-    return onLocaleChange(() => {
-      const newLocale = getCurrentLocale();
-      setLocale(newLocale);
-      // Reset wenyan level when leaving a Chinese locale
-      if (!WENYAN_LOCALES.includes(newLocale)) {
-        setCavemanLevel((prev) => {
-          const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === prev);
-          if (current?.wenyan) {
-            patchSetting({ cavemanLevel: "ultra" });
-            return "ultra";
-          }
-          return prev;
-        });
-      }
-    });
+    setLocale(getCurrentLocale());
+    return onLocaleChange(() => setLocale(getCurrentLocale()));
   }, []);
 
   const isWenyanLocale = WENYAN_LOCALES.includes(locale);
   const visibleCavemanLevels = isWenyanLocale
     ? CAVEMAN_LEVELS
     : CAVEMAN_LEVELS.filter((lvl) => !lvl.wenyan);
+
+  // Reset wenyan level to "ultra" when leaving a Chinese locale
+  useEffect(() => {
+    const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel);
+    if (current?.wenyan && !isWenyanLocale) {
+      setCavemanLevel("ultra");
+      patchSetting({ cavemanLevel: "ultra" });
+    }
+  }, [isWenyanLocale, cavemanLevel]);
 
   const { copied, copy } = useCopyToClipboard();
 
@@ -207,6 +124,11 @@ export default function APIPageClient({ machineId }) {
     if (tsLogRef.current) tsLogRef.current.scrollTop = tsLogRef.current.scrollHeight;
   }, [tsInstallLog]);
 
+  useEffect(() => {
+    fetchData();
+    loadSettings();
+  }, []);
+
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
   useEffect(() => {
@@ -215,10 +137,10 @@ export default function APIPageClient({ machineId }) {
     const tunnelHealthy = !tunnelEnabled || tunnelReachable;
     const tsHealthy = !tsEnabled || tsReachable;
     const allHealthy = tunnelHealthy && tsHealthy;
-    const onVisible = () => { if (!document.hidden) syncTunnelStatusRef.current(); };
+    const onVisible = () => { if (!document.hidden) syncTunnelStatus(); };
     document.addEventListener("visibilitychange", onVisible);
     if (allHealthy) return () => document.removeEventListener("visibilitychange", onVisible);
-    const timer = setInterval(() => { if (!document.hidden) syncTunnelStatusRef.current(); }, STATUS_POLL_FAST_MS);
+    const timer = setInterval(() => { if (!document.hidden) syncTunnelStatus(); }, STATUS_POLL_FAST_MS);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
@@ -276,7 +198,7 @@ export default function APIPageClient({ machineId }) {
   }, []);
 
   // Trust user intent (settingsEnabled): UI stays "enabled" while watchdog restarts process
-  const syncTunnelStatus = useCallback(async () => {
+  const syncTunnelStatus = async () => {
     try {
       const statusRes = await fetch("/api/tunnel/status", { cache: "no-store" });
       if (!statusRes.ok) return;
@@ -294,11 +216,9 @@ export default function APIPageClient({ machineId }) {
       setTsEnabled(tsEn);
       updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
     } catch { /* ignore poll errors */ }
-  }, [updateReachable]);
-  const syncTunnelStatusRef = useRef(syncTunnelStatus);
-  syncTunnelStatusRef.current = syncTunnelStatus;
+  };
 
-  const loadSettings = useCallback(async () => {
+  const loadSettings = async () => {
     setTunnelChecking(true);
     try {
       const [settingsRes, statusRes] = await Promise.all([
@@ -308,15 +228,12 @@ export default function APIPageClient({ machineId }) {
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         setRequireApiKey(data.requireApiKey || false);
-        setAllowRemoteNoApiKey(data.allowRemoteNoApiKey || false);
         setRequireLogin(data.requireLogin !== false);
         setHasPassword(data.hasPassword || false);
         setTunnelDashboardAccess(data.tunnelDashboardAccess || false);
         setRtkEnabledState(data.rtkEnabled !== false);
         setCavemanEnabled(!!data.cavemanEnabled);
         setCavemanLevel(data.cavemanLevel || "full");
-        setPonytailEnabled(!!data.ponytailEnabled);
-        setPonytailLevel(data.ponytailLevel || "full");
       }
       if (statusRes.ok) {
         const data = await statusRes.json();
@@ -338,7 +255,7 @@ export default function APIPageClient({ machineId }) {
     } finally {
       setTunnelChecking(false);
     }
-  }, [updateReachable]);
+  };
 
   const handleTunnelDashboardAccess = async (value) => {
     try {
@@ -366,19 +283,6 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-  const handleAllowRemoteNoApiKey = async (value) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allowRemoteNoApiKey: value }),
-      });
-      if (res.ok) setAllowRemoteNoApiKey(value);
-    } catch (error) {
-      console.log("Error updating allowRemoteNoApiKey:", error);
-    }
-  };
-
   const handleRtkEnabled = async (value) => {
     try {
       const res = await fetch("/api/settings", {
@@ -392,7 +296,17 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-
+  const patchSetting = async (patch) => {
+    try {
+      await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+    } catch (error) {
+      console.log("Error updating setting:", error);
+    }
+  };
 
   const handleCavemanEnabled = (value) => {
     setCavemanEnabled(value);
@@ -404,65 +318,26 @@ export default function APIPageClient({ machineId }) {
     patchSetting({ cavemanLevel: level });
   };
 
-  const handlePonytailEnabled = (value) => {
-    setPonytailEnabled(value);
-    patchSetting({ ponytailEnabled: value });
-  };
-
-  const handlePonytailLevel = (level) => {
-    setPonytailLevel(level);
-    patchSetting({ ponytailLevel: level });
-  };
-
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     try {
-      const [keysRes, combosRes, nodesRes] = await Promise.all([
-        fetch("/api/keys"),
-        fetch("/api/combos"),
-        fetch("/api/provider-nodes"),
-      ]);
+      const keysRes = await fetch("/api/keys");
       const keysData = await keysRes.json();
       if (keysRes.ok) {
         setKeys(keysData.keys || []);
-      }
-      const combosData = await combosRes.json();
-      if (combosRes.ok) {
-        setAvailableCombos(combosData.combos || []);
-      }
-      // Custom (openai/anthropic-compatible) providers are runtime DB nodes, not in
-      // the static AI_PROVIDERS catalog — merge them into the ACL picker so API keys
-      // can be scoped to them. The node `prefix` is the alias used in model IDs
-      // (`<prefix>/<model>`) and matched by isProviderAllowed() on the backend.
-      const nodesData = await nodesRes.json();
-      if (nodesRes.ok && Array.isArray(nodesData.nodes)) {
-        setCustomProviders(
-          nodesData.nodes.reduce((acc, n) => {
-            if (n.prefix) acc.push({ alias: n.prefix, name: n.name || n.prefix, color: "#6B7280" });
-            return acc;
-          }, [])
-        );
       }
     } catch (error) {
       console.log("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // Mount: load keys/combos/nodes + settings. Declared after fetchData/loadSettings
-  // useCallbacks so their identifiers are initialized before this effect's dep array
-  // is evaluated (avoids const temporal-dead-zone at render time).
-  useEffect(() => {
-    fetchData();
-    loadSettings();
-  }, [fetchData, loadSettings]);
+  };
 
   // u2500u2500u2500 Cloudflare Tunnel handlers
   // Ping tunnel health until reachable. Race multiple URLs (shortlink + direct) — 1 OK is enough.
   const pingTunnelHealth = async (...urls) => {
     setTunnelLoading(true);
     setTunnelProgress("Waiting for tunnel ready...");
-    const targets = urls.flatMap((u) => u ? [`${u}/api/health`] : []);
+    const targets = urls.filter(Boolean).map((u) => `${u}/api/health`);
     const start = Date.now();
     while (Date.now() - start < TUNNEL_PING_MAX_MS) {
       await new Promise((r) => setTimeout(r, TUNNEL_PING_INTERVAL_MS));
@@ -596,9 +471,9 @@ export default function APIPageClient({ machineId }) {
       const res = await fetch("/api/tunnel/tailscale-install", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sudoPassword: tsSudoPasswordRef.current }),
+        body: JSON.stringify({ sudoPassword: tsSudoPassword }),
       });
-      tsSudoPasswordRef.current = "";
+      setTsSudoPassword("");
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -622,7 +497,7 @@ export default function APIPageClient({ machineId }) {
           }
           if (!data) continue;
           if (event === "progress") {
-            setTsInstallLog((prev) => [...prev.slice(-50), { id: ++tsLogIdRef.current, line: data.message }]);
+            setTsInstallLog((prev) => [...prev.slice(-50), data.message]);
           } else if (event === "done") {
             setTsInstalled(true);
             setTsInstalling(false);
@@ -857,51 +732,10 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-  const handleUpdateProviders = async (id, allowedProviders) => {
-    try {
-      const res = await fetch(`/api/keys/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allowedProviders }),
-      });
-      if (res.ok) {
-        setKeys(prev => prev.map(k => k.id === id ? { ...k, allowedProviders } : k));
-      }
-    } catch (error) {
-      console.log("Error updating providers:", error);
-    }
+  const maskKey = (fullKey) => {
+    if (!fullKey || fullKey.length <= 10) return fullKey || "";
+    return fullKey.slice(0, 6) + "•".repeat(fullKey.length - 10) + fullKey.slice(-4);
   };
-
-  const handleUpdateCombos = async (id, allowedCombos) => {
-    try {
-      const res = await fetch(`/api/keys/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allowedCombos }),
-      });
-      if (res.ok) {
-        setKeys(prev => prev.map(k => k.id === id ? { ...k, allowedCombos } : k));
-      }
-    } catch (error) {
-      console.log("Error updating combos:", error);
-    }
-  };
-
-  const handleUpdateKinds = async (id, allowedKinds) => {
-    try {
-      const res = await fetch(`/api/keys/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allowedKinds }),
-      });
-      if (res.ok) {
-        setKeys(prev => prev.map(k => k.id === id ? { ...k, allowedKinds } : k));
-      }
-    } catch (error) {
-      console.log("Error updating kinds:", error);
-    }
-  };
-
 
   const toggleKeyVisibility = (keyId) => {
     setVisibleKeys(prev => {
@@ -912,10 +746,14 @@ export default function APIPageClient({ machineId }) {
     });
   };
 
-  const [baseUrl, setBaseUrl] = useState(() => {
-    if (typeof window !== "undefined") return `${window.location.origin}/v1`;
-    return "/v1";
-  });
+  const [baseUrl, setBaseUrl] = useState("/v1");
+
+  // Hydration fix: Only access window on client side
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setBaseUrl(`${window.location.origin}/v1`);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -955,13 +793,13 @@ export default function APIPageClient({ machineId }) {
             {tunnelEnabled && !tunnelLoading && tunnelReachable ? (
               <>
                 <Input value={`${tunnelPublicUrl || tunnelUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <button type="button"
+                <button
                   onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
                   className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
                 >
                   <span className="material-symbols-outlined text-[18px]">{copied === "tunnel_url" ? "check" : "content_copy"}</span>
                 </button>
-                <button type="button"
+                <button
                   onClick={() => setShowDisableTunnelModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
                   title="Disable Tunnel"
@@ -975,7 +813,7 @@ export default function APIPageClient({ machineId }) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   {tunnelEverReachable ? "Tunnel reconnecting..." : "Tunnel checking..."}
                 </div>
-                <button type="button"
+                <button
                   onClick={() => setShowDisableTunnelModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
                   title="Disable Tunnel"
@@ -989,7 +827,7 @@ export default function APIPageClient({ machineId }) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   {tunnelProgress || "Creating tunnel..."}
                 </div>
-                <button type="button"
+                <button
                   onClick={() => { setTunnelLoading(false); setTunnelProgress(""); }}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
                   title="Stop"
@@ -1011,7 +849,7 @@ export default function APIPageClient({ machineId }) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   Checking...
                 </div>
-                <button type="button"
+                <button
                   onClick={() => setTunnelChecking(false)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
                   title="Stop"
@@ -1047,13 +885,13 @@ export default function APIPageClient({ machineId }) {
             {tsEnabled && !tsLoading && tsReachable ? (
               <>
                 <Input value={`${tsUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <button type="button"
+                <button
                   onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
                   className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
                 >
                   <span className="material-symbols-outlined text-[18px]">{copied === "ts_url" ? "check" : "content_copy"}</span>
                 </button>
-                <button type="button"
+                <button
                   onClick={() => setShowDisableTsModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
                   title="Disable Tailscale"
@@ -1067,7 +905,7 @@ export default function APIPageClient({ machineId }) {
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
                   {tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}
                 </div>
-                <button type="button"
+                <button
                   onClick={() => setShowDisableTsModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
                   title="Disable Tailscale"
@@ -1090,7 +928,7 @@ export default function APIPageClient({ machineId }) {
                     {tsAuthLabel || "Open"}
                   </Button>
                 )}
-                <button type="button"
+                <button
                   onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
                   title="Stop"
@@ -1227,7 +1065,7 @@ export default function APIPageClient({ machineId }) {
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
                   {visibleCavemanLevels.map((lvl) => (
-                    <button type="button"
+                    <button
                       key={lvl.id}
                       onClick={() => handleCavemanLevel(lvl.id)}
                       className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
@@ -1252,71 +1090,6 @@ export default function APIPageClient({ machineId }) {
             />
           </div>
         </div>
-
-        {/* Ponytail — code minimalism (orthogonal to caveman) */}
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-border gap-4 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <p className="font-medium">
-              Write less code{" "}
-              <a
-                href="https://github.com/DietrichGebert/ponytail"
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-normal text-primary underline hover:opacity-80"
-              >
-                (Ponytail)
-              </a>
-            </p>
-            <p className="text-sm text-text-muted">
-              Lazy-senior-dev system prompt → YAGNI, stdlib-first, fewer lines
-            </p>
-            <p className="text-xs text-text-muted mt-0.5">
-              Governs <b>what</b> the model builds — pairs with Caveman, which governs <b>how</b> it talks.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {ponytailEnabled && (
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
-                  {PONYTAIL_LEVELS.map((lvl) => (
-                    <button type="button"
-                      key={lvl.id}
-                      onClick={() => handlePonytailLevel(lvl.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
-                        ponytailLevel === lvl.id
-                          ? "bg-primary text-white border-primary"
-                          : "bg-transparent border-border text-text-muted hover:bg-surface-2"
-                      }`}
-                      title={lvl.desc}
-                    >
-                      {lvl.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-primary">
-                  {PONYTAIL_LEVELS.find((lvl) => lvl.id === ponytailLevel)?.desc}
-                </p>
-              </div>
-            )}
-            <Toggle
-              checked={ponytailEnabled}
-              onChange={() => handlePonytailEnabled(!ponytailEnabled)}
-            />
-          </div>
-        </div>
-
-        {/* Warning: output-token savers need a system-prompt surface, which
-            Cursor and CommandCode native formats don't expose. */}
-        {(cavemanEnabled || ponytailEnabled) && (
-          <div className="flex items-start gap-2 mt-4 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <span className="material-symbols-outlined text-amber-500 shrink-0" style={{ fontSize: "16px" }}>info</span>
-            <p className="text-xs text-text-muted">
-              Caveman/Ponytail inject a system prompt, so they have no effect when the
-              target provider is <b>Cursor</b> or <b>CommandCode</b> (their native formats
-              expose no system-prompt field). RTK (input compression) still works for all providers.
-            </p>
-          </div>
-        )}
       </Card>
 
       {/* API Keys */}
@@ -1343,28 +1116,6 @@ export default function APIPageClient({ machineId }) {
             onChange={() => handleRequireApiKey(!requireApiKey)}
           />
         </div>
-
-        {!requireApiKey && (
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
-            <div>
-              <p className="font-medium">Allow remote access without API key</p>
-              <p className="text-sm text-text-muted">
-                When enabled, requests from outside loopback (LAN, tunnel, internet)
-                are accepted with or without an API key. Use only on trusted networks.
-              </p>
-            </div>
-            <Toggle
-              checked={allowRemoteNoApiKey}
-              onChange={() => handleAllowRemoteNoApiKey(!allowRemoteNoApiKey)}
-            />
-          </div>
-        )}
-
-        {!requireApiKey && allowRemoteNoApiKey && (
-          <div className="mb-4 -mt-2">
-            <SecurityWarning message="Remote access without an API key is enabled — anyone who can reach this endpoint can use your providers." />
-          </div>
-        )}
 
         {isRemoteHost && !requireApiKey && (
           <div className="mb-4 -mt-2">
@@ -1396,7 +1147,7 @@ export default function APIPageClient({ machineId }) {
                     <code className="text-xs text-text-muted font-mono">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
                     </code>
-                    <button type="button"
+                    <button
                       onClick={() => toggleKeyVisibility(key.id)}
                       className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                       title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
@@ -1405,7 +1156,7 @@ export default function APIPageClient({ machineId }) {
                         {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
                       </span>
                     </button>
-                    <button type="button"
+                    <button
                       onClick={() => copy(key.key, key.id)}
                       className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                     >
@@ -1420,179 +1171,6 @@ export default function APIPageClient({ machineId }) {
                   {key.isActive === false && (
                     <p className="text-xs text-orange-500 mt-1">Paused</p>
                   )}
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {key.allowedProviders === null || key.allowedProviders === undefined ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">All Providers</span>
-                    ) : key.allowedProviders.length === 0 ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-500">No Providers</span>
-                    ) : (
-                      key.allowedProviders.map((alias) => {
-                        const p = PROVIDER_LIST.find(x => x.alias === alias) || customProviders.find(x => x.alias === alias);
-                        return (
-                          <span key={alias} className="text-[10px] px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: p?.color || "#6B7280" }}>
-                            {p?.name || alias}
-                          </span>
-                        );
-                      })
-                    )}
-                    <button type="button"
-                      onClick={() => setEditingProviders(editingProviders === key.id ? null : key.id)}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-text-muted hover:text-primary transition-colors"
-                    >
-                      {editingProviders === key.id ? "Done" : "Edit"}
-                    </button>
-                  </div>
-                  {editingProviders === key.id && (
-                    <div className="mt-2 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
-                      <p className="text-[10px] text-text-muted mb-1.5">Select allowed providers — <b>null</b>=all, <b>none selected</b>=block all:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {[...PROVIDER_LIST, ...customProviders.filter((c) => !PROVIDER_LIST.some((p) => p.alias === c.alias))].map((p) => {
-                          const current = key.allowedProviders || [];
-                          const isSelected = Array.isArray(key.allowedProviders) && current.includes(p.alias);
-                          return (
-                            <button type="button"
-                              key={p.alias}
-                              onClick={() => {
-                                const base = Array.isArray(key.allowedProviders) ? key.allowedProviders : [];
-                                const next = isSelected ? base.filter(a => a !== p.alias) : [...base, p.alias];
-                                handleUpdateProviders(key.id, next);
-                              }}
-                              className={`text-[10px] px-2 py-1 rounded-full border transition-all ${isSelected ? "text-white border-transparent" : "bg-transparent border-black/10 dark:border-white/10 text-text-muted hover:border-primary hover:text-primary"}`}
-                              style={isSelected ? { backgroundColor: p.color } : {}}
-                            >
-                              {p.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {key.allowedProviders !== null && (
-                          <button type="button" onClick={() => handleUpdateProviders(key.id, null)} className="text-[10px] text-primary hover:underline">Allow all</button>
-                        )}
-                        {(key.allowedProviders === null || (Array.isArray(key.allowedProviders) && key.allowedProviders.length > 0)) && (
-                          <button type="button" onClick={() => handleUpdateProviders(key.id, [])} className="text-[10px] text-red-500 hover:underline">Block all (NONE)</button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {/* Allowed Combos */}
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {key.allowedCombos === null || key.allowedCombos === undefined ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500">All Combos</span>
-                    ) : key.allowedCombos.length === 0 ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-500">No Combos</span>
-                    ) : (
-                      key.allowedCombos.map((name) => (
-                        <span key={name} className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400">{name}</span>
-                      ))
-                    )}
-                    <button type="button"
-                      onClick={() => setEditingCombos(editingCombos === key.id ? null : key.id)}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-text-muted hover:text-primary transition-colors"
-                    >
-                      {editingCombos === key.id ? "Done" : "Edit Combos"}
-                    </button>
-                  </div>
-                  {editingCombos === key.id && (
-                    <div className="mt-2 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
-                      <p className="text-[10px] text-text-muted mb-1.5">Select allowed combos — <b>null</b>=all, <b>none selected</b>=block all:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {availableCombos.map((combo) => {
-                          const current = Array.isArray(key.allowedCombos) ? key.allowedCombos : [];
-                          const isSelected = Array.isArray(key.allowedCombos) && current.includes(combo.name);
-                          return (
-                            <button type="button"
-                              key={combo.name}
-                              onClick={() => {
-                                const base = Array.isArray(key.allowedCombos) ? key.allowedCombos : [];
-                                const next = isSelected ? base.filter(n => n !== combo.name) : [...base, combo.name];
-                                handleUpdateCombos(key.id, next);
-                              }}
-                              className={`text-[10px] px-2 py-1 rounded-full border transition-all ${isSelected ? "bg-purple-500 text-white border-transparent" : "bg-transparent border-black/10 dark:border-white/10 text-text-muted hover:border-purple-500 hover:text-purple-500"}`}
-                            >
-                              {combo.name}
-                            </button>
-                          );
-                        })}
-                        {availableCombos.length === 0 && <p className="text-[10px] text-text-muted">No combos created yet.</p>}
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {key.allowedCombos !== null && (
-                          <button type="button" onClick={() => handleUpdateCombos(key.id, null)} className="text-[10px] text-primary hover:underline">Allow all</button>
-                        )}
-                        {(key.allowedCombos === null || (Array.isArray(key.allowedCombos) && key.allowedCombos.length > 0)) && (
-                          <button type="button" onClick={() => handleUpdateCombos(key.id, [])} className="text-[10px] text-red-500 hover:underline">Block all (NONE)</button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {/* Allowed Kinds */}
-                  {(() => {
-                    const KINDS = [
-                      { id: "llm", label: "LLM Chat", icon: "chat" },
-                      { id: "embedding", label: "Embedding", icon: "data_array" },
-                      { id: "image", label: "Text to Image", icon: "brush" },
-                      { id: "tts", label: "Text to Speech", icon: "record_voice_over" },
-                      { id: "stt", label: "Speech to Text", icon: "mic" },
-                      { id: "web", label: "Web Fetch & Search", icon: "travel_explore" },
-                    ];
-                    const kinds = key.allowedKinds;
-                    return (
-                      <>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {kinds === null || kinds === undefined ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400">All Kinds</span>
-                          ) : kinds.length === 0 ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-500">No Kinds</span>
-                          ) : (
-                            kinds.map((k) => {
-                              const kd = KINDS.find(x => x.id === k);
-                              return <span key={k} className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-700 dark:text-green-300">{kd?.label || k}</span>;
-                            })
-                          )}
-                          <button type="button"
-                            onClick={() => setEditingKinds(editingKinds === key.id ? null : key.id)}
-                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10 text-text-muted hover:text-primary transition-colors"
-                          >
-                            {editingKinds === key.id ? "Done" : "Edit Kinds"}
-                          </button>
-                        </div>
-                        {editingKinds === key.id && (
-                          <div className="mt-2 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
-                            <p className="text-[10px] text-text-muted mb-1.5">Select allowed request types — <b>null</b>=all, <b>none selected</b>=block all:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {KINDS.map((kd) => {
-                                const current = Array.isArray(kinds) ? kinds : [];
-                                const isSelected = Array.isArray(kinds) && current.includes(kd.id);
-                                return (
-                                  <button type="button"
-                                    key={kd.id}
-                                    onClick={() => {
-                                      const base = Array.isArray(kinds) ? kinds : [];
-                                      const next = isSelected ? base.filter(x => x !== kd.id) : [...base, kd.id];
-                                      handleUpdateKinds(key.id, next);
-                                    }}
-                                    className={`text-[10px] px-2 py-1 rounded-full border transition-all flex items-center gap-1 ${isSelected ? "bg-green-600 text-white border-transparent" : "bg-transparent border-black/10 dark:border-white/10 text-text-muted hover:border-green-600 hover:text-green-600"}`}
-                                  >
-                                    <span className="material-symbols-outlined text-[11px]">{kd.icon}</span>
-                                    {kd.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <div className="flex gap-2 mt-2">
-                              {kinds !== null && (
-                                <button type="button" onClick={() => handleUpdateKinds(key.id, null)} className="text-[10px] text-primary hover:underline">Allow all</button>
-                              )}
-                              {(kinds === null || (Array.isArray(kinds) && kinds.length > 0)) && (
-                                <button type="button" onClick={() => handleUpdateKinds(key.id, [])} className="text-[10px] text-red-500 hover:underline">Block all (NONE)</button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
                 </div>
                 <div className="flex items-center gap-2">
                   <Toggle
@@ -1614,7 +1192,7 @@ export default function APIPageClient({ machineId }) {
                     }}
                     title={key.isActive ? "Pause key" : "Resume key"}
                   />
-                  <button type="button"
+                  <button
                     onClick={() => handleDeleteKey(key.id)}
                     className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                   >
@@ -1711,7 +1289,7 @@ export default function APIPageClient({ machineId }) {
                   Cloudflare Tunnel
                 </p>
                 <p className="text-sm text-text-muted">
-                  Expose your local VansAI to the internet. No port forwarding, no static IP needed. Share endpoint URL with your team or use it in Cursor, Cline, and other AI tools from anywhere.
+                  Expose your local 9Router to the internet. No port forwarding, no static IP needed. Share endpoint URL with your team or use it in Cursor, Cline, and other AI tools from anywhere.
                 </p>
               </div>
             </div>
@@ -1761,7 +1339,7 @@ export default function APIPageClient({ machineId }) {
       <Modal
         isOpen={showTsModal}
         title="Tailscale Funnel"
-        onClose={() => { if (!tsInstalling) { setShowTsModal(false); tsSudoPasswordRef.current = ""; setTsStatus(null); } }}
+        onClose={() => { if (!tsInstalling) { setShowTsModal(false); setTsSudoPassword(""); setTsStatus(null); } }}
       >
         <div className="flex flex-col gap-4">
           {/* Checking state */}
@@ -1794,8 +1372,8 @@ export default function APIPageClient({ machineId }) {
               </div>
               {tsInstallLog.length > 0 && (
                 <div ref={tsLogRef} className="bg-black/5 dark:bg-white/5 rounded p-2 max-h-40 overflow-y-auto font-mono text-xs text-text-muted">
-                  {tsInstallLog.map((entry) => (
-                    <div key={entry.id}>{entry.line}</div>
+                  {tsInstallLog.map((line, i) => (
+                    <div key={i}>{line}</div>
                   ))}
                 </div>
               )}
@@ -1855,81 +1433,6 @@ export default function APIPageClient({ machineId }) {
   );
 }
 
-/** Reusable endpoint row component */
-function EndpointRow({ label, url, copyId, copied, onCopy, badge, actions }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
-          (badge === "CF" || badge === "TS") ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-        }`}>{label}</span>
-      <Input value={url} readOnly className="flex-1 font-mono text-sm" />
-      <button type="button"
-        onClick={() => onCopy(url, copyId)}
-        className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
-      >
-        <span className="material-symbols-outlined text-[18px]">{copied === copyId ? "check" : "content_copy"}</span>
-      </button>
-      {actions}
-    </div>
-  );
-}
-
-// Render URLs in message as clickable links
-function StatusMessage({ msg }) {
-  const parts = msg.split(/(https?:\/\/[^\s]+)/g);
-  return parts.map((part, i) =>
-    /^https?:\/\//.test(part)
-      ? <a key={`${i}-${part}`} href={part} target="_blank" rel="noreferrer" className="underline font-medium">{part}</a>
-      : part
-  );
-}
-
-/** Reusable status alert */
-function StatusAlert({ status, className = "" }) {
-  return (
-    <div className={`p-2 rounded text-sm ${className} ${status.type === "success" ? "bg-green-500/10 text-green-600 dark:text-green-400" :
-        status.type === "warning" ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" :
-        status.type === "info" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400" :
-          "bg-red-500/10 text-red-600 dark:text-red-400"
-      }`}>
-      <StatusMessage msg={status.message} />
-    </div>
-  );
-}
-
-/** Inline tooltip, Claude Code CLI style */
-function Tooltip({ text }) {
-  return (
-    <span className="relative group inline-flex items-center">
-      <span className="material-symbols-outlined text-[14px] text-text-muted cursor-help">help</span>
-      <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 z-50 w-64 rounded bg-gray-900 dark:bg-gray-800 text-white text-xs px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-        {text}
-      </span>
-    </span>
-  );
-}
-
-/** Security warning banner with optional action link */
-function SecurityWarning({ message, action }) {
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
-      <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">warning</span>
-      <p className="text-xs flex-1">{message}</p>
-      {action && (
-        <a
-          href={action.href}
-          className="text-xs font-medium underline shrink-0 hover:opacity-80"
-          onClick={action.href.startsWith("#") ? (e) => {
-            e.preventDefault();
-            document.getElementById(action.href.slice(1))?.scrollIntoView({ behavior: "smooth" });
-          } : undefined}
-        >
-          {action.label}
-        </a>
-      )}
-    </div>
-  );
-}
 
 APIPageClient.propTypes = {
   machineId: PropTypes.string.isRequired,

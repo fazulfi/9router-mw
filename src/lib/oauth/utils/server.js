@@ -1,5 +1,6 @@
 import http from "http";
 import { URL } from "url";
+import { CODEX_CONFIG } from "../constants/oauth.js";
 
 /**
  * Start a local HTTP server to receive OAuth callback
@@ -90,7 +91,7 @@ export function startLocalServer(onCallback, fixedPort = null) {
  * @param {number} timeoutMs - Timeout in milliseconds
  * @returns {Promise<Object>} - Callback params
  */
-function waitForCallback(timeoutMs = 300000) {
+export function waitForCallback(timeoutMs = 300000) {
   return new Promise((resolve, reject) => {
     let resolved = false;
 
@@ -119,7 +120,7 @@ let codexProxyServer = null;
 let codexProxyTimeout = null;
 
 const CODEX_PROXY_TIMEOUT_MS = 300000; // 5 minutes
-const CODEX_PORT = 1455;
+const CODEX_PORT = CODEX_CONFIG.fixedPort;
 
 // Pending exchange sessions keyed by state — used by server-side exchange mode
 const pendingExchanges = new Map();

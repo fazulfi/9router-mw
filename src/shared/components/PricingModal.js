@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { getDefaultPricing, formatCost } from "@/shared/constants/pricing.js";
-
-const PRICING_FIELDS = ["input", "output", "cached", "reasoning", "cache_creation"];
+import { useState, useEffect } from "react";
+import { getDefaultPricing, formatCost } from "open-sse/providers/pricing.js";
 
 export default function PricingModal({ isOpen, onClose, onSave }) {
   const [pricingData, setPricingData] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const loadPricing = useCallback(async () => {
+  useEffect(() => {
+    if (isOpen) {
+      loadPricing();
+    }
+  }, [isOpen]);
+
+  const loadPricing = async () => {
     setLoading(true);
     try {
       const response = await fetch("/api/pricing");
@@ -18,6 +22,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
         const data = await response.json();
         setPricingData(data);
       } else {
+        // Fallback to defaults
         const defaults = getDefaultPricing();
         setPricingData(defaults);
       }
@@ -28,13 +33,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const prevOpenRef = useRef(false);
-  useEffect(() => {
-    if (isOpen && !prevOpenRef.current) loadPricing();
-    prevOpenRef.current = isOpen;
-  }, [isOpen, loadPricing]);
+  };
 
   const handlePricingChange = (provider, model, field, value) => {
     const numValue = parseFloat(value);
@@ -92,7 +91,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
 
   // Get all unique providers and models for display
   const allProviders = Object.keys(pricingData).sort();
-  const pricingFields = PRICING_FIELDS;
+  const pricingFields = ["input", "output", "cached", "reasoning", "cache_creation"];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -100,7 +99,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-xl font-semibold">Pricing Configuration</h2>
-          <button type="button"
+          <button
             onClick={onClose}
             className="text-text-muted hover:text-text text-2xl leading-none"
           >
@@ -155,7 +154,6 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
                                     min="0"
                                     value={pricingData[provider][model][field] || 0}
                                     onChange={(e) => handlePricingChange(provider, model, field, e.target.value)}
-                                    aria-label={`${field} price for ${model}`}
                                     className="w-20 px-2 py-1 text-right bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
                                   />
                                 </td>
@@ -180,7 +178,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
 
         {/* Footer */}
         <div className="p-4 border-t border-border flex items-center justify-between gap-2">
-          <button type="button"
+          <button
             onClick={handleReset}
             className="px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded border border-red-500/20 transition-colors"
             disabled={saving}
@@ -188,14 +186,14 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
             Reset to Defaults
           </button>
           <div className="flex gap-2">
-            <button type="button"
+            <button
               onClick={onClose}
               className="px-4 py-2 text-sm text-text-muted hover:text-text border border-border rounded transition-colors"
               disabled={saving}
             >
               Cancel
             </button>
-            <button type="button"
+            <button
               onClick={handleSave}
               className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
               disabled={saving}

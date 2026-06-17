@@ -1,0 +1,115 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - button "Sign in" [ref=e6] [cursor=pointer]:
+      - generic:
+        - generic [ref=e7]:
+          - button [ref=e8]:
+            - img [ref=e11]
+          - generic [ref=e13]:
+            - generic [ref=e14]:
+              - button [ref=e15]:
+                - img [ref=e16]
+              - button [ref=e19]:
+                - img [ref=e20]
+            - button [ref=e24]:
+              - img [ref=e26]
+        - button "Sign in" [ref=e29]:
+          - img [ref=e30]
+    - generic [ref=e36]:
+      - navigation [ref=e37]:
+        - generic [ref=e42]:
+          - button "Select a model" [ref=e45] [cursor=pointer]:
+            - img [ref=e48]
+          - generic [ref=e50]:
+            - button "AutoClaw" [ref=e51] [cursor=pointer]:
+              - generic [ref=e52]: AutoClaw
+              - img [ref=e53]
+            - button "API" [ref=e56] [cursor=pointer]:
+              - button "API" [ref=e57]:
+                - generic [ref=e58]: API
+                - button
+                - img [ref=e59]
+      - generic [ref=e66]:
+        - generic:
+          - img
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - generic "What can I build for you?" [ref=e71]:
+              - generic [ref=e72]: What can I build for you?
+              - generic [ref=e73]:
+                - generic [ref=e74]:
+                  - text: W
+                  - generic: W
+                - generic [ref=e75]:
+                  - text: h
+                  - generic: h
+                - generic [ref=e76]:
+                  - text: a
+                  - generic: a
+                - generic [ref=e77]:
+                  - text: t
+                  - generic: t
+              - generic [ref=e79]:
+                - generic [ref=e80]:
+                  - text: c
+                  - generic: c
+                - generic [ref=e81]:
+                  - text: a
+                  - generic: a
+                - generic [ref=e82]:
+                  - text: "n"
+                  - generic: "n"
+              - generic [ref=e85]:
+                - text: I
+                - generic: I
+              - generic [ref=e87]:
+                - generic [ref=e88]:
+                  - text: b
+                  - generic: b
+                - generic [ref=e89]:
+                  - text: u
+                  - generic: u
+                - generic [ref=e90]:
+                  - text: i
+                  - generic: i
+                - generic [ref=e91]:
+                  - text: l
+                  - generic: l
+                - generic [ref=e92]:
+                  - text: d
+                  - generic: d
+              - generic [ref=e94]:
+                - generic [ref=e95]:
+                  - text: f
+                  - generic: f
+                - generic [ref=e96]:
+                  - text: o
+                  - generic: o
+                - generic [ref=e97]:
+                  - text: r
+                  - generic: r
+              - generic [ref=e99]:
+                - generic [ref=e100]:
+                  - text: "y"
+                  - generic: "y"
+                - generic [ref=e101]:
+                  - text: o
+                  - generic: o
+                - generic [ref=e102]:
+                  - text: u
+                  - generic: u
+                - generic [ref=e103]:
+                  - text: "?"
+                  - generic: "?"
+            - paragraph [ref=e104]: Interact with z.ai and explore the boundless creative world
+          - generic [ref=e111]:
+            - textbox "How can I help you today?" [active] [ref=e113]
+            - generic [ref=e114]:
+              - generic "Upload Files" [ref=e117]:
+                - button "More" [ref=e118]:
+                  - button "More" [ref=e119] [cursor=pointer]:
+                    - img [ref=e120]
+              - generic "Send Message" [ref=e124]:
+                - button [disabled] [ref=e125] [cursor=pointer]:
+                  - img [ref=e126]
+  - region "Notifications alt+T"

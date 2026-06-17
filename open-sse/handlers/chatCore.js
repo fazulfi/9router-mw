@@ -1,12 +1,13 @@
 import { detectFormat, getTargetFormat } from "../services/provider.js";
 import { translateRequest } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
-import { normalizeClaudePassthrough } from "../translator/helpers/claudeHelper.js";
+import { normalizeClaudePassthrough } from "../translator/formats/claude.js";
 import { COLORS } from "../utils/stream.js";
 import { createStreamController } from "../utils/streamHandler.js";
 import { refreshWithRetry } from "../services/tokenRefresh.js";
 import { createRequestLogger } from "../utils/requestLogger.js";
-import { getModelTargetFormat, getModelStrip, getModelAgenticConfig, getModelUpstreamId, getModelType, PROVIDER_ID_TO_ALIAS } from "../config/providerModels.js";
+import { getModelTargetFormat, getModelStrip, getModelUpstreamId, getModelType, PROVIDER_ID_TO_ALIAS } from "../config/providerModels.js";
+import { PROVIDERS } from "../config/providers.js";
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../utils/error.js";
 import { HTTP_STATUS } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
@@ -19,11 +20,10 @@ import { handleStreamingResponse, buildOnStreamComplete } from "./chatCore/strea
 import { detectClientTool, isNativePassthrough } from "../utils/clientDetector.js";
 import { dedupeTools } from "../utils/toolDeduper.js";
 import { injectCaveman } from "../rtk/caveman.js";
-import { injectPonytail } from "../rtk/ponytail.js";
-import { injectTerminationPrompt } from "../rtk/terminationPrompt.js";
 import { compressMessages, formatRtkLog } from "../rtk/index.js";
-import { logGatewayError, classifyError } from "../utils/errorLog.js";
-import { detectLoop } from "../utils/loopGuard.js";
+import { getCapabilitiesForModel } from "../providers/capabilities.js";
+import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
+import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 
 /**
  * Core chat handler - shared between SSE and Worker
@@ -32,10 +32,9 @@ import { detectLoop } from "../utils/loopGuard.js";
  * @param {object} options.credentials - Provider credentials
  * @param {string} options.sourceFormatOverride - Override detected source format (e.g. "openai-responses")
  */
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, apiKeyName, ccFilterNaming, rtkEnabled, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, sourceFormatOverride, providerThinking }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, cavemanEnabled, cavemanLevel, sourceFormatOverride, providerThinking }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
-  const isCompactRequest = body?._compact === true;
 
   const sourceFormat = sourceFormatOverride || detectFormat(body);
 
@@ -64,7 +63,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   const clientRequestedStreaming = body.stream === true || sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
-  const providerRequiresStreaming = provider === "openai" || provider === "codex" || provider === "commandcode";
+  const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true;
   let stream = providerRequiresStreaming ? true : (body.stream !== false);
 
   // DeepSeek-TUI: interactive TUI panel sends stream:true and needs SSE.
@@ -92,6 +91,22 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const clientTool = detectClientTool(clientRawRequest?.headers || {}, body);
   const passthrough = isNativePassthrough(clientTool, provider);
 
+  // Expose raw client headers to translators/executors for session-id resolution
+  if (credentials) credentials.rawHeaders = clientRawRequest?.headers || {};
+
+  // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
+  if (!passthrough) {
+    const caps = getCapabilitiesForModel(provider, model);
+    if (stripUnsupportedModalities(body, sourceFormat, caps)) {
+      log?.debug?.("MODALITY", `stripped unsupported media for ${provider}/${model}`);
+    }
+    // Convert remote image URLs to base64 for targets that can't fetch URLs.
+    try {
+      const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: undefined });
+      if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
+    } catch (e) { log?.warn?.("MODALITY", `image prefetch failed: ${e.message}`); }
+  }
+
   let translatedBody;
   let toolNameMap;
   if (passthrough) {
@@ -108,21 +123,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     toolNameMap = translatedBody._toolNameMap;
     delete translatedBody._toolNameMap;
     translatedBody.model = upstreamModel;
-  }
-
-  // Compact/summary requests must stay text-only. Some models (notably Kimi via
-  // OpenAI-compatible endpoints) may still try to emit tool calls if tools leak through.
-  if (isCompactRequest) {
-    if (Array.isArray(translatedBody.tools) && translatedBody.tools.length > 0) {
-      log?.debug?.("COMPACT", `dropping ${translatedBody.tools.length} tools for compact request`);
-    }
-    delete translatedBody.tools;
-    delete translatedBody.tool_choice;
-    delete translatedBody.parallel_tool_calls;
-
-    if (provider === "nvidia" && typeof model === "string" && model.includes("kimi-k2.6")) {
-      log?.warn?.("COMPACT", `forcing text-only compact path for ${provider}/${model}`);
-    }
   }
 
   // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
@@ -153,43 +153,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (cavemanEnabled && cavemanLevel) {
     injectCaveman(translatedBody, finalFormat, cavemanLevel);
     log?.debug?.("CAVEMAN", `${cavemanLevel} | ${finalFormat}`);
-  }
-
-  // Ponytail: inject lazy-senior-dev (code-minimalism) system prompt.
-  // Orthogonal to caveman (build-less vs talk-terse) — both may be active.
-  if (ponytailEnabled && ponytailLevel) {
-    injectPonytail(translatedBody, finalFormat, ponytailLevel);
-    log?.debug?.("PONYTAIL", `${ponytailLevel} | ${finalFormat}`);
-  }
-
-  // Layer 2: Termination-contract prompt for agentic models prone to looping
-  const agenticConfig = getModelAgenticConfig(alias, model);
-  if (agenticConfig.injectTerminationPrompt && Array.isArray(translatedBody.tools) && translatedBody.tools.length > 0) {
-    injectTerminationPrompt(translatedBody, finalFormat);
-    log?.debug?.("TERMINATION", `injected for ${provider}/${model}`);
-  }
-
-  // Layer 3: Loop guard - detect repeated tool call patterns in history
-  // Gate: only active when agenticConfig.loopGuard = true (disabled by default, see AGENTIC_CONFIG)
-  if (agenticConfig.loopGuard) {
-    const loopCheck = detectLoop(translatedBody);
-    if (loopCheck.detected) {
-      injectTerminationPrompt(translatedBody, finalFormat); // ensure termination prompt present
-      // Inject anti-loop hint into last user message or as new system note
-      const msgs = translatedBody.messages;
-      if (Array.isArray(msgs) && msgs.length > 0) {
-        for (let i = msgs.length - 1; i >= 0; i--) {
-          if (msgs[i].role === "user" || msgs[i].role === "tool") {
-            const hint = `\n\n[ROUTER NOTE: ${loopCheck.hint}]`;
-            if (typeof msgs[i].content === "string") {
-              msgs[i] = { ...msgs[i], content: msgs[i].content + hint };
-            }
-            break;
-          }
-        }
-      }
-      log?.warn?.("LOOPGUARD", `loop detected for ${provider}/${model}`);
-    }
   }
 
   const executor = getExecutor(provider);
@@ -254,7 +217,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     trackPendingRequest(model, provider, connectionId, false, true);
     appendRequestLog({ model, provider, connectionId, status: `FAILED ${error.name === "AbortError" ? 499 : HTTP_STATUS.BAD_GATEWAY}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
-      provider, model, connectionId, apiKey, apiKeyName,
+      provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
@@ -267,13 +230,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       streamController.handleError(error);
       return createErrorResult(499, "Request aborted");
     }
-    // Policy errors (e.g. unsupported model/mode) are client mistakes → 400
-    if (error.isPolicyError) {
-      log?.warn?.("POLICY", error.message);
-      logGatewayError({ class: "POLICY", provider, model, message: error.message, status: error.statusCode || 400, connectionId });
-      return createErrorResult(error.statusCode || HTTP_STATUS.BAD_REQUEST, error.message, undefined, true);
-    }
-    logGatewayError({ class: classifyError(error), provider, model, message: error.message, status: HTTP_STATUS.BAD_GATEWAY, connectionId });
     const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
     console.log(`${COLORS.red}[ERROR] ${errMsg}${COLORS.reset}`);
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
@@ -307,7 +263,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     const { statusCode, message, resetsAtMs } = await parseUpstreamError(providerResponse, executor);
     appendRequestLog({ model, provider, connectionId, status: `FAILED ${statusCode}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
-      provider, model, connectionId, apiKey, apiKeyName,
+      provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
@@ -319,11 +275,10 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
     console.log(`${COLORS.red}[ERROR] ${errMsg}${COLORS.reset}`);
     reqLogger.logError(new Error(message), finalBody || translatedBody);
-    logGatewayError({ class: "PROVIDER", provider, model, message, status: statusCode, connectionId });
     return createErrorResult(statusCode, errMsg, resetsAtMs);
   }
 
-  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess };
+  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
@@ -345,7 +300,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, streamController, onStreamComplete });
 }
 
-function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
+export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
   if (!expiresAt) return false;
   return new Date(expiresAt).getTime() - Date.now() < bufferMs;
 }

@@ -9,19 +9,10 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["**/*.test.js"],
-    // Excluded: these target code/deps not present in this fork and fail at
-    // import time (not logic failures):
-    //   - embeddings.cloud.test.js → imports cloud/src/handlers/embeddings.js
-    //     (the Cloudflare Workers "cloud" package is a separate deployment, not
-    //     vendored in this repo).
-    //   - db-benchmark.test.js → an A/B perf benchmark (not a correctness test)
-    //     that requires the optional `lowdb` package; the app uses SQLite and
-    //     does not declare lowdb as a dependency.
-    exclude: [
-      "**/node_modules/**",
-      "**/embeddings.cloud.test.js",
-      "**/db-benchmark.test.js",
-    ],
+    // Don't scan into git worktrees nested under .claude/ — they carry their
+    // own copies of the test files but lack an installed node_modules (open-sse,
+    // etc.), which makes provider imports fail during collection.
+    exclude: ["**/node_modules/**", "**/.claude/**", "**/dist/**"],
     // Allow many it.concurrent cases (real provider smoke runs ~50 providers in parallel)
     maxConcurrency: 60,
     // Suppress noisy console output from handlers under test

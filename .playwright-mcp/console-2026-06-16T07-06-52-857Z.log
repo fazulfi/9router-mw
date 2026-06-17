@@ -1,0 +1,30 @@
+[     270ms] [LOG] %c🚀 Welcome to Z.ai 🚀 color: #00d4ff; font-size: 20px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; @ https://chat.z.ai/auth:222
+[     271ms] [LOG] %c███████╗     █████╗ ██╗ color: #ff6b6b; font-family: monospace; font-size: 12px; @ https://chat.z.ai/auth:226
+[     271ms] [LOG] %c╚══███╔╝    ██╔══██╗██║ color: #4ecdc4; font-family: monospace; font-size: 12px; @ https://chat.z.ai/auth:226
+[     271ms] [LOG] %c  ███╔╝     ███████║██║ color: #45b7d1; font-family: monospace; font-size: 12px; @ https://chat.z.ai/auth:226
+[     271ms] [LOG] %c ███╔╝      ██╔══██║██║ color: #f9ca24; font-family: monospace; font-size: 12px; @ https://chat.z.ai/auth:226
+[     271ms] [LOG] %c███████╗ ██╗██║  ██║██║ color: #ff9ff3; font-family: monospace; font-size: 12px; @ https://chat.z.ai/auth:226
+[     271ms] [LOG] %c╚══════╝ ╚═╝╚═╝  ╚═╝╚═╝ color: #6c5ce7; font-family: monospace; font-size: 12px; @ https://chat.z.ai/auth:226
+[     271ms] [LOG]  @ https://chat.z.ai/auth:227
+[     271ms] [LOG] %c✨ Advanced AI assistant powered by open-source GLM models color: #a29bfe; font-size: 14px; font-weight: bold; @ https://chat.z.ai/auth:228
+[     271ms] [LOG] %c🧠 Supports text generation, reasoning, and deep research color: #fd79a8; font-size: 12px; @ https://chat.z.ai/auth:232
+[     271ms] [LOG] %c🌍 Tailored for both English and Chinese users color: #00b894; font-size: 12px; @ https://chat.z.ai/auth:236
+[     271ms] [LOG] %c💡 Free and open-source ChatGPT alternative color: #fdcb6e; font-size: 12px; @ https://chat.z.ai/auth:240
+[     271ms] [LOG]  @ https://chat.z.ai/auth:244
+[     271ms] [LOG] %c--- color: #ddd; @ https://chat.z.ai/auth:245
+[     271ms] [LOG] %cPowered by ❤️ and lots of ☕ color: #e84393; font-size: 11px; font-style: italic; @ https://chat.z.ai/auth:246
+[     271ms] [LOG]  @ https://chat.z.ai/auth:250
+[     271ms] [LOG] %c🚀 Join us! We are hiring talented people! color: #00b894; font-size: 13px; font-weight: bold; @ https://chat.z.ai/auth:251
+[     271ms] [LOG] %c💼 View jobs: https://zhipu-ai.jobs.feishu.cn/s/stmyTm5lxaU color: #0984e3; font-size: 12px; text-decoration: underline; @ https://chat.z.ai/auth:255
+[     302ms] [WARNING] Manifest: property 'start_url' ignored, should be same origin as document. @ https://z-cdn.chatglm.cn/z-ai/frontend/static/manifest.json:0
+[     515ms] [LOG] checkOauthCallback null @ https://z-cdn.chatglm.cn/z-ai/frontend/prod-fe-1.1.54/assets/_page-rCyPDI9L.js:0
+[     663ms] [LOG] Tue Jun 16 2026 14:06:53 GMT+0700 (Western Indonesia Time) @ https://o.alicdn.com/frontend-lib/common-lib/jquery.min.js:0
+[   24767ms] [COUNT] %c%d: 1 @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   24767ms] [DIR] %c%d font-size:0;color:transparent Error @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   24768ms] [DIRXML] %c%d font-size:0;color:transparent Error @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   24768ms] [INFO] %c%d font-size:0;color:transparent NaN @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   24768ms] [INFO] %c%d font-size:0;color:transparent NaN @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   24768ms] [LOG] %c%d font-size:0;color:transparent NaN @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   24768ms] [TABLE] %c%d font-size:0;color:transparent Error @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   24768ms] [INFO] %c%d font-size:0;color:transparent NaN @ https://g.alicdn.com/captcha-frontend/FeiLin/1.4.2/feilin076.16dd0b701a0489381139994ab5669eb237a5afbace6595dcd8ce88df5b0861e7.js:0
+[   25263ms] [LOG] 验证码实例获取成功 @ https://z-cdn.chatglm.cn/z-ai/frontend/prod-fe-1.1.54/assets/_page-rCyPDI9L.js:0

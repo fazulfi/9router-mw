@@ -1,7 +1,8 @@
 // Google Gemini adapter (Nano Banana models)
 import { nowSec } from "./_base.js";
+import { PROVIDER_MEDIA } from "../../providers/index.js";
 
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const BASE_URL = PROVIDER_MEDIA["gemini"]?.imageConfig?.baseUrl;
 
 export default {
   buildUrl: (model, creds) => {
@@ -16,7 +17,7 @@ export default {
   }),
   normalize: (responseBody, prompt) => {
     const parts = responseBody.candidates?.[0]?.content?.parts || [];
-    const images = parts.reduce((acc, p) => { if (p.inlineData?.data) acc.push({ b64_json: p.inlineData.data }); return acc; }, []);
+    const images = parts.filter((p) => p.inlineData?.data).map((p) => ({ b64_json: p.inlineData.data }));
     return {
       created: nowSec(),
       data: images.length > 0 ? images : [{ b64_json: "", revised_prompt: prompt }],

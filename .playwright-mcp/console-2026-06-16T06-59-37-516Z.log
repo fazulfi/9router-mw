@@ -1,0 +1,21 @@
+[    7993ms] [LOG] %c🚀 Welcome to Z.ai 🚀 color: #00d4ff; font-size: 20px; font-weight: bold; text-shadow: 0 0 10px #00d4ff; @ https://chat.z.ai/:222
+[    7994ms] [LOG] %c███████╗     █████╗ ██╗ color: #ff6b6b; font-family: monospace; font-size: 12px; @ https://chat.z.ai/:226
+[    7994ms] [LOG] %c╚══███╔╝    ██╔══██╗██║ color: #4ecdc4; font-family: monospace; font-size: 12px; @ https://chat.z.ai/:226
+[    7994ms] [LOG] %c  ███╔╝     ███████║██║ color: #45b7d1; font-family: monospace; font-size: 12px; @ https://chat.z.ai/:226
+[    7994ms] [LOG] %c ███╔╝      ██╔══██║██║ color: #f9ca24; font-family: monospace; font-size: 12px; @ https://chat.z.ai/:226
+[    7994ms] [LOG] %c███████╗ ██╗██║  ██║██║ color: #ff9ff3; font-family: monospace; font-size: 12px; @ https://chat.z.ai/:226
+[    7994ms] [LOG] %c╚══════╝ ╚═╝╚═╝  ╚═╝╚═╝ color: #6c5ce7; font-family: monospace; font-size: 12px; @ https://chat.z.ai/:226
+[    7994ms] [LOG]  @ https://chat.z.ai/:227
+[    7994ms] [LOG] %c✨ Advanced AI assistant powered by open-source GLM models color: #a29bfe; font-size: 14px; font-weight: bold; @ https://chat.z.ai/:228
+[    7994ms] [LOG] %c🧠 Supports text generation, reasoning, and deep research color: #fd79a8; font-size: 12px; @ https://chat.z.ai/:232
+[    7994ms] [LOG] %c🌍 Tailored for both English and Chinese users color: #00b894; font-size: 12px; @ https://chat.z.ai/:236
+[    7994ms] [LOG] %c💡 Free and open-source ChatGPT alternative color: #fdcb6e; font-size: 12px; @ https://chat.z.ai/:240
+[    7994ms] [LOG]  @ https://chat.z.ai/:244
+[    7994ms] [LOG] %c--- color: #ddd; @ https://chat.z.ai/:245
+[    7994ms] [LOG] %cPowered by ❤️ and lots of ☕ color: #e84393; font-size: 11px; font-style: italic; @ https://chat.z.ai/:246
+[    7994ms] [LOG]  @ https://chat.z.ai/:250
+[    7994ms] [LOG] %c🚀 Join us! We are hiring talented people! color: #00b894; font-size: 13px; font-weight: bold; @ https://chat.z.ai/:251
+[    7994ms] [LOG] %c💼 View jobs: https://zhipu-ai.jobs.feishu.cn/s/stmyTm5lxaU color: #0984e3; font-size: 12px; text-decoration: underline; @ https://chat.z.ai/:255
+[    8182ms] [WARNING] Manifest: property 'start_url' ignored, should be same origin as document. @ https://z-cdn.chatglm.cn/z-ai/frontend/static/manifest.json:0
+[    9410ms] [LOG] Tue Jun 16 2026 13:59:46 GMT+0700 (Western Indonesia Time) @ https://o.alicdn.com/frontend-lib/common-lib/jquery.min.js:0
+[    9598ms] [LOG] [GLM-5.1] @ https://z-cdn.chatglm.cn/z-ai/frontend/prod-fe-1.1.54/assets/index-DWM0yEvZ.js:2170

@@ -16,8 +16,8 @@ async function getObservabilityConfig() {
     const { getSettings } = await import("./settingsRepo.js");
     const settings = await getSettings();
     const envEnabled = process.env.OBSERVABILITY_ENABLED !== "false";
-    const enabled = typeof settings.enableObservability === "boolean"
-      ? settings.enableObservability
+    const enabled = typeof settings.enableObservability2 === "boolean"
+      ? settings.enableObservability2
       : envEnabled;
     cachedConfig = {
       enabled,
@@ -83,38 +83,26 @@ async function flushToDatabase() {
         for (const item of items) {
           if (!item.id) item.id = generateDetailId(item.model);
           if (!item.timestamp) item.timestamp = new Date().toISOString();
-          const req = item.request;
-          if (req?.headers) {
-            req.headers = sanitizeHeaders(req.headers);
-          }
+          if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
 
           const record = {
             id: item.id,
             provider: item.provider || null,
             model: item.model || null,
             connectionId: item.connectionId || null,
-            apiKey: item.apiKey || null,
-            apiKeyName: item.apiKeyName || null,
             timestamp: item.timestamp,
             status: item.status || null,
             latency: item.latency || {},
             tokens: item.tokens || {},
-            request: truncateField(req, config.maxJsonSize),
+            request: truncateField(item.request, config.maxJsonSize),
             providerRequest: truncateField(item.providerRequest, config.maxJsonSize),
             providerResponse: truncateField(item.providerResponse, config.maxJsonSize),
             response: truncateField(item.response, config.maxJsonSize),
           };
 
-          const meta = stringifyJson({
-            latency: record.latency,
-            tokens: record.tokens,
-            apiKey: record.apiKey,
-            apiKeyName: record.apiKeyName,
-          });
-
           db.run(
-            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, meta, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, meta = excluded.meta, data = excluded.data`,
-            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, meta, stringifyJson(record)]
+            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
+            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
           );
         }
 
@@ -175,25 +163,10 @@ export async function getRequestDetails(filter = {}) {
   const offset = (page - 1) * pageSize;
 
   const rows = db.all(
-    `SELECT id, timestamp, provider, model, connectionId, status, meta FROM requestDetails ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+    `SELECT data FROM requestDetails ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset]
   );
-  // Build list items from lightweight columns only — never reads the heavy `data` blob
-  const details = rows.map((r) => {
-    const meta = parseJson(r.meta, {});
-    return {
-      id: r.id,
-      timestamp: r.timestamp,
-      provider: r.provider,
-      model: r.model,
-      connectionId: r.connectionId,
-      status: r.status,
-      latency: meta.latency || {},
-      tokens: meta.tokens || {},
-      apiKey: meta.apiKey || null,
-      apiKeyName: meta.apiKeyName || null,
-    };
-  });
+  const details = rows.map((r) => parseJson(r.data, {}));
 
   return {
     details,
@@ -206,32 +179,6 @@ export async function getRequestDetailById(id) {
   const row = db.get(`SELECT data FROM requestDetails WHERE id = ?`, [id]);
   return row ? parseJson(row.data, null) : null;
 }
-
-// One-time backfill: populate meta column for existing rows using SQLite json_extract.
-// Deferred 5 s after module load to avoid adding memory pressure during cold-start
-// (the period when OOM risk is highest). The _backfillDone guard makes it idempotent
-// even if the module is re-imported (Next.js hot reload / multiple workers).
-let _backfillDone = false;
-async function backfillMeta() {
-  if (_backfillDone) return;
-  _backfillDone = true;
-  try {
-    const db = await getAdapter();
-    db.run(`
-      UPDATE requestDetails
-      SET meta = json_object(
-        'latency', json_extract(data, '$.latency'),
-        'tokens', json_extract(data, '$.tokens'),
-        'apiKey', json_extract(data, '$.apiKey'),
-        'apiKeyName', json_extract(data, '$.apiKeyName')
-      )
-      WHERE meta IS NULL AND data IS NOT NULL
-    `);
-  } catch (e) {
-    console.warn("[requestDetailsRepo] backfill meta failed:", e.message);
-  }
-}
-setTimeout(() => backfillMeta().catch(() => {}), 5000);
 
 const _shutdownHandler = async () => {
   if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }

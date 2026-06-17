@@ -1,22 +1,14 @@
-import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
+import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS, getModelKind } from "@/shared/constants/models";
 import {
   AI_PROVIDERS,
   getProviderAlias,
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
-import { getProviderConnections, getCombos, getCustomModels, getModelAliases, getSettings } from "@/lib/localDb";
+import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveQoderModels } from "open-sse/services/qoderModels.js";
-import { extractApiKey, isValidApiKey, isProviderAllowed, isComboAllowed, isKindAllowed } from "@/sse/services/auth.js";
-import { stripComboPrefix } from "open-sse/services/combo.js";
-import { fetchModelsFetcherIds } from "@/sse/services/allowedModels.js";
-
-// Detects custom compatible-provider IDs that embed a connection hash suffix
-// (e.g. "openai-compatible-a1b2c3d4"). Such IDs aren't real upstream provider
-// aliases, so we skip the "no models found" passthrough for them.
-const UPSTREAM_CONNECTION_RE = /[-_][0-9a-f]{8,}$/i;
 
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
@@ -45,7 +37,15 @@ const LIVE_MODEL_RESOLVERS = {
   }
 };
 
+const parseOpenAIStyleModels = (data) => {
+  if (Array.isArray(data)) return data;
+  return data?.data || data?.models || data?.results || [];
+};
 
+// Matches provider IDs that are upstream/cross-instance connections (contain a UUID suffix)
+const UPSTREAM_CONNECTION_RE = /[-_][0-9a-f]{8,}$/i;
+
+// LLM kind sentinel — combos/models with no explicit kind default to LLM
 const LLM_KIND = "llm";
 
 // Map per-model `type` field (in PROVIDER_MODELS) to service kind.
@@ -59,8 +59,9 @@ const MODEL_TYPE_TO_KIND = {
 };
 
 function modelKind(model) {
-  if (!model?.type) return LLM_KIND;
-  return MODEL_TYPE_TO_KIND[model.type] || LLM_KIND;
+  const k = model?.kind || model?.type;
+  if (!k) return LLM_KIND;
+  return MODEL_TYPE_TO_KIND[k] || LLM_KIND;
 }
 
 // For dynamic/unknown model IDs (compatible providers, alias map, custom models)
@@ -72,13 +73,6 @@ function inferKindFromUnknownModelId(modelId) {
   if (/image|imagen|dall-?e|flux|sdxl|sd-|stable-diffusion/.test(lower)) return "image";
   return LLM_KIND;
 }
-
-// Normalize an OpenAI-style /models response into a raw model array.
-// Handles the common shapes: bare array, { data }, { models }, { results }.
-const parseOpenAIStyleModels = (data) => {
-  if (Array.isArray(data)) return data;
-  return data?.data || data?.models || data?.results || [];
-};
 
 async function fetchCompatibleModelIds(connection) {
   if (!connection?.apiKey) return [];
@@ -127,11 +121,9 @@ async function fetchCompatibleModelIds(connection) {
 
     return Array.from(
       new Set(
-        rawModels.reduce((acc, model) => {
-          const modelId = model?.id || model?.name || model?.model;
-          if (typeof modelId === "string" && modelId.trim() !== "") acc.push(modelId);
-          return acc;
-        }, [])
+        rawModels
+          .map((model) => model?.id || model?.name || model?.model)
+          .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "")
       )
     );
   } catch {
@@ -146,14 +138,14 @@ function providerMatchesKinds(providerId, kindFilter) {
   const kinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
     ? provider.serviceKinds
     : [LLM_KIND];
-  return kinds.some((k) => kindFilter.has(k));
+  return kindFilter.some((k) => kinds.includes(k));
 }
 
 // Combo matches kindFilter when its `kind` field is in the list.
 // Combos with no kind are treated as LLM.
 function comboMatchesKinds(combo, kindFilter) {
   const kind = combo?.kind || LLM_KIND;
-  return kindFilter.has(kind);
+  return kindFilter.includes(kind);
 }
 
 /**
@@ -161,8 +153,6 @@ function comboMatchesKinds(combo, kindFilter) {
  * @param {string[]} kindFilter - List of service kinds to include (e.g. ["llm"], ["webSearch","webFetch"]).
  */
 export async function buildModelsList(kindFilter) {
-  // Convert to Set for O(1) lookups throughout this function
-  kindFilter = new Set(kindFilter);
   let connections = [];
   try {
     connections = await getProviderConnections();
@@ -198,11 +188,7 @@ export async function buildModelsList(kindFilter) {
   } catch (e) {
     console.log("Could not fetch disabled models");
   }
-  const disabledSets = {};
-  for (const [alias, arr] of Object.entries(disabledByAlias)) {
-    if (Array.isArray(arr)) disabledSets[alias] = new Set(arr);
-  }
-  const isDisabled = (alias, modelId) => disabledSets[alias]?.has(modelId) ?? false;
+  const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
   const activeConnectionByProvider = new Map();
   for (const conn of connections) {
@@ -217,7 +203,7 @@ export async function buildModelsList(kindFilter) {
   for (const combo of combos) {
     if (!comboMatchesKinds(combo, kindFilter)) continue;
     const entry = {
-      id: `combo/${combo.name}`,
+      id: combo.name,
       object: "model",
       owned_by: "combo",
     };
@@ -236,7 +222,7 @@ export async function buildModelsList(kindFilter) {
       const providerId = aliasToProviderId[alias] || alias;
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
       for (const model of providerModels) {
-        if (!kindFilter.has(modelKind(model))) continue;
+        if (!kindFilter.includes(modelKind(model))) continue;
         if (isDisabled(alias, model.id)) continue;
         models.push({
           id: `${alias}/${model.id}`,
@@ -249,7 +235,7 @@ export async function buildModelsList(kindFilter) {
     for (const customModel of customModels) {
       if (!customModel?.id || (customModel.type && customModel.type !== "llm")) continue;
       // Custom models without active connection are LLM-only by current schema
-      if (!kindFilter.has(LLM_KIND)) continue;
+      if (!kindFilter.includes(LLM_KIND)) continue;
       const providerAlias = customModel.providerAlias;
       if (!providerAlias) continue;
 
@@ -262,105 +248,9 @@ export async function buildModelsList(kindFilter) {
         owned_by: providerAlias,
       });
     }
-
-    // noAuth providers included even when DB unavailable
-    // Pre-fetch modelsFetcher results in parallel
-    const noAuthEntries = Object.entries(AI_PROVIDERS).filter(
-      ([pid, pi]) => pi.noAuth && providerMatchesKinds(pid, kindFilter)
-    );
-    const fetcherResults = await Promise.all(
-      noAuthEntries.map(([pid, pi]) =>
-        pi.modelsFetcher ? fetchModelsFetcherIds(pid, pi).catch(() => []) : Promise.resolve([])
-      )
-    );
-    for (let idx = 0; idx < noAuthEntries.length; idx++) {
-      const [providerId, providerInfo] = noAuthEntries[idx];
-
-      const outputAlias = getProviderAlias(providerId) || providerInfo.alias || providerId;
-      const providerModels = PROVIDER_MODELS[outputAlias] || [];
-      const staticModelKindById = new Map(providerModels.map((m) => [m.id, modelKind(m)]));
-      let rawModelIds = providerModels.map((m) => m.id);
-
-      if (providerInfo.modelsFetcher) {
-        rawModelIds = Array.from(new Set([...rawModelIds, ...fetcherResults[idx]]));
-      }
-
-      for (const modelId of rawModelIds) {
-        const kind = staticModelKindById.get(modelId) || inferKindFromUnknownModelId(modelId);
-        if (!kindFilter.has(kind)) continue;
-        if (isDisabled(outputAlias, modelId)) continue;
-        models.push({
-          id: `${outputAlias}/${modelId}`,
-          object: "model",
-          owned_by: outputAlias,
-        });
-      }
-
-      if (kindFilter.has("tts") && Array.isArray(providerInfo?.ttsConfig?.models)) {
-        for (const m of providerInfo.ttsConfig.models) {
-          if (m?.id && !isDisabled(outputAlias, m.id)) {
-            models.push({ id: `${outputAlias}/${m.id}`, object: "model", owned_by: outputAlias });
-          }
-        }
-      }
-      if (kindFilter.has("embedding") && Array.isArray(providerInfo?.embeddingConfig?.models)) {
-        for (const m of providerInfo.embeddingConfig.models) {
-          if (m?.id && !isDisabled(outputAlias, m.id)) {
-            models.push({ id: `${outputAlias}/${m.id}`, object: "model", owned_by: outputAlias });
-          }
-        }
-      }
-      if (kindFilter.has("webSearch") && providerInfo?.searchConfig) {
-        models.push({ id: `${outputAlias}/search`, object: "model", kind: "webSearch", owned_by: outputAlias });
-      }
-      if (kindFilter.has("webFetch") && providerInfo?.fetchConfig) {
-        models.push({ id: `${outputAlias}/fetch`, object: "model", kind: "webFetch", owned_by: outputAlias });
-      }
-    }
   } else {
-    // Pre-compute async fetches per provider in parallel
-    const activeEntries = [...activeConnectionByProvider.entries()].filter(
-      ([pid]) => providerMatchesKinds(pid, kindFilter)
-    );
-    const asyncResults = await Promise.all(activeEntries.map(async ([providerId, conn]) => {
-      const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
-      const providerModels = PROVIDER_MODELS[staticAlias] || [];
-      const enabledModels = conn?.providerSpecificData?.enabledModels;
-      const hasExplicitEnabledModels = Array.isArray(enabledModels) && enabledModels.length > 0;
-      const isCompatibleProvider = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
-
-      let baseModelIds = hasExplicitEnabledModels
-        ? Array.from(new Set(enabledModels.filter((m) => typeof m === "string" && m.trim() !== "")))
-        : providerModels.map((model) => model.id);
-
-      let compatibleIds = null;
-      if (isCompatibleProvider && baseModelIds.length === 0 && !UPSTREAM_CONNECTION_RE.test(providerId)) {
-        compatibleIds = await fetchCompatibleModelIds(conn).catch(() => []);
-      }
-
-      let liveIds = null;
-      const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
-      if (liveResolver && !hasExplicitEnabledModels) {
-        try {
-          const live = await liveResolver(conn);
-          if (live?.models?.length) liveIds = live.models.map((m) => m.id);
-        } catch (err) {
-          console.log(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
-        }
-      }
-
-      let fetcherIds = null;
-      const connectedProviderInfo = AI_PROVIDERS[providerId];
-      if (connectedProviderInfo?.noAuth && connectedProviderInfo?.modelsFetcher) {
-        fetcherIds = await fetchModelsFetcherIds(providerId, connectedProviderInfo).catch(() => []);
-      }
-
-      return { compatibleIds, liveIds, fetcherIds };
-    }));
-
-    for (let aeIdx = 0; aeIdx < activeEntries.length; aeIdx++) {
-      const [providerId, conn] = activeEntries[aeIdx];
-      const { compatibleIds, liveIds, fetcherIds } = asyncResults[aeIdx];
+    for (const [providerId, conn] of activeConnectionByProvider.entries()) {
+      if (!providerMatchesKinds(providerId, kindFilter)) continue;
 
       const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
       const outputAlias = (
@@ -372,6 +262,8 @@ export async function buildModelsList(kindFilter) {
       const enabledModels = conn?.providerSpecificData?.enabledModels;
       const hasExplicitEnabledModels =
         Array.isArray(enabledModels) && enabledModels.length > 0;
+      const isCompatibleProvider =
+        isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
 
       // Build kind lookup for static models so we can filter even when only IDs are exposed
       const staticModelKindById = new Map(
@@ -388,53 +280,78 @@ export async function buildModelsList(kindFilter) {
           )
         : providerModels.map((model) => model.id);
 
-      if (compatibleIds) {
-        rawModelIds = compatibleIds;
+      if (isCompatibleProvider && rawModelIds.length === 0 && !UPSTREAM_CONNECTION_RE.test(providerId)) {
+        rawModelIds = await fetchCompatibleModelIds(conn);
       }
 
-      if (liveIds) {
-        rawModelIds = liveIds;
+      // Config-driven live catalog override (e.g. Kiro returns dynamic
+      // -thinking/-agentic variants per account). On failure, fall back to
+      // whatever rawModelIds already holds.
+      const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
+      if (liveResolver && !hasExplicitEnabledModels) {
+        try {
+          const live = await liveResolver(conn);
+          if (live?.models?.length) {
+            rawModelIds = live.models.map((m) => m.id);
+          }
+        } catch (err) {
+          console.log(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
+        }
       }
 
-      if (fetcherIds) {
-        rawModelIds = Array.from(new Set([...rawModelIds, ...fetcherIds]));
-      }
+      const modelIds = rawModelIds
+        .map((modelId) => {
+          if (modelId.startsWith(`${outputAlias}/`)) {
+            return modelId.slice(outputAlias.length + 1);
+          }
+          if (modelId.startsWith(`${staticAlias}/`)) {
+            return modelId.slice(staticAlias.length + 1);
+          }
+          if (modelId.startsWith(`${providerId}/`)) {
+            return modelId.slice(providerId.length + 1);
+          }
+          return modelId;
+        })
+        .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "");
 
-      const modelIds = rawModelIds.reduce((acc, modelId) => {
-          let id = modelId;
-          if (id.startsWith(`${outputAlias}/`)) id = id.slice(outputAlias.length + 1);
-          else if (id.startsWith(`${staticAlias}/`)) id = id.slice(staticAlias.length + 1);
-          else if (id.startsWith(`${providerId}/`)) id = id.slice(providerId.length + 1);
-          if (typeof id === "string" && id.trim() !== "") acc.push(id);
-          return acc;
-        }, []);
-
-      const customModelIds = customModels.reduce((acc, m) => {
-          if (!m?.id || (m.type && m.type !== "llm")) return acc;
+      const customModelIds = customModels
+        .filter((m) => {
+          if (!m?.id || (getModelKind(m) && getModelKind(m) !== "llm")) return false;
           const alias = m.providerAlias;
-          if (alias !== staticAlias && alias !== outputAlias && alias !== providerId) return acc;
-          const id = String(m.id).trim();
-          if (id !== "") acc.push(id);
-          return acc;
-        }, []);
+          return alias === staticAlias || alias === outputAlias || alias === providerId;
+        })
+        .map((m) => String(m.id).trim())
+        .filter((modelId) => modelId !== "");
 
-      const aliasModelIds = Object.values(modelAliases || {}).reduce((acc, fullModel) => {
-          if (typeof fullModel !== "string" || !fullModel.includes("/")) return acc;
-          if (!fullModel.startsWith(`${outputAlias}/`) && !fullModel.startsWith(`${staticAlias}/`) && !fullModel.startsWith(`${providerId}/`)) return acc;
-          let id;
-          if (fullModel.startsWith(`${outputAlias}/`)) id = fullModel.slice(outputAlias.length + 1);
-          else if (fullModel.startsWith(`${staticAlias}/`)) id = fullModel.slice(staticAlias.length + 1);
-          else id = fullModel.slice(providerId.length + 1);
-          if (typeof id === "string" && id.trim() !== "") acc.push(id);
-          return acc;
-        }, []);
+      const aliasModelIds = Object.values(modelAliases || {})
+        .filter((fullModel) => {
+          if (typeof fullModel !== "string" || !fullModel.includes("/")) return false;
+          return (
+            fullModel.startsWith(`${outputAlias}/`) ||
+            fullModel.startsWith(`${staticAlias}/`) ||
+            fullModel.startsWith(`${providerId}/`)
+          );
+        })
+        .map((fullModel) => {
+          if (fullModel.startsWith(`${outputAlias}/`)) {
+            return fullModel.slice(outputAlias.length + 1);
+          }
+          if (fullModel.startsWith(`${staticAlias}/`)) {
+            return fullModel.slice(staticAlias.length + 1);
+          }
+          if (fullModel.startsWith(`${providerId}/`)) {
+            return fullModel.slice(providerId.length + 1);
+          }
+          return fullModel;
+        })
+        .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "");
 
       const mergedModelIds = Array.from(new Set([...modelIds, ...customModelIds, ...aliasModelIds]));
 
       for (const modelId of mergedModelIds) {
         // Resolve kind: prefer static metadata, otherwise infer from ID heuristics
         const kind = staticModelKindById.get(modelId) || inferKindFromUnknownModelId(modelId);
-        if (!kindFilter.has(kind)) continue;
+        if (!kindFilter.includes(kind)) continue;
         if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId)) continue;
 
         models.push({
@@ -444,30 +361,9 @@ export async function buildModelsList(kindFilter) {
         });
       }
 
-      // Merge sub-config models (TTS / embedding) that live on AI_PROVIDERS, not PROVIDER_MODELS
-      const providerInfo = AI_PROVIDERS[providerId];
-      const subConfigModels = [];
-      if (kindFilter.has("tts") && Array.isArray(providerInfo?.ttsConfig?.models)) {
-        for (const m of providerInfo.ttsConfig.models) {
-          if (m?.id) subConfigModels.push(m.id);
-        }
-      }
-      if (kindFilter.has("embedding") && Array.isArray(providerInfo?.embeddingConfig?.models)) {
-        for (const m of providerInfo.embeddingConfig.models) {
-          if (m?.id) subConfigModels.push(m.id);
-        }
-      }
-      for (const subId of subConfigModels) {
-        if (isDisabled(outputAlias, subId) || isDisabled(staticAlias, subId)) continue;
-        models.push({
-          id: `${outputAlias}/${subId}`,
-          object: "model",
-          owned_by: outputAlias,
-        });
-      }
-
       // Web search/fetch — provider IS the model, expose as {alias}/search and/or {alias}/fetch with explicit kind
-      if (kindFilter.has("webSearch") && providerInfo?.searchConfig) {
+      const providerInfo = AI_PROVIDERS[providerId];
+      if (kindFilter.includes("webSearch") && providerInfo?.searchConfig) {
         models.push({
           id: `${outputAlias}/search`,
           object: "model",
@@ -475,89 +371,13 @@ export async function buildModelsList(kindFilter) {
           owned_by: outputAlias,
         });
       }
-      if (kindFilter.has("webFetch") && providerInfo?.fetchConfig) {
+      if (kindFilter.includes("webFetch") && providerInfo?.fetchConfig) {
         models.push({
           id: `${outputAlias}/fetch`,
           object: "model",
           kind: "webFetch",
           owned_by: outputAlias,
         });
-      }
-    }
-
-    // noAuth providers always included — they work without user connections
-    // Pre-fetch modelsFetcher results in parallel
-    const noAuthEntries2 = Object.entries(AI_PROVIDERS).filter(
-      ([pid, pi]) => !activeConnectionByProvider.has(pid) && pi.noAuth && providerMatchesKinds(pid, kindFilter)
-    );
-    const fetcherResults2 = await Promise.all(
-      noAuthEntries2.map(([pid, pi]) =>
-        pi.modelsFetcher ? fetchModelsFetcherIds(pid, pi).catch(() => []) : Promise.resolve([])
-      )
-    );
-    for (let idx2 = 0; idx2 < noAuthEntries2.length; idx2++) {
-      const [providerId, providerInfo] = noAuthEntries2[idx2];
-
-      const outputAlias = getProviderAlias(providerId) || providerInfo.alias || providerId;
-      const providerModels = PROVIDER_MODELS[outputAlias] || [];
-      const staticModelKindById = new Map(providerModels.map((m) => [m.id, modelKind(m)]));
-
-      let rawModelIds = providerModels.map((m) => m.id);
-
-      if (providerInfo.modelsFetcher) {
-        rawModelIds = Array.from(new Set([...rawModelIds, ...fetcherResults2[idx2]]));
-      }
-
-      const customModelIds = customModels.reduce((acc, m) => {
-          if (!m?.id || (m.type && m.type !== "llm")) return acc;
-          const alias = m.providerAlias;
-          if (alias !== outputAlias && alias !== providerId) return acc;
-          const id = String(m.id).trim();
-          if (id !== "") acc.push(id);
-          return acc;
-        }, []);
-
-      const aliasModelIds = Object.values(modelAliases || {}).reduce((acc, fullModel) => {
-          if (typeof fullModel !== "string" || !fullModel.includes("/")) return acc;
-          if (!fullModel.startsWith(`${outputAlias}/`) && !fullModel.startsWith(`${providerId}/`)) return acc;
-          let id;
-          if (fullModel.startsWith(`${outputAlias}/`)) id = fullModel.slice(outputAlias.length + 1);
-          else id = fullModel.slice(providerId.length + 1);
-          if (typeof id === "string" && id.trim() !== "") acc.push(id);
-          return acc;
-        }, []);
-
-      const mergedModelIds = Array.from(new Set([...rawModelIds, ...customModelIds, ...aliasModelIds]));
-      for (const modelId of mergedModelIds) {
-        const kind = staticModelKindById.get(modelId) || inferKindFromUnknownModelId(modelId);
-        if (!kindFilter.has(kind)) continue;
-        if (isDisabled(outputAlias, modelId)) continue;
-        models.push({
-          id: `${outputAlias}/${modelId}`,
-          object: "model",
-          owned_by: outputAlias,
-        });
-      }
-
-      if (kindFilter.has("tts") && Array.isArray(providerInfo?.ttsConfig?.models)) {
-        for (const m of providerInfo.ttsConfig.models) {
-          if (m?.id && !isDisabled(outputAlias, m.id)) {
-            models.push({ id: `${outputAlias}/${m.id}`, object: "model", owned_by: outputAlias });
-          }
-        }
-      }
-      if (kindFilter.has("embedding") && Array.isArray(providerInfo?.embeddingConfig?.models)) {
-        for (const m of providerInfo.embeddingConfig.models) {
-          if (m?.id && !isDisabled(outputAlias, m.id)) {
-            models.push({ id: `${outputAlias}/${m.id}`, object: "model", owned_by: outputAlias });
-          }
-        }
-      }
-      if (kindFilter.has("webSearch") && providerInfo?.searchConfig) {
-        models.push({ id: `${outputAlias}/search`, object: "model", kind: "webSearch", owned_by: outputAlias });
-      }
-      if (kindFilter.has("webFetch") && providerInfo?.fetchConfig) {
-        models.push({ id: `${outputAlias}/fetch`, object: "model", kind: "webFetch", owned_by: outputAlias });
       }
     }
   }
@@ -586,50 +406,13 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET(request) {
+/**
+ * GET /v1/models - OpenAI compatible models list (LLM/chat models only by default).
+ * For other capabilities use /v1/models/{kind} (image, tts, stt, embedding, image-to-text, web).
+ */
+export async function GET() {
   try {
-    const settings = await getSettings();
-    let apiKeyInfo = null;
-
-    if (settings.requireApiKey) {
-      const apiKey = extractApiKey(request);
-      if (!apiKey) {
-        return Response.json(
-          { error: { message: "Missing API key", type: "authentication_error" } },
-          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
-        );
-      }
-      apiKeyInfo = await isValidApiKey(apiKey);
-      if (!apiKeyInfo) {
-        return Response.json(
-          { error: { message: "Invalid API key", type: "authentication_error" } },
-          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
-        );
-      }
-    }
-
-    if (apiKeyInfo && !isKindAllowed(apiKeyInfo, "llm")) {
-      return Response.json({ object: "list", data: [] }, { headers: { "Access-Control-Allow-Origin": "*" } });
-    }
-
-    let data = await buildModelsList([LLM_KIND]);
-
-    if (apiKeyInfo) {
-      const allowedChecks = await Promise.all(
-        data.map(async (model) => {
-          const isCombo = model.owned_by === "combo";
-          if (isCombo) {
-            const comboName = stripComboPrefix(model.id);
-            return isComboAllowed(apiKeyInfo, comboName);
-          }
-          const providerAlias = model.id.includes("/") ? model.id.split("/")[0] : model.owned_by;
-          return await isProviderAllowed(apiKeyInfo, providerAlias);
-        })
-      );
-      data = data.filter((_, i) => allowedChecks[i]);
-    }
-
-
+    const data = await buildModelsList([LLM_KIND]);
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });

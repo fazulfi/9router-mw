@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, Toggle, ConfirmModal } from "@/shared/components";
+import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 
@@ -19,6 +19,7 @@ export default function CombosPage() {
   const [editingCombo, setEditingCombo] = useState(null);
   const [activeProviders, setActiveProviders] = useState([]);
   const [comboStrategies, setComboStrategies] = useState({});
+  const [modelCaps, setModelCaps] = useState({});
   const [confirmState, setConfirmState] = useState(null);
   const { copied, copy } = useCopyToClipboard();
 
@@ -28,21 +29,27 @@ export default function CombosPage() {
 
   const fetchData = async () => {
     try {
-      const [combosRes, providersRes, settingsRes] = await Promise.all([
+      const [combosRes, providersRes, settingsRes, modelsRes] = await Promise.all([
         fetch("/api/combos"),
         fetch("/api/providers"),
         fetch("/api/settings"),
+        fetch("/api/models"),
       ]);
-      const [combosData, providersData, settingsData] = await Promise.all([
-        combosRes.json(),
-        providersRes.json(),
-        settingsRes.ok ? settingsRes.json() : {},
-      ]);
+      const combosData = await combosRes.json();
+      const providersData = await providersRes.json();
+      const settingsData = settingsRes.ok ? await settingsRes.json() : {};
       
       // Only LLM combos here - webSearch/webFetch combos belong to media-providers/web
       if (combosRes.ok) setCombos((combosData.combos || []).filter(c => !c.kind || c.kind === "llm"));
       if (providersRes.ok) {
         setActiveProviders(providersData.connections || []);
+      }
+      if (modelsRes.ok) {
+        const md = await modelsRes.json();
+        // Build fullModel -> caps map for badge lookup
+        const map = {};
+        for (const m of md.models || []) if (m.caps) map[m.fullModel] = m.caps;
+        setModelCaps(map);
       }
       setComboStrategies(settingsData.comboStrategies || {});
     } catch (error) {
@@ -108,21 +115,25 @@ export default function CombosPage() {
     });
   };
 
-  const handleToggleRoundRobin = async (comboName, enabled) => {
+  // Merge a per-combo strategy patch into settings.comboStrategies. Passing an empty
+  // patch (strategy back to default "fallback") drops the entry entirely.
+  const handleSetComboStrategy = async (comboName, patch) => {
     try {
       const updated = { ...comboStrategies };
-      if (enabled) {
-        updated[comboName] = { fallbackStrategy: "round-robin" };
-      } else {
+      const next = { ...(updated[comboName] || {}), ...patch };
+      // Prune to keep settings clean: default fallback with no extras = no entry.
+      if (!next.fallbackStrategy || next.fallbackStrategy === "fallback") {
         delete updated[comboName];
+      } else {
+        updated[comboName] = next;
       }
-      
+
       await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ comboStrategies: updated }),
       });
-      
+
       setComboStrategies(updated);
     } catch (error) {
       console.log("Error updating combo strategy:", error);
@@ -143,12 +154,17 @@ export default function CombosPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold">Combos</h1>
           <p className="text-sm text-text-muted mt-1">
-            Create model combos with fallback support
+            Group models under one name, then pick a strategy per combo:
           </p>
+          <ul className="text-sm text-text-muted mt-2 flex flex-col gap-1">
+            <li><span className="font-medium text-text-main">Fallback</span> — tries models in order (next on failure)</li>
+            <li><span className="font-medium text-text-main">Round Robin</span> — rotates models across requests to spread load</li>
+            <li><span className="font-medium text-text-main">Fusion</span> — queries all models in parallel, then a judge synthesizes one answer. Best quality, but costs the most: every request bills all panel models + the judge (N+1 calls)</li>
+            <li><span className="font-medium text-text-main">Capacity auto-switch</span> — sends image/PDF/audio requests to a model that supports them first</li>
+          </ul>
         </div>
-        <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
+        <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto whitespace-nowrap">
           Create Combo
         </Button>
       </div>
@@ -173,12 +189,14 @@ export default function CombosPage() {
             <ComboCard
               key={combo.id}
               combo={combo}
+              modelCaps={modelCaps}
+              activeProviders={activeProviders}
               copied={copied}
               onCopy={copy}
               onEdit={() => setEditingCombo(combo)}
               onDelete={() => handleDelete(combo.id)}
-              roundRobinEnabled={comboStrategies[combo.name]?.fallbackStrategy === "round-robin"}
-              onToggleRoundRobin={(enabled) => handleToggleRoundRobin(combo.name, enabled)}
+              strategy={comboStrategies[combo.name] || {}}
+              onSetStrategy={(patch) => handleSetComboStrategy(combo.name, patch)}
             />
           ))}
         </div>
@@ -216,7 +234,18 @@ export default function CombosPage() {
   );
 }
 
-function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled, onToggleRoundRobin }) {
+const STRATEGY_OPTIONS = [
+  { value: "fallback", label: "Fallback — try in order" },
+  { value: "round-robin", label: "Round Robin — rotate" },
+  { value: "fusion", label: "Fusion — panel + judge" },
+];
+
+function ComboCard({ combo, modelCaps = {}, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy }) {
+  const [showJudgeSelect, setShowJudgeSelect] = useState(false);
+  const current = strategy.fallbackStrategy || "fallback";
+  const judge = strategy.judgeModel || "";
+  const isFusion = current === "fusion";
+
   return (
     <Card padding="sm" className="group">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -230,9 +259,10 @@ function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled,
               {combo.models.length === 0 ? (
                 <span className="text-xs text-text-muted italic">No models</span>
               ) : (
-                combo.models.slice(0, 3).map((model) => (
-                  <code key={model} className="max-w-full truncate rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-text-muted dark:bg-white/5 sm:max-w-[220px]">
-                    {model}
+                combo.models.slice(0, 3).map((model, index) => (
+                  <code key={index} className="inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
+                    <span>{model}</span>
+                    <CapacityBadges caps={modelCaps[model]} />
                   </code>
                 ))
               )}
@@ -240,23 +270,46 @@ function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled,
                 <span className="text-[10px] text-text-muted">+{combo.models.length - 3} more</span>
               )}
             </div>
+            {/* Fusion: judge picker (Auto = first model) */}
+            {isFusion && (
+              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-medium text-text-muted">Judge</span>
+                <button
+                  onClick={() => setShowJudgeSelect(true)}
+                  className="inline-flex max-w-full items-center gap-1 rounded border border-dashed border-primary/40 px-1.5 py-0.5 font-mono text-[11px] text-primary hover:border-primary hover:bg-primary/5 transition-colors"
+                  title="Pick the model that fuses panel answers"
+                >
+                  <span className="material-symbols-outlined text-[13px]">gavel</span>
+                  <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
+                </button>
+                {judge && (
+                  <button
+                    onClick={() => onSetStrategy({ judgeModel: "" })}
+                    className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                    title="Reset judge to Auto"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">close</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          {/* Round Robin Toggle — always visible */}
-          <div className="flex items-center justify-between gap-1.5 rounded-lg bg-black/[0.02] px-2 py-1.5 dark:bg-white/[0.02] sm:justify-start sm:bg-transparent sm:px-0 sm:py-0 sm:dark:bg-transparent">
-            <span className="text-xs text-text-muted font-medium">Round Robin</span>
-            <Toggle
-              size="sm"
-              checked={roundRobinEnabled}
-              onChange={onToggleRoundRobin}
+          {/* Strategy selector — always visible */}
+          <div className="w-full sm:w-[200px]">
+            <Select
+              options={STRATEGY_OPTIONS}
+              value={current}
+              onChange={(e) => onSetStrategy({ fallbackStrategy: e.target.value })}
+              selectClassName="py-1.5 text-xs"
             />
           </div>
 
           <div className="grid grid-cols-3 gap-1 sm:flex">
-            <button type="button"
+            <button
               onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
               className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
               title="Copy combo name"
@@ -266,7 +319,7 @@ function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled,
               </span>
               <span className="text-[10px] leading-tight">Copy</span>
             </button>
-            <button type="button"
+            <button
               onClick={onEdit}
               className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
               title="Edit"
@@ -274,7 +327,7 @@ function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled,
               <span className="material-symbols-outlined text-[18px]">edit</span>
               <span className="text-[10px] leading-tight">Edit</span>
             </button>
-            <button type="button"
+            <button
               onClick={onDelete}
               className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
               title="Delete"
@@ -285,6 +338,17 @@ function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled,
           </div>
         </div>
       </div>
+
+      {/* Judge model picker (single-select; combo members make natural judges too) */}
+      <ModelSelectModal
+        isOpen={showJudgeSelect}
+        onClose={() => setShowJudgeSelect(false)}
+        onSelect={(m) => { onSetStrategy({ judgeModel: m?.value || "" }); setShowJudgeSelect(false); }}
+        activeProviders={activeProviders}
+        title="Select Judge Model"
+        addedModelValues={judge ? [judge] : []}
+        closeOnSelect={true}
+      />
     </Card>
   );
 }
@@ -298,23 +362,17 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
     zIndex: isDragging ? 999 : undefined,
   };
   const [editing, setEditing] = useState(false);
-  const [draftOverride, setDraft] = useState(null);
-  const prevModel = useRef(model);
-  if (prevModel.current !== model) {
-    prevModel.current = model;
-    setDraft(null);
-  }
-  const draft = draftOverride ?? model;
+  const [draft, setDraft] = useState(model);
   const commit = () => {
     const trimmed = draft.trim();
     if (trimmed && trimmed !== model) onEdit(trimmed);
-    else setDraft(null);
+    else setDraft(model);
     setEditing(false);
   };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") commit();
-    if (e.key === "Escape") { setDraft(null); setEditing(false); }
+    if (e.key === "Escape") { setDraft(model); setEditing(false); }
   };
 
   return (
@@ -344,28 +402,26 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       {/* Inline editable model value */}
       {editing ? (
         <input
+          autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={handleKeyDown}
-          aria-label={`Edit model ${index + 1}`}
           className="min-w-0 flex-1 rounded border border-primary/40 bg-white px-1.5 py-0.5 font-mono text-xs text-text-main outline-none dark:bg-black/20"
         />
       ) : (
-        <button
-          type="button"
-          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main text-left hover:bg-black/5 dark:hover:bg-white/5"
+        <div
+          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-black/5 dark:hover:bg-white/5"
           onClick={() => setEditing(true)}
           title="Click to edit"
-          aria-label={`Edit model: ${model}`}
         >
           {model}
-        </button>
+        </div>
       )}
 
       {/* Priority arrows */}
       <div className="flex shrink-0 items-center gap-0.5">
-        <button type="button"
+        <button
           onClick={onMoveUp}
           disabled={isFirst}
           className={`p-0.5 rounded ${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"}`}
@@ -373,7 +429,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
         >
           <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
         </button>
-        <button type="button"
+        <button
           onClick={onMoveDown}
           disabled={isLast}
           className={`p-0.5 rounded ${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"}`}
@@ -384,7 +440,7 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
       </div>
 
       {/* Remove */}
-      <button type="button"
+      <button
         onClick={onRemove}
         className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 transition-all"
         title="Remove"
@@ -519,7 +575,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
 
           {/* Models */}
           <div>
-            <span className="text-sm font-medium mb-1.5 block">Models</span>
+            <label className="text-sm font-medium mb-1.5 block">Models</label>
 
             {models.length === 0 ? (
               <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
@@ -554,7 +610,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
             )}
 
             {/* Add Model button */}
-            <button type="button"
+            <button
               onClick={() => setShowModelSelect(true)}
               className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1"
             >
@@ -592,7 +648,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
         kindFilter={kindFilter}
         addedModelValues={models}
         closeOnSelect={false}
-        onBack={() => setShowModelSelect(false)}
       />
     </>
   );

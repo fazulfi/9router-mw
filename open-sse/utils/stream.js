@@ -6,7 +6,10 @@ import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./str
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
 
+import { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER } from "./sseConstants.js";
+
 export { COLORS, formatSSE };
+export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
 
 // sharedEncoder is stateless — safe to share across streams
 const sharedEncoder = new TextEncoder();
@@ -33,7 +36,7 @@ const STREAM_MODE = {
  * @param {function} options.onStreamComplete - Callback when stream completes (content, usage)
  * @param {string} options.apiKey - API key for usage tracking
  */
-function createSSEStream(options = {}) {
+export function createSSEStream(options = {}) {
   const {
     mode = STREAM_MODE.TRANSLATE,
     targetFormat,
@@ -100,12 +103,10 @@ function createSSEStream(options = {}) {
           let injectedUsage = false;
 
           if (trimmed.startsWith("data:") && trimmed.slice(5).trim() !== "[DONE]") {
-            const rawData = trimmed.slice(5).trim();
-            if (rawData) {
-              try {
-                const parsed = JSON.parse(rawData);
+            try {
+              const parsed = JSON.parse(trimmed.slice(5).trim());
 
-                const idFixed = fixInvalidId(parsed);
+              const idFixed = fixInvalidId(parsed);
 
               // Ensure OpenAI-required fields are present on streaming chunks (Letta compat)
               let fieldsInjected = false;
@@ -165,14 +166,10 @@ function createSSEStream(options = {}) {
                 output = `data: ${JSON.stringify(parsed)}\n`;
                 injectedUsage = true;
               }
-            } catch (err) {
-              console.error("[Stream] Dropping malformed chunk:", rawData);
-              continue;
-            }
+            } catch { }
           }
-        }
 
-        if (!injectedUsage) {
+          if (!injectedUsage) {
             if (line.startsWith("data:") && !line.startsWith("data: ")) {
               output = "data: " + line.slice(5) + "\n";
             } else {

@@ -2,6 +2,12 @@
  * Wrap chat-completions endpoints (with built-in web search) into the unified
  * /v1/search response format. Supports gemini, openai, xai, kimi, minimax, perplexity.
  */
+import { PROVIDER_MEDIA } from "../../providers/index.js";
+
+// Default search model + endpoint derive from registry searchViaChat (single source)
+const searchModel = (id) => PROVIDER_MEDIA[id]?.searchViaChat?.defaultModel;
+const searchEndpoint = (id, model) =>
+  (PROVIDER_MEDIA[id]?.searchViaChat?.endpoint || "").replace("{model}", model || "");
 
 const REQUEST_TIMEOUT_MS = 15000;
 const DEFAULT_MAX_RESULTS = 10;
@@ -43,9 +49,7 @@ function normalizeCitation(c) {
  */
 const CHAT_SEARCH_CONFIG = {
   gemini: {
-    endpoint: (model) =>
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    defaultModel: "gemini-2.5-flash",
+    endpoint: (model) => searchEndpoint("gemini", model),
     buildBody: (query) => ({
       contents: [{ role: "user", parts: [{ text: query }] }],
       tools: [{ google_search: {} }]
@@ -57,21 +61,20 @@ const CHAT_SEARCH_CONFIG = {
     extractAnswer: (data) => {
       const candidate = data?.candidates?.[0];
       const parts = candidate?.content?.parts || [];
-      const text = parts.flatMap((p) => { const t = p?.text || ""; return t ? [t] : []; }).join("");
+      const text = parts.map((p) => p?.text || "").filter(Boolean).join("");
       const chunks = candidate?.groundingMetadata?.groundingChunks || [];
-      const citations = chunks.reduce((acc, ch) => {
-        const w = ch?.web;
-        if (w && (w.uri || w.url)) acc.push({ url: w.uri || w.url, title: w.title || "" });
-        return acc;
-      }, []);
+      const citations = chunks
+        .map((ch) => ch?.web)
+        .filter(Boolean)
+        .map((w) => ({ url: w.uri || w.url, title: w.title || "" }))
+        .filter((c) => c.url);
       const tokens = data?.usageMetadata?.totalTokenCount || 0;
       return { text, citations, tokens };
     }
   },
 
   openai: {
-    endpoint: () => "https://api.openai.com/v1/chat/completions",
-    defaultModel: "gpt-4o-mini",
+    endpoint: () => searchEndpoint("openai"),
     buildBody: (query, model) => {
       const body = {
         model,
@@ -91,13 +94,12 @@ const CHAT_SEARCH_CONFIG = {
       const msg = data?.choices?.[0]?.message || {};
       const text = msg.content || "";
       const annotations = Array.isArray(msg.annotations) ? msg.annotations : [];
-      const fromAnn = annotations.reduce((acc, a) => {
-        const u = a?.url_citation;
-        if (u) acc.push({ url: u.url, title: u.title || "" });
-        return acc;
-      }, []);
+      const fromAnn = annotations
+        .map((a) => a?.url_citation)
+        .filter(Boolean)
+        .map((u) => ({ url: u.url, title: u.title || "" }));
       const fromTop = Array.isArray(data?.citations)
-        ? data.citations.flatMap(c => { const n = normalizeCitation(c); return n ? [n] : []; })
+        ? data.citations.map(normalizeCitation).filter(Boolean)
         : [];
       const citations = fromAnn.length ? fromAnn : fromTop;
       const tokens = data?.usage?.total_tokens || 0;
@@ -106,8 +108,7 @@ const CHAT_SEARCH_CONFIG = {
   },
 
   xai: {
-    endpoint: () => "https://api.x.ai/v1/responses",
-    defaultModel: "grok-4.20-reasoning",
+    endpoint: () => searchEndpoint("xai"),
     buildBody: (query, model) => ({
       model,
       input: [{ role: "user", content: query }],
@@ -146,8 +147,7 @@ const CHAT_SEARCH_CONFIG = {
   },
 
   kimi: {
-    endpoint: () => "https://api.moonshot.cn/v1/chat/completions",
-    defaultModel: "kimi-k2.5",
+    endpoint: () => searchEndpoint("kimi"),
     buildBody: (query, model) => ({
       model,
       messages: [{ role: "user", content: query }],
@@ -196,8 +196,7 @@ const CHAT_SEARCH_CONFIG = {
   },
 
   minimax: {
-    endpoint: () => "https://api.minimaxi.com/v1/text/chatcompletion_v2",
-    defaultModel: "MiniMax-M2.7",
+    endpoint: () => searchEndpoint("minimax"),
     buildBody: (query, model) => ({
       model,
       messages: [{ role: "user", content: query }],
@@ -255,8 +254,7 @@ const CHAT_SEARCH_CONFIG = {
   },
 
   perplexity: {
-    endpoint: () => "https://api.perplexity.ai/chat/completions",
-    defaultModel: "sonar",
+    endpoint: () => searchEndpoint("perplexity"),
     buildBody: (query, model) => ({
       model,
       messages: [{ role: "user", content: query }]
@@ -270,7 +268,7 @@ const CHAT_SEARCH_CONFIG = {
       const text = msg.content || "";
       const raw = data?.citations || [];
       const citations = Array.isArray(raw)
-        ? raw.flatMap(c => { const n = normalizeCitation(c); return n ? [n] : []; })
+        ? raw.map(normalizeCitation).filter(Boolean)
         : [];
       const tokens = data?.usage?.total_tokens || 0;
       return { text, citations, tokens };
@@ -325,7 +323,7 @@ export async function handleChatSearch({
     Number.isFinite(maxResults) && maxResults > 0
       ? Math.floor(maxResults)
       : DEFAULT_MAX_RESULTS;
-  const useModel = model || cfg.defaultModel;
+  const useModel = model || searchModel(provider);
   const url = cfg.endpoint(useModel);
   const body = cfg.buildBody(query, useModel);
   const headers = cfg.buildHeaders(token);

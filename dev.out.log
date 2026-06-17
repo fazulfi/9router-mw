@@ -1,0 +1,126 @@
+
+> vansai-app@0.4.71 dev
+> next dev --webpack --port 20128
+
+[1m[38;2;173;127;168m▲ Next.js 16.2.9[39m[22m (webpack)
+- Local:         http://localhost:20128
+- Network:       http://192.168.0.120:20128
+[32m[1m✓[22m[39m Ready in 712ms
+- Experiments (use with caution):
+  · proxyClientMaxBodySize: "128mb"
+
+ GET /api/providers/suggested-models?url=https%3A%2F%2Fopencode.ai%2Fzen%2Fv1%2Fmodels&type=opencode-free [32m200[39m in 4.0s[2m (next.js: 3.0s, proxy.ts: 238ms, application-code: 784ms)[22m
+[DB] Driver: better-sqlite3 | file: C:\Users\Vanszs\AppData\Roaming\9router\db\data.sqlite
+[37m[1m○[22m[39m Compiling /api/v1/chat/completions ...
+[36m[16:09:50] 📥 POST /api/v1/chat/completions | oc/big-pickle | 1 msgs[0m
+[16:09:50] 🔍 [AUTH] API Key: sk-3...2e14
+[16:09:50] ℹ️  [ROUTING] oc/big-pickle → opencode/big-pickle
+[16:09:50] ℹ️  [AUTH] [32mUsing opencode account: Public[0m
+[16:09:50] 🔍 [FORMAT] openai → openai | stream=false
+[16:09:50] 🔍 [CAVEMAN] ultra | openai
+[16:09:50] [PENDING] START | provider=opencode | model=big-pickle
+[16:09:50] 🔍 [REQUEST] OPENCODE | big-pickle | 2 msgs
+[16:09:50] ℹ️  [PROXY] OPENCODE | big-pickle | conn=Public | pool=c1203cf7-ac22-44db-b98a-2c5880717dab | vercel-relay=https://vercel-relay-4oaf8ylil-vanszs-projects.vercel.app
+[16:09:50] 🐛 [DBG:FETCH] OPENCODE → https://opencode.ai/zen/v1/chat/completions | body=998B | connectTimeout=60000ms
+[16:09:51] 🐛 [DBG:FETCH] OPENCODE ← 200 | ttft=1537ms | ct=application/json | cl=?
+[16:09:51] [PENDING] END | provider=opencode | model=big-pickle
+[32m[16:09:51] 📊 [USAGE] OPENCODE | in=282 | out=1[0m
+[16:09:51] 🌊 [STREAM] OPENCODE | big-pickle | 1559ms | complete
+ POST /api/v1/chat/completions [32m200[39m in 6.7s[2m (next.js: 4.8s, proxy.ts: 181ms, application-code: 1695ms)[22m
+ POST /api/models/test [32m200[39m in 9.8s[2m (next.js: 3.0s, proxy.ts: 59ms, application-code: 6.8s)[22m
+[36m[16:09:52] 📥 POST /api/v1/chat/completions | oc/deepseek-v4-flash-free | 1 msgs[0m
+[16:09:52] 🔍 [AUTH] API Key: sk-3...2e14
+[16:09:52] ℹ️  [ROUTING] oc/deepseek-v4-flash-free → opencode/deepseek-v4-flash-free
+[16:09:52] ℹ️  [AUTH] [32mUsing opencode account: Public[0m
+[16:09:52] 🔍 [FORMAT] openai → openai | stream=false
+[16:09:52] 🔍 [CAVEMAN] ultra | openai
+[16:09:52] [PENDING] START | provider=opencode | model=deepseek-v4-flash-free
+[16:09:52] 🔍 [REQUEST] OPENCODE | deepseek-v4-flash-free | 2 msgs
+[16:09:52] ℹ️  [PROXY] OPENCODE | deepseek-v4-flash-free | conn=Public | pool=c1203cf7-ac22-44db-b98a-2c5880717dab | vercel-relay=https://vercel-relay-4oaf8ylil-vanszs-projects.vercel.app
+[16:09:52] 🐛 [DBG:FETCH] OPENCODE → https://opencode.ai/zen/v1/chat/completions | body=1010B | connectTimeout=60000ms
+[16:09:53] 🐛 [DBG:FETCH] OPENCODE ← 200 | ttft=1132ms | ct=application/json | cl=?
+[16:09:53] [PENDING] END | provider=opencode | model=deepseek-v4-flash-free
+[32m[16:09:53] 📊 [USAGE] OPENCODE | in=282 | out=1[0m
+[16:09:53] 🌊 [STREAM] OPENCODE | deepseek-v4-flash-free | 1137ms | complete
+ POST /api/v1/chat/completions [32m200[39m in 1168ms[2m (next.js: 4ms, proxy.ts: 10ms, application-code: 1153ms)[22m
+ POST /api/models/test [32m200[39m in 1233ms[2m (next.js: 25ms, proxy.ts: 18ms, application-code: 1190ms)[22m
+[36m[16:09:53] 📥 POST /api/v1/chat/completions | oc/mimo-v2.5-free | 1 msgs[0m
+[16:09:53] 🔍 [AUTH] API Key: sk-3...2e14
+[16:09:53] ℹ️  [ROUTING] oc/mimo-v2.5-free → opencode/mimo-v2.5-free
+[16:09:53] ℹ️  [AUTH] [32mUsing opencode account: Public[0m
+[16:09:53] 🔍 [FORMAT] openai → openai | stream=false
+[16:09:53] 🔍 [CAVEMAN] ultra | openai
+[16:09:53] [PENDING] START | provider=opencode | model=mimo-v2.5-free
+[16:09:53] 🔍 [REQUEST] OPENCODE | mimo-v2.5-free | 2 msgs
+[16:09:53] ℹ️  [PROXY] OPENCODE | mimo-v2.5-free | conn=Public | pool=c1203cf7-ac22-44db-b98a-2c5880717dab | vercel-relay=https://vercel-relay-4oaf8ylil-vanszs-projects.vercel.app
+[16:09:53] 🐛 [DBG:FETCH] OPENCODE → https://opencode.ai/zen/v1/chat/completions | body=1002B | connectTimeout=60000ms
+[16:09:54] 🐛 [DBG:FETCH] OPENCODE ← 200 | ttft=1245ms | ct=application/json | cl=?
+[16:09:54] [PENDING] END | provider=opencode | model=mimo-v2.5-free
+[16:09:54] 🌊 [STREAM] OPENCODE | mimo-v2.5-free | 1249ms | complete
+ POST /api/v1/chat/completions [32m200[39m in 1279ms[2m (next.js: 6ms, proxy.ts: 8ms, application-code: 1265ms)[22m
+ POST /api/models/test [32m200[39m in 1316ms[2m (next.js: 8ms, proxy.ts: 8ms, application-code: 1300ms)[22m
+[36m[16:09:54] 📥 POST /api/v1/chat/completions | oc/qwen3.6-plus-free | 1 msgs[0m
+[16:09:54] 🔍 [AUTH] API Key: sk-3...2e14
+[16:09:54] ℹ️  [ROUTING] oc/qwen3.6-plus-free → opencode/qwen3.6-plus-free
+[16:09:54] ℹ️  [AUTH] [32mUsing opencode account: Public[0m
+[16:09:54] 🔍 [FORMAT] openai → openai | stream=false
+[16:09:54] 🔍 [CAVEMAN] ultra | openai
+[16:09:54] [PENDING] START | provider=opencode | model=qwen3.6-plus-free
+[16:09:54] 🔍 [REQUEST] OPENCODE | qwen3.6-plus-free | 2 msgs
+[16:09:54] ℹ️  [PROXY] OPENCODE | qwen3.6-plus-free | conn=Public | pool=c1203cf7-ac22-44db-b98a-2c5880717dab | vercel-relay=https://vercel-relay-4oaf8ylil-vanszs-projects.vercel.app
+[16:09:54] 🐛 [DBG:FETCH] OPENCODE → https://opencode.ai/zen/v1/chat/completions | body=1005B | connectTimeout=60000ms
+[16:09:54] 🐛 [DBG:FETCH] OPENCODE ← 401 | ttft=314ms | ct=text/plain;charset=UTF-8 | cl=?
+[16:09:54] [PENDING] END (ERROR) | provider=opencode | model=qwen3.6-plus-free
+[31m[ERROR] [401]: {"type":"error","error":{"type":"ModelError","message":"Free promotion has ended for Qwen3.6 Plus Free. You can continue using the model by subscribing to OpenCode Go - https://opencode.ai/go"}}[0m
+[GATEWAY-ERROR] [PROVIDER] opencode/qwen3.6-plus-free: {"type":"error","error":{"type":"ModelError","message":"Free promotion has ended for Qwen3.6 Plus Free. You can continue using the model by subscribing to OpenCode Go - https://opencode.ai/go"}}
+ POST /api/v1/chat/completions [33m401[39m in 345ms[2m (next.js: 3ms, proxy.ts: 7ms, application-code: 334ms)[22m
+ POST /api/models/test [32m200[39m in 368ms[2m (next.js: 4ms, proxy.ts: 8ms, application-code: 356ms)[22m
+[36m[16:09:54] 📥 POST /api/v1/chat/completions | oc/minimax-m3-free | 1 msgs[0m
+[16:09:54] 🔍 [AUTH] API Key: sk-3...2e14
+[16:09:54] ℹ️  [ROUTING] oc/minimax-m3-free → opencode/minimax-m3-free
+[16:09:54] ℹ️  [AUTH] [32mUsing opencode account: Public[0m
+[16:09:54] 🔍 [FORMAT] openai → openai | stream=false
+[16:09:54] 🔍 [CAVEMAN] ultra | openai
+[16:09:54] [PENDING] START | provider=opencode | model=minimax-m3-free
+[16:09:54] 🔍 [REQUEST] OPENCODE | minimax-m3-free | 2 msgs
+[16:09:54] ℹ️  [PROXY] OPENCODE | minimax-m3-free | conn=Public | pool=c1203cf7-ac22-44db-b98a-2c5880717dab | vercel-relay=https://vercel-relay-4oaf8ylil-vanszs-projects.vercel.app
+[16:09:54] 🐛 [DBG:FETCH] OPENCODE → https://opencode.ai/zen/v1/chat/completions | body=1003B | connectTimeout=60000ms
+[16:09:55] 🐛 [DBG:FETCH] OPENCODE ← 401 | ttft=292ms | ct=text/plain;charset=UTF-8 | cl=?
+[16:09:55] [PENDING] END (ERROR) | provider=opencode | model=minimax-m3-free
+[31m[ERROR] [401]: {"type":"error","error":{"type":"ModelError","message":"Free promotion has ended for MiniMax M3 Free. You can continue using the model by subscribing to OpenCode Go - https://opencode.ai/go"}}[0m
+[GATEWAY-ERROR] [PROVIDER] opencode/minimax-m3-free: {"type":"error","error":{"type":"ModelError","message":"Free promotion has ended for MiniMax M3 Free. You can continue using the model by subscribing to OpenCode Go - https://opencode.ai/go"}}
+ POST /api/v1/chat/completions [33m401[39m in 319ms[2m (next.js: 2ms, proxy.ts: 6ms, application-code: 311ms)[22m
+ POST /api/models/test [32m200[39m in 342ms[2m (next.js: 2ms, proxy.ts: 8ms, application-code: 331ms)[22m
+[36m[16:09:55] 📥 POST /api/v1/chat/completions | oc/nemotron-3-ultra-free | 1 msgs[0m
+[16:09:55] 🔍 [AUTH] API Key: sk-3...2e14
+[16:09:55] ℹ️  [ROUTING] oc/nemotron-3-ultra-free → opencode/nemotron-3-ultra-free
+[16:09:55] ℹ️  [AUTH] [32mUsing opencode account: Public[0m
+[16:09:55] 🔍 [FORMAT] openai → openai | stream=false
+[16:09:55] 🔍 [CAVEMAN] ultra | openai
+[16:09:55] [PENDING] START | provider=opencode | model=nemotron-3-ultra-free
+[16:09:55] 🔍 [REQUEST] OPENCODE | nemotron-3-ultra-free | 2 msgs
+[16:09:55] ℹ️  [PROXY] OPENCODE | nemotron-3-ultra-free | conn=Public | pool=c1203cf7-ac22-44db-b98a-2c5880717dab | vercel-relay=https://vercel-relay-4oaf8ylil-vanszs-projects.vercel.app
+[16:09:55] 🐛 [DBG:FETCH] OPENCODE → https://opencode.ai/zen/v1/chat/completions | body=1009B | connectTimeout=60000ms
+[16:09:56] 🐛 [DBG:FETCH] OPENCODE ← 200 | ttft=1184ms | ct=application/json | cl=?
+[16:09:56] [PENDING] END | provider=opencode | model=nemotron-3-ultra-free
+[32m[16:09:56] 📊 [USAGE] OPENCODE | in=220 | out=1[0m
+[16:09:56] 🌊 [STREAM] OPENCODE | nemotron-3-ultra-free | 1189ms | complete
+ POST /api/v1/chat/completions [32m200[39m in 1215ms[2m (next.js: 2ms, proxy.ts: 8ms, application-code: 1205ms)[22m
+ POST /api/models/test [32m200[39m in 1236ms[2m (next.js: 4ms, proxy.ts: 7ms, application-code: 1226ms)[22m
+[36m[16:09:56] 📥 POST /api/v1/chat/completions | oc/north-mini-code-free | 1 msgs[0m
+[16:09:56] 🔍 [AUTH] API Key: sk-3...2e14
+[16:09:56] ℹ️  [ROUTING] oc/north-mini-code-free → opencode/north-mini-code-free
+[16:09:56] ℹ️  [AUTH] [32mUsing opencode account: Public[0m
+[16:09:56] 🔍 [FORMAT] openai → openai | stream=false
+[16:09:56] 🔍 [CAVEMAN] ultra | openai
+[16:09:56] [PENDING] START | provider=opencode | model=north-mini-code-free
+[16:09:56] 🔍 [REQUEST] OPENCODE | north-mini-code-free | 2 msgs
+[16:09:56] ℹ️  [PROXY] OPENCODE | north-mini-code-free | conn=Public | pool=c1203cf7-ac22-44db-b98a-2c5880717dab | vercel-relay=https://vercel-relay-4oaf8ylil-vanszs-projects.vercel.app
+[16:09:56] 🐛 [DBG:FETCH] OPENCODE → https://opencode.ai/zen/v1/chat/completions | body=1008B | connectTimeout=60000ms
+[16:09:57] 🐛 [DBG:FETCH] OPENCODE ← 200 | ttft=448ms | ct=application/json | cl=?
+[16:09:57] [PENDING] END | provider=opencode | model=north-mini-code-free
+[32m[16:09:57] 📊 [USAGE] OPENCODE | in=190 | out=1[0m
+[16:09:57] 🌊 [STREAM] OPENCODE | north-mini-code-free | 455ms | complete
+ POST /api/v1/chat/completions [32m200[39m in 491ms[2m (next.js: 5ms, proxy.ts: 10ms, application-code: 477ms)[22m
+ POST /api/models/test [32m200[39m in 519ms[2m (next.js: 6ms, proxy.ts: 8ms, application-code: 505ms)[22m
+ GET /api/providers/2a5cc17f-fbe6-46c9-ae5e-3142ac19c366/models [32m200[39m in 3.2s[2m (next.js: 1800ms, proxy.ts: 20ms, application-code: 1332ms)[22m

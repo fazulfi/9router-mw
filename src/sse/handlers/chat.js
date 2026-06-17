@@ -6,19 +6,13 @@ import {
   clearAccountError,
   extractApiKey,
   isValidApiKey,
-  isProviderAllowed,
-  isComboAllowed,
-  isKindAllowed,
-  isTrustedInternalRequest,
 } from "../services/auth.js";
-
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
-import { isModelAllowed } from "../services/allowedModels.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
-import { handleComboChat, stripComboPrefix } from "open-sse/services/combo.js";
+import { handleComboChat, handleFusionChat } from "open-sse/services/combo.js";
 import { handleBypassRequest } from "open-sse/utils/bypassHandler.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { detectFormatByEndpoint } from "open-sse/translator/formats.js";
@@ -73,36 +67,21 @@ export async function handleChat(request, clientRawRequest = null) {
 
   // Enforce API key if enabled in settings
   const settings = await getSettings();
-  let apiKeyInfo = null;
-  // Trusted internal (dashboard/CLI) requests bypass the per-API-key ACL entirely:
-  // they act as the local owner. This keeps the "model not available" 404 limited
-  // to genuine external API consumers (e.g. testing/adding a not-yet-listed model).
-  const trustedInternal = await isTrustedInternalRequest(request);
-  if (!trustedInternal) {
-    if (settings.requireApiKey) {
-      if (!apiKey) {
-        log.warn("AUTH", "Missing API key (requireApiKey=true)");
-        return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-      }
-      apiKeyInfo = await isValidApiKey(apiKey);
-      if (!apiKeyInfo) {
-        log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-        return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-      }
+  if (settings.requireApiKey) {
+    if (!apiKey) {
+      log.warn("AUTH", "Missing API key (requireApiKey=true)");
+      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    if (!apiKeyInfo && apiKey) {
-      apiKeyInfo = await isValidApiKey(apiKey);
+    const valid = await isValidApiKey(apiKey);
+    if (!valid) {
+      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
     }
   }
 
   if (!modelStr) {
     log.warn("CHAT", "Missing model");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
-  }
-
-  if (!isKindAllowed(apiKeyInfo, "llm")) {
-    log.warn("AUTH", "LLM kind not allowed for API key");
-    return errorResponse(HTTP_STATUS.FORBIDDEN, "LLM chat requests are not allowed for this API key");
   }
 
   // Bypass naming/warmup requests before combo rotation to avoid wasting rotation slots
@@ -113,68 +92,78 @@ export async function handleChat(request, clientRawRequest = null) {
   // Check if model is a combo (has multiple models with fallback)
   const comboModels = await getComboModels(modelStr);
   if (comboModels) {
-    // Enforce per-API-key combo allow-list
-    if (!isComboAllowed(apiKeyInfo, modelStr)) {
-      log.warn("AUTH", `Combo "${modelStr}" not allowed for API key`);
-      return errorResponse(HTTP_STATUS.FORBIDDEN, `Combo "${modelStr}" is not allowed for this API key`);
+    // Check for combo-specific strategy first, fallback to global
+    const comboStrategies = settings.comboStrategies || {};
+    const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
+    const comboStrategy = comboSpecificStrategy || settings.comboStrategy || "fallback";
+
+    if (comboStrategy === "fusion") {
+      log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
+      return handleFusionChat({
+        body,
+        models: comboModels,
+        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+        log,
+        comboName: modelStr,
+        judgeModel: comboStrategies[modelStr]?.judgeModel,
+        tuning: comboStrategies[modelStr]?.fusionTuning,
+      });
     }
 
-    // Check for combo-specific strategy first, fallback to global
-    const comboName = stripComboPrefix(modelStr);
-    const comboStrategies = settings.comboStrategies || {};
-    const comboSpecificStrategy = comboStrategies[comboName]?.fallbackStrategy;
-    const comboStrategy = comboSpecificStrategy || settings.comboStrategy || "fallback";
-    
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;
-    log.info("CHAT", `Combo "${comboName}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+    log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
     return handleComboChat({
-
       body,
       models: comboModels,
-      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, apiKeyInfo, true),
+      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
       log,
-      comboName: comboName,
+      comboName: modelStr,
       comboStrategy,
       comboStickyLimit
     });
   }
 
   // Single model request
-  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey, apiKeyInfo);
+  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey);
 }
 
 /**
  * Handle single model chat request
  */
-async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null, apiKeyInfo = null, skipProviderCheck = false) {
+async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null) {
   const modelInfo = await getModelInfo(modelStr);
 
   // If provider is null, this might be a combo name - check and handle
   if (!modelInfo.provider) {
     const comboModels = await getComboModels(modelStr);
     if (comboModels) {
-      // Enforce per-API-key combo allow-list
-      if (!isComboAllowed(apiKeyInfo, modelStr)) {
-        log.warn("AUTH", `Combo "${modelStr}" not allowed for API key`);
-        return errorResponse(HTTP_STATUS.FORBIDDEN, `Combo "${modelStr}" is not allowed for this API key`);
-      }
-
       const chatSettings = await getSettings();
-      const comboName2 = stripComboPrefix(modelStr);
       // Check for combo-specific strategy first, fallback to global
       const comboStrategies = chatSettings.comboStrategies || {};
-      const comboSpecificStrategy = comboStrategies[comboName2]?.fallbackStrategy;
+      const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
       const comboStrategy = comboSpecificStrategy || chatSettings.comboStrategy || "fallback";
-      
-      const comboStickyLimit = chatSettings.comboStickyRoundRobinLimit;
-      log.info("CHAT", `Combo "${comboName2}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
-      return handleComboChat({
 
+      if (comboStrategy === "fusion") {
+        log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
+        return handleFusionChat({
+          body,
+          models: comboModels,
+          handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+          log,
+          comboName: modelStr,
+          judgeModel: comboStrategies[modelStr]?.judgeModel,
+          tuning: comboStrategies[modelStr]?.fusionTuning,
+        });
+      }
+
+      const comboStickyLimit = chatSettings.comboStickyRoundRobinLimit;
+      log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+      return handleComboChat({
         body,
         models: comboModels,
-        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, apiKeyInfo, true),
+        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
         log,
-        comboName: comboName2,
+        comboName: modelStr,
         comboStrategy,
         comboStickyLimit
       });
@@ -184,23 +173,6 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   }
 
   const { provider, model } = modelInfo;
-
-  // Check API key provider permissions (skip if called from an authorized combo)
-  if (!skipProviderCheck && !(await isProviderAllowed(apiKeyInfo, provider))) {
-    log.warn("AUTH", `Provider "${provider}" not allowed for API key`, { provider });
-    return errorResponse(HTTP_STATUS.FORBIDDEN, `Provider "${provider}" is not allowed for this API key`);
-  }
-
-  // Validate model is in the allowed (assigned) models list (only when requireApiKey is ON)
-  // Check both original modelStr (alias format) and resolved provider/model format
-  const resolvedModelStr = `${provider}/${model}`;
-  const isAllowed = (modelStr === resolvedModelStr)
-    ? await isModelAllowed(resolvedModelStr, apiKeyInfo)
-    : (await isModelAllowed(modelStr, apiKeyInfo) || await isModelAllowed(resolvedModelStr, apiKeyInfo));
-  if (!isAllowed) {
-    log.warn("CHAT", `Model not in available models list`, { model: resolvedModelStr });
-    return errorResponse(HTTP_STATUS.NOT_FOUND, `Model "${resolvedModelStr}" is not available. Only models listed in /v1/models can be used.`);
-  }
 
   // Log model routing (alias → actual model)
   if (modelStr !== `${provider}/${model}`) {
@@ -263,13 +235,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       connectionId: credentials.connectionId,
       userAgent,
       apiKey,
-      apiKeyName: apiKeyInfo?.name || null,
       ccFilterNaming: !!chatSettings.ccFilterNaming,
       rtkEnabled: !!chatSettings.rtkEnabled,
       cavemanEnabled: !!chatSettings.cavemanEnabled,
       cavemanLevel: chatSettings.cavemanLevel || "full",
-      ponytailEnabled: !!chatSettings.ponytailEnabled,
-      ponytailLevel: chatSettings.ponytailLevel || "full",
       providerThinking,
       // Detect source format by endpoint + body
       sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
@@ -286,10 +255,6 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     });
 
     if (result.success) return result.response;
-
-    // Policy errors (e.g. model capability blocked) are not provider failures —
-    // do NOT lock the model/account (would poison unrelated requests). Return as-is.
-    if (result.policyError) return result.response;
 
     // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
     const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, result.resetsAtMs);

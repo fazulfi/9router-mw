@@ -1,0 +1,47 @@
+- generic [ref=e2]:
+  - generic [ref=e8]:
+    - generic [ref=e10]:
+      - img "logo" [ref=e13]
+      - generic [ref=e14]:
+        - generic [ref=e15]: Welcome to Z.ai
+        - generic [ref=e16]: Unlock all features by logging in
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: Email
+          - generic [ref=e60]:
+            - img [ref=e61]
+            - textbox "Enter Your Email" [ref=e63]
+        - generic [ref=e64]: Password
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - img [ref=e67]
+            - textbox "Enter Your Password" [ref=e71]
+          - button "Forgot Password?" [ref=e73] [cursor=pointer]
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - img [ref=e81]
+            - generic [ref=e83] [cursor=pointer]: Click to start verification
+          - img [ref=e84]
+        - button "Sign in" [ref=e85] [cursor=pointer]
+        - button "Skip for now" [ref=e86] [cursor=pointer]
+        - generic [ref=e87]:
+          - generic [ref=e88]:
+            - text: Don't have an account?
+            - button "Sign up" [ref=e89] [cursor=pointer]
+          - generic [ref=e91]:
+            - generic [ref=e92]: "Quick Login:"
+            - button [ref=e93] [cursor=pointer]:
+              - img [ref=e94]
+            - button [ref=e100] [cursor=pointer]:
+              - img [ref=e101]
+    - generic [ref=e51]:
+      - text: By logging in, you agree to our
+      - link "Terms of Service" [ref=e52] [cursor=pointer]:
+        - /url: https://chat.z.ai/legal-agreement/terms-of-service
+      - text: and
+      - link "Privacy Policy" [ref=e53] [cursor=pointer]:
+        - /url: https://chat.z.ai/legal-agreement/privacy-policy
+    - generic [ref=e54]:
+      - generic [ref=e55]: copyright © 2026
+      - generic [ref=e56]: Powered by Open WebUI
+  - region "Notifications alt+T"

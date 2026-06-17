@@ -15,10 +15,10 @@
 import { createHash } from "crypto";
 
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
-import { buildCosyHeaders } from "@/lib/qoder/cosy.js";
+import { buildCosyHeaders } from "../shared/qoder/cosy.js";
 import {
   QODER_MODEL_LIST_URL,
-} from "@/lib/qoder/constants.js";
+} from "../shared/qoder/constants.js";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h, same as the Kiro catalog
@@ -204,11 +204,11 @@ export async function resolveQoderModels(credentials, options = {}) {
   }
 }
 
-function invalidateQoderCatalog(credentials) {
+export function invalidateQoderCatalog(credentials) {
   if (!credentials) return;
   catalogCache.delete(cacheKey(credentials));
 }
 
-function clearQoderCatalog() {
+export function clearQoderCatalog() {
   catalogCache.clear();
 }

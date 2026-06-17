@@ -1,8 +1,10 @@
 // NanoBanana API — async submit + poll record-info
 import { sleep, nowSec, sizeToAspectRatio, POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "./_base.js";
+import { PROVIDER_MEDIA } from "../../providers/index.js";
 
-const SUBMIT_URL = "https://api.nanobananaapi.ai/api/v1/nanobanana/generate";
-const POLL_BASE = "https://api.nanobananaapi.ai/api/v1/nanobanana/record-info";
+const IMG_CFG = PROVIDER_MEDIA["nanobanana"]?.imageConfig || {};
+const SUBMIT_URL = IMG_CFG.baseUrl;
+const POLL_BASE = IMG_CFG.pollUrl;
 
 export default {
   async: true,
@@ -39,8 +41,7 @@ export default {
     if (!taskId) throw new Error("NanoBanana: no taskId returned");
     const pollUrl = `${POLL_BASE}?taskId=${encodeURIComponent(taskId)}`;
     const deadline = Date.now() + POLL_TIMEOUT_MS;
-
-    async function poll() {
+    while (Date.now() < deadline) {
       await sleep(POLL_INTERVAL_MS);
       const r = await fetch(pollUrl, { headers });
       if (!r.ok) throw new Error(`NanoBanana status ${r.status}`);
@@ -48,11 +49,8 @@ export default {
       const flag = s.data?.successFlag;
       if (flag === 1) return s.data;
       if (flag === 2 || flag === 3) throw new Error(s.data?.errorMessage || "NanoBanana generation failed");
-      if (Date.now() >= deadline) throw new Error("NanoBanana polling timeout");
-      return poll();
     }
-
-    return poll();
+    throw new Error("NanoBanana polling timeout");
   },
   normalize: (responseBody, prompt) => {
     const url = responseBody.response?.resultImageUrl || responseBody.response?.originImageUrl;

@@ -1,5 +1,7 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
+import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants.js";
+import { sseChunk } from "../utils/sse.js";
 
 const GROK_CHAT_API = PROVIDERS["grok-web"].baseUrl;
 const GROK_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
@@ -50,7 +52,7 @@ function parseOpenAIMessages(messages) {
     if (typeof msg.content === "string") {
       content = msg.content;
     } else if (Array.isArray(msg.content)) {
-      content = msg.content.reduce((acc, c) => c.type === "text" ? acc + (acc ? " " : "") + String(c.text || "") : acc, "");
+      content = msg.content.filter((c) => c.type === "text").map((c) => String(c.text || "")).join(" ");
     }
     if (!content.trim()) continue;
     extracted.push({ role, text: content });
@@ -70,24 +72,31 @@ function parseOpenAIMessages(messages) {
 }
 
 async function* readGrokNdjsonEvents(body, signal) {
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  for await (const value of body) {
-    if (signal?.aborted) return;
-    buffer += decoder.decode(value, { stream: true });
+  try {
     while (true) {
-      const idx = buffer.indexOf("\n");
-      if (idx < 0) break;
-      const line = buffer.slice(0, idx).trim();
-      buffer = buffer.slice(idx + 1);
-      if (!line) continue;
-      try { yield JSON.parse(line); } catch { /* skip */ }
+      if (signal?.aborted) return;
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      while (true) {
+        const idx = buffer.indexOf("\n");
+        if (idx < 0) break;
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (!line) continue;
+        try { yield JSON.parse(line); } catch { /* skip */ }
+      }
     }
-  }
-  buffer += decoder.decode();
-  const remaining = buffer.trim();
-  if (remaining) {
-    try { yield JSON.parse(remaining); } catch { /* skip */ }
+    buffer += decoder.decode();
+    const remaining = buffer.trim();
+    if (remaining) {
+      try { yield JSON.parse(remaining); } catch { /* skip */ }
+    }
+  } finally {
+    reader.releaseLock();
   }
 }
 
@@ -121,10 +130,6 @@ async function* extractContent(eventStream, isThinkingModel, signal) {
     if (resp.token != null) yield { delta: resp.token, fingerprint, responseId };
   }
   yield { done: true, fingerprint, responseId };
-}
-
-function sseChunk(data) {
-  return `data: ${JSON.stringify(data)}\n\n`;
 }
 
 function buildStreamingResponse(eventStream, model, cid, created, isThinkingModel, signal) {
@@ -168,13 +173,13 @@ function buildStreamingResponse(eventStream, model, cid, created, isThinkingMode
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: fp || null,
           choices: [{ index: 0, delta: {}, finish_reason: "stop", logprobs: null }],
         })));
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.enqueue(encoder.encode(SSE_DONE));
       } catch (err) {
         controller.enqueue(encoder.encode(sseChunk({
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
           choices: [{ index: 0, delta: { content: `[Stream error: ${err.message || String(err)}]` }, finish_reason: "stop", logprobs: null }],
         })));
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.enqueue(encoder.encode(SSE_DONE));
       } finally {
         controller.close();
       }
@@ -326,7 +331,7 @@ export class GrokWebExecutor extends BaseExecutor {
       const sseStream = buildStreamingResponse(response.body, model, cid, created, isThinking, signal);
       finalResponse = new Response(sseStream, {
         status: 200,
-        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+        headers: { ...SSE_HEADERS_NO_BUFFER },
       });
     } else {
       finalResponse = await buildNonStreamingResponse(response.body, model, cid, created, isThinking, signal);
@@ -335,3 +340,4 @@ export class GrokWebExecutor extends BaseExecutor {
   }
 }
 
+export default GrokWebExecutor;

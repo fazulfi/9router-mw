@@ -1,7 +1,8 @@
 // Fal.ai — async submit + queue polling
 import { sleep, nowSec, sizeToAspectRatio, POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "./_base.js";
+import { PROVIDER_MEDIA } from "../../providers/index.js";
 
-const BASE_URL = "https://queue.fal.run";
+const BASE_URL = PROVIDER_MEDIA["fal-ai"]?.imageConfig?.baseUrl;
 
 export default {
   async: true,
@@ -19,8 +20,7 @@ export default {
   async parseResponse(response, { headers }) {
     const { status_url, response_url } = await response.json();
     const deadline = Date.now() + POLL_TIMEOUT_MS;
-
-    async function poll() {
+    while (Date.now() < deadline) {
       await sleep(POLL_INTERVAL_MS);
       const r = await fetch(status_url, { headers });
       if (!r.ok) throw new Error(`Fal status ${r.status}`);
@@ -30,11 +30,8 @@ export default {
         return await fr.json();
       }
       if (s.status === "FAILED") throw new Error(s.error || "Fal generation failed");
-      if (Date.now() >= deadline) throw new Error("Fal polling timeout");
-      return poll();
     }
-
-    return poll();
+    throw new Error("Fal polling timeout");
   },
   normalize: (responseBody) => {
     const images = Array.isArray(responseBody.images)

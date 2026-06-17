@@ -1,7 +1,6 @@
 import { Buffer } from "node:buffer";
 import { createErrorResult } from "../utils/error.js";
 import { HTTP_STATUS } from "../config/runtimeConfig.js";
-import { AI_PROVIDERS } from "../../src/shared/constants/providers.js";
 
 // Build auth headers from sttConfig + token
 function buildAuthHeaders(cfg, token) {
@@ -73,23 +72,16 @@ async function transcribeAssemblyAI(cfg, file, model, token) {
   if (!sub.ok) return upstreamError(sub);
   const { id } = await sub.json();
 
-  const deadline = Date.now() + 120_000;
-
-  async function poll() {
+  const start = Date.now();
+  while (Date.now() - start < 120_000) {
     await new Promise((r) => setTimeout(r, 2000));
-    const pollRes = await fetch(`${cfg.baseUrl}/${id}`, { headers: auth });
-    if (!pollRes.ok) {
-      if (Date.now() >= deadline) return createErrorResult(504, "AssemblyAI timeout after 120s");
-      return poll();
-    }
-    const r = await pollRes.json();
+    const poll = await fetch(`${cfg.baseUrl}/${id}`, { headers: auth });
+    if (!poll.ok) continue;
+    const r = await poll.json();
     if (r.status === "completed") return jsonResponse({ text: r.text || "" });
     if (r.status === "error") return createErrorResult(500, r.error || "AssemblyAI failed");
-    if (Date.now() >= deadline) return createErrorResult(504, "AssemblyAI timeout after 120s");
-    return poll();
   }
-
-  return poll();
+  return createErrorResult(504, "AssemblyAI timeout after 120s");
 }
 
 // Nvidia NIM: multipart, normalize response
@@ -125,7 +117,7 @@ async function transcribeGemini(cfg, file, model, token, formData) {
   });
   if (!res.ok) return upstreamError(res);
   const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.flatMap((p) => p.text ? [p.text] : []).join("") || "";
+  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("") || "";
   return jsonResponse({ text });
 }
 
@@ -174,11 +166,11 @@ function jsonResponse(obj) {
  * STT core handler — dispatch by sttConfig.format.
  * @returns {Promise<{success, response, status?, error?}>}
  */
-export async function handleSttCore({ provider, model, formData, credentials }) {
+export async function handleSttCore({ provider, model, formData, credentials, sttConfig }) {
   const file = formData.get("file");
   if (!file) return createErrorResult(HTTP_STATUS.BAD_REQUEST, "Missing required field: file");
 
-  const cfg = AI_PROVIDERS[provider]?.sttConfig;
+  const cfg = sttConfig;
   if (!cfg) return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Provider '${provider}' does not support STT`);
 
   const token = cfg.authType === "none" ? null : (credentials?.apiKey || credentials?.accessToken);

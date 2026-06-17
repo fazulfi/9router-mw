@@ -1,5 +1,7 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
+import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants.js";
+import { sseChunk } from "../utils/sse.js";
 
 const PPLX_SSE_ENDPOINT = PROVIDERS["perplexity-web"].baseUrl;
 const PPLX_API_VERSION = "2.18";
@@ -88,6 +90,7 @@ function cleanResponse(text, strip = true) {
 }
 
 async function* readPplxSseEvents(body, signal) {
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let dataLines = [];
@@ -101,29 +104,35 @@ async function* readPplxSseEvents(body, signal) {
     try { return JSON.parse(trimmed); } catch { return null; }
   }
 
-  for await (const value of body) {
-    if (signal?.aborted) return;
-    buffer += decoder.decode(value, { stream: true });
+  try {
     while (true) {
-      const idx = buffer.indexOf("\n");
-      if (idx < 0) break;
-      const rawLine = buffer.slice(0, idx);
-      buffer = buffer.slice(idx + 1);
-      const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-      if (line === "") {
-        const parsed = flush();
-        if (parsed === "done") return;
-        if (parsed) yield parsed;
-        continue;
+      if (signal?.aborted) return;
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      while (true) {
+        const idx = buffer.indexOf("\n");
+        if (idx < 0) break;
+        const rawLine = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+        if (line === "") {
+          const parsed = flush();
+          if (parsed === "done") return;
+          if (parsed) yield parsed;
+          continue;
+        }
+        if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+        if (line === "event: end_of_stream") return;
       }
-      if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
-      if (line === "event: end_of_stream") return;
     }
+    buffer += decoder.decode();
+    if (buffer.trim().startsWith("data:")) dataLines.push(buffer.trim().slice(5).trimStart());
+    const tail = flush();
+    if (tail && tail !== "done") yield tail;
+  } finally {
+    reader.releaseLock();
   }
-  buffer += decoder.decode();
-  if (buffer.trim().startsWith("data:")) dataLines.push(buffer.trim().slice(5).trimStart());
-  const tail = flush();
-  if (tail && tail !== "done") yield tail;
 }
 
 function parseOpenAIMessages(messages) {
@@ -135,7 +144,7 @@ function parseOpenAIMessages(messages) {
     let content = "";
     if (typeof msg.content === "string") content = msg.content;
     else if (Array.isArray(msg.content)) {
-      content = msg.content.reduce((acc, c) => c.type === "text" ? acc + (acc ? " " : "") + String(c.text || "") : acc, "");
+      content = msg.content.filter((c) => c.type === "text").map((c) => String(c.text || "")).join(" ");
     }
     if (!content.trim()) continue;
     if (role === "system") systemMsg += content + "\n";
@@ -282,10 +291,6 @@ async function* extractContent(eventStream, signal) {
   yield { delta: "", answer: fullAnswer, backendUuid: backendUuid ?? undefined, done: true };
 }
 
-function sseChunk(data) {
-  return `data: ${JSON.stringify(data)}\n\n`;
-}
-
 function buildStreamingResponse(eventStream, model, cid, created, history, currentMsg, signal) {
   const encoder = new TextEncoder();
   return new ReadableStream({
@@ -333,7 +338,7 @@ function buildStreamingResponse(eventStream, model, cid, created, history, curre
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
           choices: [{ index: 0, delta: {}, finish_reason: "stop", logprobs: null }],
         })));
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.enqueue(encoder.encode(SSE_DONE));
 
         sessionStore(history, currentMsg, cleanResponse(fullAnswer), respBackendUuid);
       } catch (err) {
@@ -341,7 +346,7 @@ function buildStreamingResponse(eventStream, model, cid, created, history, curre
           id: cid, object: "chat.completion.chunk", created, model, system_fingerprint: null,
           choices: [{ index: 0, delta: { content: `[Stream error: ${err.message || String(err)}]` }, finish_reason: "stop", logprobs: null }],
         })));
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        controller.enqueue(encoder.encode(SSE_DONE));
       } finally {
         controller.close();
       }
@@ -486,7 +491,7 @@ export class PerplexityWebExecutor extends BaseExecutor {
       const sseStream = buildStreamingResponse(response.body, model, cid, created, parsed.history, parsed.currentMsg, signal);
       finalResponse = new Response(sseStream, {
         status: 200,
-        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" },
+        headers: { ...SSE_HEADERS_NO_BUFFER },
       });
     } else {
       finalResponse = await buildNonStreamingResponse(response.body, model, cid, created, parsed.history, parsed.currentMsg, signal);
@@ -497,3 +502,4 @@ export class PerplexityWebExecutor extends BaseExecutor {
 
 export { parseOpenAIMessages, buildQuery, buildPplxRequestBody, formatToolsHint, sessionKey };
 
+export default PerplexityWebExecutor;

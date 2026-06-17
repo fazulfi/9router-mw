@@ -12,7 +12,7 @@ import { decloakToolNames } from "../../utils/claudeCloaking.js";
 /**
  * Translate non-streaming response body from provider format → OpenAI format.
  */
-function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat) {
+export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat) {
   if (targetFormat === sourceFormat || targetFormat === FORMATS.OPENAI) return responseBody;
 
   // Gemini / Antigravity
@@ -76,7 +76,12 @@ function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat)
     // missing/null (e.g. M3 with max_tokens:1 spends the budget on thinking
     // and returns `content: null`). Returning the raw body would leave the
     // OpenAI client without a `choices` array and surface as a UI test error.
-    if (responseBody.content && !Array.isArray(responseBody.content)) return responseBody;
+    // Early return if the response is already in OpenAI format (has choices array)
+    // or if it has content as a non-array value (likely a different non-Claude format).
+    // Some providers (e.g. xiaomi-tokenplan) return OpenAI-format responses even when
+    // the request was translated to Claude format — the targetFormat is Claude but the
+    // actual response is OpenAI-native and needs no further translation.
+    if (responseBody.choices || (responseBody.content && !Array.isArray(responseBody.content))) return responseBody;
 
     let textContent = "", thinkingContent = "";
     const toolCalls = [];
@@ -132,7 +137,7 @@ function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat)
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog }) {
+export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
@@ -193,11 +198,14 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
   }
 
-  // Strip reasoning_content — some clients (e.g. Firecrawl AI SDK) have JSON parsers that
-  // break on this non-standard field, even though OpenAI allows it in extensions.
+  // Strip reasoning_content only when content is non-empty.
+  // When content is empty (e.g. thinking models that used all tokens for reasoning),
+  // reasoning_content is the only useful output and must be preserved.
   if (translatedResponse?.choices) {
     for (const choice of translatedResponse.choices) {
-      if (choice?.message) delete choice.message.reasoning_content;
+      if (choice?.message?.reasoning_content && choice.message.content) {
+        delete choice.message.reasoning_content;
+      }
     }
   }
 
@@ -205,7 +213,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   const totalLatency = Date.now() - requestStartTime;
   saveRequestDetail(buildRequestDetail({
-    provider, model, connectionId, apiKey, apiKeyName,
+    provider, model, connectionId,
     latency: { ttft: totalLatency, total: totalLatency },
     tokens: usage || { prompt_tokens: 0, completion_tokens: 0 },
     request: extractRequestConfig(body, stream),

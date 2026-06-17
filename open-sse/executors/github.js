@@ -7,6 +7,8 @@ import { openaiResponsesToOpenAIResponse } from "../translator/response/openai-r
 import { initState } from "../translator/index.js";
 import { parseSSELine, formatSSE } from "../utils/streamHelpers.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
+import { SSE_DONE } from "../utils/sseConstants.js";
 import crypto from "crypto";
 
 export class GithubExecutor extends BaseExecutor {
@@ -66,10 +68,7 @@ export class GithubExecutor extends BaseExecutor {
         }
         
         // Also prepend to the last user message as a reminder
-        let lastUserIdx = -1;
-        for (let i = body.messages.length - 1; i >= 0; i--) {
-          if (body.messages[i].role === 'user') { lastUserIdx = i; break; }
-        }
+        const lastUserIdx = body.messages.map((m, i) => m.role === 'user' ? i : -1).filter(i => i >= 0).pop();
         if (lastUserIdx >= 0) {
           const userMsg = body.messages[lastUserIdx];
           const userContent = typeof userMsg.content === 'string' ? userMsg.content : JSON.stringify(userMsg.content);
@@ -86,17 +85,15 @@ export class GithubExecutor extends BaseExecutor {
 
       // Array content: filter/convert unsupported part types
       if (Array.isArray(msg.content)) {
-        const cleanContent = msg.content.reduce((acc, part) => {
-            let p;
-            if (part.type === "text") p = part;
-            else if (part.type === "image_url") p = part;
-            else {
-              const text = part.text || part.content || JSON.stringify(part);
-              p = { type: "text", text: typeof text === "string" ? text : JSON.stringify(text) };
-            }
-            if (p.text !== "") acc.push(p);
-            return acc;
-          }, []);
+        const cleanContent = msg.content
+          .map(part => {
+            if (part.type === "text") return part;
+            if (part.type === "image_url") return part;
+            // Serialize tool_use, tool_result, thinking, etc. as text
+            const text = part.text || part.content || JSON.stringify(part);
+            return { type: "text", text: typeof text === "string" ? text : JSON.stringify(text) };
+          })
+          .filter(part => part.text !== ""); // remove empty text parts
 
         // If all content was stripped (e.g. only tool_result with no text), drop content
         return { ...msg, content: cleanContent.length > 0 ? cleanContent : null };
@@ -113,54 +110,18 @@ export class GithubExecutor extends BaseExecutor {
     return /gpt-5|o[134]-/i.test(model);
   }
 
-  // Some models (like gpt-5.4) don't support the temperature parameter
-  supportsTemperature(model) {
-    // gpt-5.4 and similar newer models don't support temperature
-    return !/gpt-5\.4/i.test(model);
-  }
-
-  // GitHub Copilot /chat/completions rejects Claude-style thinking payloads
-  // (OpenClaw sends thinking: { type: "enabled" } → upstream 400).
-  // GPT-5 family on Copilot DOES honor reasoning_effort, so only strip for Claude. (#713)
-  supportsThinking(model) {
-    return !/claude/i.test(model);
-  }
-
-  // reasoning_effort works for GPT-5 family AND Claude Opus 4.6 / Sonnet 4.6
-  // on GitHub Copilot. Only strip for models that don't support it:
-  // Claude Haiku 4.5, Claude Opus 4.7 (rejected upstream).
-  supportsReasoningEffort(model) {
-    const m = model.toLowerCase();
-    // Claude models that DO support reasoning_effort
-    if (/claude.*opus.*4\.6/i.test(m) || /claude.*sonnet.*4\.6/i.test(m)) return true;
-    // All other Claude models: strip
-    if (/claude/i.test(model)) return false;
-    // GPT-5 family, Gemini, etc.: keep
-    return true;
-  }
-
   transformRequest(model, body, stream, credentials) {
     const transformed = { ...body };
     if (this.requiresMaxCompletionTokens(model) && transformed.max_tokens !== undefined) {
       transformed.max_completion_tokens = transformed.max_tokens;
       delete transformed.max_tokens;
     }
-    // Strip temperature for models that don't support it
-    if (!this.supportsTemperature(model) && transformed.temperature !== undefined) {
-      delete transformed.temperature;
-    }
-    // Always strip Claude-style thinking payload (Copilot doesn't understand it)
-    if (!this.supportsThinking(model)) {
-      delete transformed.thinking;
-    }
     // "none" means no thinking — strip it so models that don't support "none" don't 400
     if (transformed.reasoning_effort === "none") {
       delete transformed.reasoning_effort;
     }
-    // Strip reasoning_effort only for models that reject it
-    if (!this.supportsReasoningEffort(model) && transformed.reasoning_effort !== undefined) {
-      delete transformed.reasoning_effort;
-    }
+    // Config-driven strip of params unsupported by this provider/model
+    stripUnsupportedParams("github", model, transformed);
     return transformed;
   }
 
@@ -249,7 +210,7 @@ export class GithubExecutor extends BaseExecutor {
           if (!parsed) continue;
 
           if (parsed.done && stream === true) {
-            controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+            controller.enqueue(new TextEncoder().encode(SSE_DONE));
             continue;
           }
 
@@ -381,3 +342,4 @@ export class GithubExecutor extends BaseExecutor {
   }
 }
 
+export default GithubExecutor;

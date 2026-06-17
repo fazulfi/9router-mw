@@ -1,15 +1,24 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useReducer } from "react";
+import { useState, useMemo, useEffect } from "react";
 import PropTypes from "prop-types";
 import Modal from "./Modal";
 import ProviderIcon from "./ProviderIcon";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
-import { computeGroupedModels } from "./modelSelectUtils";
+import CapacityBadges from "./CapacityBadges";
+import { useModelCaps } from "@/shared/hooks/useModelCaps";
+import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
+import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
 
-const EMPTY_ACTIVE_PROVIDERS = [];
-const EMPTY_MODEL_ALIASES = {};
-const EMPTY_ADDED_VALUES = [];
+// Provider order: OAuth first, then Free Tier, then API Key (matches dashboard/providers)
+const PROVIDER_ORDER = [
+  ...Object.keys(OAUTH_PROVIDERS),
+  ...Object.keys(FREE_PROVIDERS),
+  ...Object.keys(FREE_TIER_PROVIDERS),
+  ...Object.keys(APIKEY_PROVIDERS),
+];
+
+// Providers that need no auth — always show in model selector
+const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter(id => FREE_PROVIDERS[id].noAuth);
 
 export default function ModelSelectModal({
   isOpen,
@@ -17,13 +26,12 @@ export default function ModelSelectModal({
   onSelect,
   onDeselect,
   selectedModel,
-  activeProviders = EMPTY_ACTIVE_PROVIDERS,
+  activeProviders = [],
   title = "Select Model",
-  modelAliases = EMPTY_MODEL_ALIASES,
+  modelAliases = {},
   kindFilter = null,
-  addedModelValues = EMPTY_ADDED_VALUES,
+  addedModelValues = [],
   closeOnSelect = true,
-  onBack = null,
 }) {
   // Filter activeProviders by serviceKinds when kindFilter set (e.g. "webSearch", "webFetch")
   const filteredActiveProviders = useMemo(() => {
@@ -34,31 +42,27 @@ export default function ModelSelectModal({
       return kinds.includes(kindFilter);
     });
   }, [activeProviders, kindFilter]);
+  const { getCaps } = useModelCaps();
   const [searchQuery, setSearchQuery] = useState("");
-  const [fetchedData, dispatchFetch] = useReducer(
-    (state, action) => ({ ...state, [action.key]: action.value }),
-    { combos: [], providerNodes: [], customModels: [], disabledModels: {} }
-  );
-  const { combos, providerNodes, customModels, disabledModels } = fetchedData;
+  const [combos, setCombos] = useState([]);
+  const [providerNodes, setProviderNodes] = useState([]);
+  const [customModels, setCustomModels] = useState([]);
+  const [disabledModels, setDisabledModels] = useState({});
 
   const fetchCombos = async () => {
     try {
       const res = await fetch("/api/combos");
       if (!res.ok) throw new Error(`Failed to fetch combos: ${res.status}`);
       const data = await res.json();
-      dispatchFetch({ key: "combos", value: data.combos || [] });
+      setCombos(data.combos || []);
     } catch (error) {
       console.error("Error fetching combos:", error);
-      dispatchFetch({ key: "combos", value: [] });
+      setCombos([]);
     }
   };
 
   useEffect(() => {
-    if (!isOpen) return;
-    fetchCombos();
-    fetchProviderNodes();
-    fetchCustomModels();
-    fetchDisabledModels();
+    if (isOpen) fetchCombos();
   }, [isOpen]);
 
   const fetchProviderNodes = async () => {
@@ -66,41 +70,255 @@ export default function ModelSelectModal({
       const res = await fetch("/api/provider-nodes");
       if (!res.ok) throw new Error(`Failed to fetch provider nodes: ${res.status}`);
       const data = await res.json();
-      dispatchFetch({ key: "providerNodes", value: data.nodes || [] });
+      setProviderNodes(data.nodes || []);
     } catch (error) {
       console.error("Error fetching provider nodes:", error);
-      dispatchFetch({ key: "providerNodes", value: [] });
+      setProviderNodes([]);
     }
   };
+
+  useEffect(() => {
+    if (isOpen) fetchProviderNodes();
+  }, [isOpen]);
 
   const fetchCustomModels = async () => {
     try {
       const res = await fetch("/api/models/custom");
       if (!res.ok) throw new Error(`Failed to fetch custom models: ${res.status}`);
       const data = await res.json();
-      dispatchFetch({ key: "customModels", value: data.models || [] });
+      setCustomModels(data.models || []);
     } catch (error) {
       console.error("Error fetching custom models:", error);
-      dispatchFetch({ key: "customModels", value: [] });
+      setCustomModels([]);
     }
   };
+
+  useEffect(() => {
+    if (isOpen) fetchCustomModels();
+  }, [isOpen]);
 
   const fetchDisabledModels = async () => {
     try {
       const res = await fetch("/api/models/disabled");
       if (!res.ok) throw new Error(`Failed to fetch disabled models: ${res.status}`);
       const data = await res.json();
-      dispatchFetch({ key: "disabledModels", value: data.disabled || {} });
+      setDisabledModels(data.disabled || {});
     } catch (error) {
       console.error("Error fetching disabled models:", error);
-      dispatchFetch({ key: "disabledModels", value: {} });
+      setDisabledModels({});
     }
   };
+
+  useEffect(() => {
+    if (isOpen) fetchDisabledModels();
+  }, [isOpen]);
 
   const allProviders = useMemo(() => ({ ...OAUTH_PROVIDERS, ...FREE_PROVIDERS, ...FREE_TIER_PROVIDERS, ...APIKEY_PROVIDERS }), []);
 
   // Group models by provider with priority order
-  const groupedModels = useMemo(() => computeGroupedModels({ filteredActiveProviders, activeProviders, kindFilter, providerNodes, customModels, disabledModels, modelAliases, allProviders }), [filteredActiveProviders, activeProviders, kindFilter, providerNodes, customModels, disabledModels, modelAliases, allProviders]);
+  const groupedModels = useMemo(() => {
+    const groups = {};
+
+    // Kinds where the provider IS the model (no per-model selection needed)
+    const PROVIDER_AS_MODEL_KINDS = new Set(["webSearch", "webFetch"]);
+    // Kinds that map directly to model.type field
+    const TYPED_KINDS = new Set(["image", "tts", "stt", "embedding", "imageToText"]);
+    // For these kinds, providers without hardcoded models can still be picked (provider-as-model fallback)
+    const ALLOW_PROVIDER_FALLBACK_KINDS = new Set(["tts", "image", "webFetch"]);
+
+    // Filter a models[] array by kindFilter (keep only matching kind)
+    const filterByKind = (models) => {
+      if (!kindFilter) return models.filter((m) => m.isPlaceholder || !getModelKind(m) || getModelKind(m) === "llm");
+      if (!TYPED_KINDS.has(kindFilter)) return models;
+      return models.filter((m) => m.isPlaceholder || getModelKind(m) === kindFilter);
+    };
+
+    // Get all active provider IDs from connections (filtered by kindFilter if set)
+    const activeConnectionIds = filteredActiveProviders.map(p => p.provider);
+
+    // No-auth providers: filter by kindFilter as well
+    const noAuthIds = kindFilter
+      ? NO_AUTH_PROVIDER_IDS.filter((id) => (AI_PROVIDERS[id]?.serviceKinds || ["llm"]).includes(kindFilter))
+      : NO_AUTH_PROVIDER_IDS;
+
+    // Only show connected providers (including both standard and custom)
+    const providerIdsToShow = new Set([
+      ...activeConnectionIds,  // Only connected providers
+      ...noAuthIds,            // No-auth providers (kind-filtered)
+    ]);
+
+    // Sort by PROVIDER_ORDER
+    const sortedProviderIds = [...providerIdsToShow].sort((a, b) => {
+      const indexA = PROVIDER_ORDER.indexOf(a);
+      const indexB = PROVIDER_ORDER.indexOf(b);
+      return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+    });
+
+    sortedProviderIds.forEach((providerId) => {
+      const alias = getProviderAlias(providerId);
+      const providerInfo = allProviders[providerId] || { name: providerId, color: "#666" };
+      const isCustomProvider = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
+
+      // For provider-as-model kinds (webSearch/webFetch): emit a single entry where value === providerId
+      if (kindFilter && PROVIDER_AS_MODEL_KINDS.has(kindFilter)) {
+        groups[providerId] = {
+          name: providerInfo.name,
+          alias,
+          color: providerInfo.color,
+          models: [{ id: providerId, name: providerInfo.name, value: providerId }],
+        };
+        return;
+      }
+
+      if (providerInfo.passthroughModels) {
+        const aliasModels = Object.entries(modelAliases)
+          .filter(([, fullModel]) => fullModel.startsWith(`${alias}/`))
+          .map(([aliasName, fullModel]) => ({
+            id: fullModel.replace(`${alias}/`, ""),
+            name: aliasName,
+            value: fullModel,
+          }));
+
+        // For typed kinds, only include hardcoded typed models (aliases are typically LLM-only and lack type info)
+        let combined = aliasModels;
+        if (kindFilter && TYPED_KINDS.has(kindFilter)) {
+          combined = getModelsByProviderId(providerId)
+            .filter((m) => getModelKind(m) === kindFilter)
+            .map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) }));
+          // Fallback: provider-as-model when no hardcoded models match (tts/image/webFetch only)
+          if (combined.length === 0 && ALLOW_PROVIDER_FALLBACK_KINDS.has(kindFilter)) {
+            const supports = (providerInfo.serviceKinds || ["llm"]).includes(kindFilter);
+            if (supports) combined = [{ id: providerId, name: providerInfo.name, value: alias }];
+          }
+        } else {
+          // LLM/null kind: merge hardcoded models (e.g. mimo-free → mimo-auto) with aliases
+          const seen = new Set(aliasModels.map((m) => m.value));
+          const hardcoded = getModelsByProviderId(providerId)
+            .filter((m) => !getModelKind(m) || getModelKind(m) === "llm")
+            .map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) }))
+            .filter((m) => !seen.has(m.value));
+          combined = [...aliasModels, ...hardcoded];
+        }
+
+        if (combined.length > 0) {
+          // Check for custom name from providerNodes (for compatible providers)
+          const matchedNode = providerNodes.find(node => node.id === providerId);
+          const displayName = matchedNode?.name || providerInfo.name;
+
+          groups[providerId] = {
+            name: displayName,
+            alias: alias,
+            color: providerInfo.color,
+            models: combined,
+          };
+        }
+      } else if (isCustomProvider) {
+        // Custom (openai/anthropic-compatible) providers are LLM-only — skip for typed media kinds
+        if (kindFilter && TYPED_KINDS.has(kindFilter)) return;
+        // Find connection object to get prefix synchronously without waiting for providerNodes fetch
+        const connection = activeProviders.find(p => p.provider === providerId);
+        const matchedNode = providerNodes.find(node => node.id === providerId);
+        const displayName = matchedNode?.name || connection?.name || providerInfo.name;
+        const nodePrefix = connection?.providerSpecificData?.prefix || matchedNode?.prefix || providerId;
+
+        // Aliases are stored using the raw providerId as key (e.g. "openai-compatible-chat-<uuid>/glm-4.7"),
+        // so we must filter by providerId, not by the display prefix.
+        const nodeModels = Object.entries(modelAliases)
+          .filter(([, fullModel]) => fullModel.startsWith(`${providerId}/`))
+          .map(([aliasName, fullModel]) => ({
+            id: fullModel.replace(`${providerId}/`, ""),
+            name: aliasName,
+            value: `${nodePrefix}/${fullModel.replace(`${providerId}/`, "")}`,
+          }));
+
+        // Always show compatible providers that are connected, even with no aliases.
+        // When no aliases exist, show a placeholder so users know it's available.
+        const modelsToShow = nodeModels.length > 0 ? nodeModels : [{
+          id: `__placeholder__${providerId}`,
+          name: `${nodePrefix}/model-id`,
+          value: `${nodePrefix}/model-id`,
+          isPlaceholder: true,
+        }];
+
+        groups[providerId] = {
+          name: displayName,
+          alias: nodePrefix,
+          color: providerInfo.color,
+          models: modelsToShow,
+          isCustom: true,
+          hasModels: nodeModels.length > 0,
+        };
+      } else {
+        const hardcodedModels = getModelsByProviderId(providerId);
+        const hardcodedIds = new Set(hardcodedModels.map((m) => m.id));
+
+        // Custom models: if no hardcoded models (e.g. openrouter), show all aliases for this provider
+        // Otherwise only show aliases where aliasName === modelId ("Add Model" button pattern)
+        const hasHardcoded = hardcodedModels.length > 0;
+        const customAliasModels = Object.entries(modelAliases)
+          .filter(([aliasName, fullModel]) =>
+            fullModel.startsWith(`${alias}/`) &&
+            (hasHardcoded ? aliasName === fullModel.replace(`${alias}/`, "") : true) &&
+            !hardcodedIds.has(fullModel.replace(`${alias}/`, ""))
+          )
+          .map(([aliasName, fullModel]) => {
+            const modelId = fullModel.replace(`${alias}/`, "");
+            return { id: modelId, name: aliasName, value: fullModel, isCustom: true };
+          });
+
+        // Custom models registered via /api/models/custom (provider "Add Model" button)
+        const customAliasIds = new Set(customAliasModels.map((m) => m.id));
+        const customRegisteredModels = customModels
+          .filter((m) => m.providerAlias === alias && !hardcodedIds.has(m.id) && !customAliasIds.has(m.id))
+          .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, isCustom: true }));
+
+        const merged = [
+          ...hardcodedModels.map((m) => ({ id: m.id, name: m.name, value: `${alias}/${m.id}`, kind: getModelKind(m) })),
+          ...customAliasModels,
+          ...customRegisteredModels,
+        ];
+        // Dedupe by value (alias may equal hardcoded id, causing React key collision)
+        const seen = new Set();
+        let allModels = filterByKind(merged.filter((m) => {
+          if (seen.has(m.value)) return false;
+          seen.add(m.value);
+          return true;
+        }));
+
+        // Provider-as-model fallback: providers that support the kind but have no hardcoded models
+        // can still be picked (value = providerAlias). Skips embedding (always needs model).
+        if (allModels.length === 0 && kindFilter && ALLOW_PROVIDER_FALLBACK_KINDS.has(kindFilter)) {
+          const supports = (providerInfo.serviceKinds || ["llm"]).includes(kindFilter);
+          if (supports) {
+            allModels = [{ id: providerId, name: providerInfo.name, value: alias }];
+          }
+        }
+
+        if (allModels.length > 0) {
+          groups[providerId] = {
+            name: providerInfo.name,
+            alias: alias,
+            color: providerInfo.color,
+            models: allModels,
+          };
+        }
+      }
+    });
+
+    // Filter out disabled models per provider (disabled keyed by storage alias OR providerId)
+    Object.entries(groups).forEach(([providerId, group]) => {
+      const aliasKey = getProviderAlias(providerId);
+      const disabledIds = new Set([
+        ...(disabledModels[aliasKey] || []),
+        ...(disabledModels[providerId] || []),
+      ]);
+      if (disabledIds.size === 0) return;
+      group.models = group.models.filter((m) => !disabledIds.has(m.id));
+      if (group.models.length === 0) delete groups[providerId];
+    });
+
+    return groups;
+  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders]);
 
   // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
   const filteredCombos = useMemo(() => {
@@ -111,11 +329,11 @@ export default function ModelSelectModal({
   }, [combos, searchQuery, kindFilter]);
 
   // Sort models alphabetically, with added models floated to top
-  const sortModels = useCallback((models) => {
+  const sortModels = (models) => {
     const added = models.filter(m => addedModelValues.includes(m.value)).sort((a, b) => a.name.localeCompare(b.name));
     const rest = models.filter(m => !addedModelValues.includes(m.value)).sort((a, b) => a.name.localeCompare(b.name));
     return [...added, ...rest];
-  }, [addedModelValues]);
+  };
 
   // Filter models by search query
   const filteredGroups = useMemo(() => {
@@ -140,7 +358,7 @@ export default function ModelSelectModal({
     });
 
     return filtered;
-  }, [groupedModels, searchQuery, sortModels]);
+  }, [groupedModels, searchQuery, addedModelValues]);
 
   const handleSelect = (model) => {
     const value = model?.value || model?.name || model;
@@ -168,16 +386,7 @@ export default function ModelSelectModal({
       title={title}
       size="md"
       className="p-4!"
-      footer={onBack ? (
-        <button
-          type="button"
-          onClick={() => { onBack(); setSearchQuery(""); }}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-text-muted hover:text-primary transition-colors"
-        >
-          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-          Back
-        </button>
-      ) : null}
+      footer={null}
     >
       {/* Info bar */}
       <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-primary/8 border border-primary/20 rounded-lg text-xs text-text-muted">
@@ -196,7 +405,6 @@ export default function ModelSelectModal({
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search models"
             className="w-full pl-8 pr-3 py-1.5 bg-surface border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
         </div>
@@ -216,7 +424,7 @@ export default function ModelSelectModal({
               {filteredCombos.map((combo) => {
                 const isSelected = selectedModel === combo.name;
                 return (
-                  <button type="button"
+                  <button
                     key={combo.id}
                     onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
                     className={`
@@ -230,7 +438,7 @@ export default function ModelSelectModal({
                     `}
                   >
                     {addedModelValues.includes(combo.name) && (
-                      <span className="material-symbols-outlined leading-none" style={{ fontSize: "12px" }}>check</span>
+                      <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
                     )}
                     {combo.name}
                   </button>
@@ -265,7 +473,7 @@ export default function ModelSelectModal({
                 const isSelected = selectedModel === model.value;
                 const isPlaceholder = model.isPlaceholder;
                 return (
-                  <button type="button"
+                  <button
                     key={model.value}
                     onClick={() => handleSelect(model)}
                     title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
@@ -283,7 +491,7 @@ export default function ModelSelectModal({
                   >
                     <span className="flex items-center gap-1">
                       {addedModelValues.includes(model.value) && !isPlaceholder && (
-                        <span className="material-symbols-outlined leading-none" style={{ fontSize: "12px" }}>check</span>
+                        <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
                       )}
                       {isPlaceholder ? (
                         <>
@@ -294,9 +502,13 @@ export default function ModelSelectModal({
                         <>
                           {model.name}
                           <span className="text-[9px] opacity-60 font-normal">custom</span>
+                          <CapacityBadges caps={getCaps(model.value)} />
                         </>
                       ) : (
-                        model.name
+                        <>
+                          {model.name}
+                          <CapacityBadges caps={getCaps(model.value)} />
+                        </>
                       )}
                     </span>
                   </button>
@@ -335,6 +547,5 @@ ModelSelectModal.propTypes = {
   kindFilter: PropTypes.string,
   addedModelValues: PropTypes.arrayOf(PropTypes.string),
   closeOnSelect: PropTypes.bool,
-  onBack: PropTypes.func,
 };
 

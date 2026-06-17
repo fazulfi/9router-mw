@@ -1,7 +1,8 @@
 // Black Forest Labs (FLUX) — async submit + polling_url
 import { sleep, nowSec, POLL_INTERVAL_MS, POLL_TIMEOUT_MS } from "./_base.js";
+import { PROVIDER_MEDIA } from "../../providers/index.js";
 
-const BASE_URL = "https://api.bfl.ai/v1";
+const BASE_URL = PROVIDER_MEDIA["black-forest-labs"]?.imageConfig?.baseUrl;
 
 export default {
   async: true,
@@ -25,19 +26,15 @@ export default {
     const pollingUrl = data.polling_url;
     if (!pollingUrl) throw new Error("BFL: no polling_url returned");
     const deadline = Date.now() + POLL_TIMEOUT_MS;
-
-    async function poll() {
+    while (Date.now() < deadline) {
       await sleep(POLL_INTERVAL_MS);
       const r = await fetch(pollingUrl, { headers: { "x-key": headers["x-key"], "Accept": "application/json" } });
       if (!r.ok) throw new Error(`BFL status ${r.status}`);
       const s = await r.json();
       if (s.status === "Ready") return s;
       if (s.status === "Error" || s.status === "Failed") throw new Error(s.error || "BFL generation failed");
-      if (Date.now() >= deadline) throw new Error("BFL polling timeout");
-      return poll();
     }
-
-    return poll();
+    throw new Error("BFL polling timeout");
   },
   normalize: (responseBody) => {
     const sample = responseBody.result?.sample;

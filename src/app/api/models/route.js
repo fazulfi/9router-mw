@@ -3,6 +3,7 @@ import { getModelAliases, setModelAlias } from "@/models";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { AI_MODELS } from "@/shared/constants/config";
 import { getProviderAlias } from "@/shared/constants/providers";
+import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 
 // GET /api/models - Get models with aliases
 export async function GET() {
@@ -10,18 +11,22 @@ export async function GET() {
     const modelAliases = await getModelAliases();
     const disabled = await getDisabledModels();
 
-    const models = AI_MODELS.reduce((acc, m) => {
+    const models = AI_MODELS
+      .filter((m) => {
         const alias = getProviderAlias(m.provider) || m.provider;
         const list = disabled[alias] || disabled[m.provider] || [];
-        if (list.includes(m.model)) return acc;
+        return !list.includes(m.model);
+      })
+      .map((m) => {
         const fullModel = `${m.provider}/${m.model}`;
-        acc.push({
+        const c = getCapabilitiesForModel(m.provider, m.model);
+        return {
           ...m,
           fullModel,
           alias: modelAliases[fullModel] || m.model,
-        });
-        return acc;
-      }, []);
+          caps: { vision: c.vision, search: c.search, reasoning: c.reasoning },
+        };
+      });
 
     return NextResponse.json({ models });
   } catch (error) {

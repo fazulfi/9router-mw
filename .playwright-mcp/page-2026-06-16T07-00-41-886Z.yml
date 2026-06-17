@@ -1,0 +1,45 @@
+- generic [ref=e2]:
+  - generic [ref=e220]:
+    - generic [ref=e222]:
+      - img "logo" [ref=e225]
+      - generic [ref=e226]:
+        - generic [ref=e227]: Welcome to Z.ai
+        - generic [ref=e228]: Unlock all features by logging in
+      - generic [ref=e229]:
+        - button "Continue with Google" [ref=e230] [cursor=pointer]:
+          - generic [ref=e231]:
+            - img [ref=e232]
+            - generic [ref=e238]:
+              - generic [ref=e239]: Continue
+              - generic [ref=e240]: with
+              - generic [ref=e241]: Google
+        - generic [ref=e242]:
+          - separator [ref=e243]
+          - generic [ref=e244]: or
+          - separator [ref=e245]
+        - button "Continue with Email" [ref=e246] [cursor=pointer]:
+          - generic [ref=e247]:
+            - img [ref=e248]
+            - generic [ref=e250]:
+              - generic [ref=e251]: Continue
+              - generic [ref=e252]: with
+              - generic [ref=e253]: Email
+        - button "Continue with Github" [ref=e254] [cursor=pointer]:
+          - generic [ref=e255]:
+            - img [ref=e256]
+            - generic [ref=e258]:
+              - generic [ref=e259]: Continue
+              - generic [ref=e260]: with
+              - generic [ref=e261]: Github
+        - button "Skip for now" [ref=e262] [cursor=pointer]
+    - generic [ref=e263]:
+      - text: By logging in, you agree to our
+      - link "Terms of Service" [ref=e264] [cursor=pointer]:
+        - /url: https://chat.z.ai/legal-agreement/terms-of-service
+      - text: and
+      - link "Privacy Policy" [ref=e265] [cursor=pointer]:
+        - /url: https://chat.z.ai/legal-agreement/privacy-policy
+    - generic [ref=e266]:
+      - generic [ref=e267]: copyright © 2026
+      - generic [ref=e268]: Powered by Open WebUI
+  - region "Notifications alt+T"
