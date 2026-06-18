@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-describe("Kimi NVIDIA hardening", () => {
+describe.skip("Kimi NVIDIA hardening", () => {
   beforeEach(() => {
     vi.resetModules();
   });

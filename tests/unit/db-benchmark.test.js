@@ -1,5 +1,6 @@
 // Benchmark: SQLite vs lowdb on equivalent workloads.
 // Run: cd app/tests && npm test -- db-benchmark
+// SKIP: lowdb removed from dependencies (migrated to SQLite).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -49,7 +50,7 @@ afterAll(() => {
   else process.env.DATA_DIR = originalDataDir;
 });
 
-describe("DB Benchmark — SQLite vs Lowdb", () => {
+describe.skip("DB Benchmark — SQLite vs Lowdb", () => {
   it(`INSERT ${N_ITEMS} provider connections`, async () => {
     console.log(`\n[INSERT ${N_ITEMS}]`);
 

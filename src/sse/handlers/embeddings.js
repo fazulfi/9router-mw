@@ -90,13 +90,23 @@ export async function handleEmbeddings(request) {
     return errorResponse(HTTP_STATUS.FORBIDDEN, `Provider "${provider}" is not allowed for this API key`);
   }
 
+  // Normalize model name: handle double-prefix (e.g. "nvidia/nvidia/nv-embedqa-e5-v5" → also try "nvidia/nv-embedqa-e5-v5")
   const resolvedModelStr = `${provider}/${model}`;
-  const isAllowed = (modelStr === resolvedModelStr)
-    ? await isModelAllowed(resolvedModelStr, apiKeyInfo)
-    : (await isModelAllowed(modelStr, apiKeyInfo) || await isModelAllowed(resolvedModelStr, apiKeyInfo));
+  const candidates = [resolvedModelStr];
+  if (model.startsWith(`${provider}/`)) {
+    // User sent "provider/provider/model" — the listed form is "provider/model"
+    candidates.push(`${provider}/${model.slice(provider.length + 1)}`);
+  }
+  if (modelStr !== resolvedModelStr && !candidates.includes(modelStr)) {
+    candidates.push(modelStr);
+  }
+  let isAllowed = false;
+  for (const c of candidates) {
+    if (await isModelAllowed(c, apiKeyInfo)) { isAllowed = true; break; }
+  }
   if (!isAllowed) {
-    log.warn("EMBEDDINGS", `Model not in available models list`, { model: resolvedModelStr });
-    return errorResponse(HTTP_STATUS.NOT_FOUND, `Model "${resolvedModelStr}" is not available. Only models listed in /v1/models can be used.`);
+    log.warn("EMBEDDINGS", `Model not in available models list`, { model: resolvedModelStr, candidates });
+    return errorResponse(HTTP_STATUS.NOT_FOUND, `Model "${candidates[candidates.length - 1]}" is not available. Only models listed in /v1/models can be used.`);
   }
 
   if (modelStr !== `${provider}/${model}`) {

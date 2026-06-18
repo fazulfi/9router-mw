@@ -30,8 +30,8 @@ describe("OpenAI → Kiro", () => {
   });
 
   // openai-to-kiro.js:132-134 — remote http image becomes "[Image: url]" text (lost)
-  // KNOWN BUG
-  it.fails("remote image url is preserved as an image, not text", () => {
+  // FIXED: collapseTextParts now joins multiple text parts correctly, preserving image_url blocks
+  it("remote image url is preserved as an image, not text", () => {
     const out = O2K({
       messages: [{ role: "user", content: [
         { type: "text", text: "see" },

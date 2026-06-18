@@ -2,6 +2,22 @@
 
 > **Universal API proxy**: One OpenAI-compatible endpoint → 100+ AI providers (LLM, image, TTS, STT, embedding, search). Next.js 16 + standalone output + PM2.
 
+## Behavioral Rules (MANDATORY)
+
+These rules override all other instructions. Every AI agent working on this codebase MUST follow them:
+
+1. **No assumptions without evidence.** Never claim something is "fixed", "working", or "correct" unless you have concrete proof — test output, diff comparison, or reproducible verification. "It should work" is not evidence.
+
+2. **Be skeptical of your own results.** If a test passes, verify it tests what you think it tests. If a fix appears to work, check for side effects. If you're about to report success, ask yourself: "Could I be wrong? What would prove me wrong?"
+
+3. **Never fabricate reports.** Do not claim "all tests pass" without running them. Do not claim "no regressions" without comparing before/after. Do not suppress or hide failures to make a fix look complete.
+
+4. **Distinguish "pre-existing" from "caused by my changes" with proof.** Run the same tests on the code BEFORE your changes and AFTER, then diff the results. Do not label failures as "pre-existing" based on assumptions about what your code touches.
+
+5. **Report honestly.** If something is broken and you can't fix it, say so. If a test is skipped, explain why. If a fix has caveats, state them. Never suppress issues to present a clean picture.
+
+6. **Verify before declaring done.** Run the relevant tests AFTER your changes. Show the actual output. If tests fail, investigate before moving on.
+
 ## Quick Start
 
 ```bash

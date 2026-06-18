@@ -76,7 +76,7 @@ export const ERROR_RULES = [
 ];
 
 // Backward compat: COOLDOWN_MS object (used by index.js re-export)
-const COOLDOWN_MS = {
+export const COOLDOWN_MS = {
   unauthorized: COOLDOWN.long,
   paymentRequired: COOLDOWN.long,
   notFound: COOLDOWN.long,

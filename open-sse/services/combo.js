@@ -7,6 +7,12 @@ import { unavailableResponse } from "../utils/error.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
 
+// Strip "combo/" prefix from model string (e.g. "combo/coding-stack" → "coding-stack")
+export function stripComboPrefix(modelStr) {
+  if (typeof modelStr !== "string") return modelStr;
+  return modelStr.startsWith("combo/") ? modelStr.slice(6) : modelStr;
+}
+
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
 // stripped). Must be prioritized. Soft (e.g. search) only degrades a feature.
 const HARD_CAPS = new Set(["vision", "pdf", "audioInput", "videoInput"]);
@@ -28,8 +34,10 @@ export function reorderByCapabilities(models, required) {
   };
 
   // Stable sort by tier (Array.prototype.sort is stable in modern engines).
-  return models
-    .map((m, i) => ({ m, i, t: tierOf(m) }))
+  const tiered = models.map((m, i) => ({ m, i, t: tierOf(m) }));
+  // If no model matches any hard capability, return original reference (no reorder needed).
+  if (tiered.every((x) => x.t === 2)) return models;
+  return tiered
     .sort((a, b) => a.t - b.t || a.i - b.i)
     .map((x) => x.m);
 }
@@ -80,7 +88,12 @@ export function detectRequiredCapabilities(body) {
   const contents = body.contents || body.request?.contents;                      // gemini / antigravity
   for (const c of trailingUserItems(contents)) scanContent(c.parts);
 
-  // search: temporarily disabled in auto-switch (feature not wired yet).
+  // search: detect web_search tool in tools array
+  if (Array.isArray(body.tools)) {
+    for (const tool of body.tools) {
+      if (tool?.type === "web_search") { required.add("search"); break; }
+    }
+  }
 
   return required;
 }

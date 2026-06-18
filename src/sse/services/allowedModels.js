@@ -22,6 +22,7 @@ const MODEL_TYPE_TO_KIND = {
 };
 
 function modelKind(model) {
+  if (model?.kind) return model.kind;
   if (!model?.type) return LLM_KIND;
   return MODEL_TYPE_TO_KIND[model.type] || LLM_KIND;
 }

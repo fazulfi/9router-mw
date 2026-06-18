@@ -9,6 +9,9 @@ import { getProviderConnections, getCombos, getCustomModels, getModelAliases } f
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveQoderModels } from "open-sse/services/qoderModels.js";
+import { isValidApiKey, extractApiKey, isProviderAllowed, isComboAllowed } from "@/sse/services/auth.js";
+import { getSettings } from "@/lib/localDb";
+import { stripComboPrefix } from "open-sse/services/combo.js";
 
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
@@ -410,9 +413,46 @@ export async function OPTIONS() {
  * GET /v1/models - OpenAI compatible models list (LLM/chat models only by default).
  * For other capabilities use /v1/models/{kind} (image, tts, stt, embedding, image-to-text, web).
  */
-export async function GET() {
+export async function GET(request) {
   try {
-    const data = await buildModelsList([LLM_KIND]);
+    // ACL: validate API key and filter models by permissions
+    const settings = await getSettings();
+    let apiKeyInfo = null;
+    if (settings.requireApiKey) {
+      const apiKey = extractApiKey(request);
+      if (!apiKey) {
+        return Response.json(
+          { error: { message: "Missing API key", type: "authentication_error" } },
+          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+      apiKeyInfo = await isValidApiKey(apiKey);
+      if (!apiKeyInfo) {
+        return Response.json(
+          { error: { message: "Invalid API key", type: "authentication_error" } },
+          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+    }
+
+    let data = await buildModelsList([LLM_KIND]);
+
+    // ACL: filter models by provider/combo permissions
+    if (apiKeyInfo) {
+      const allowedChecks = await Promise.all(
+        data.map(async (model) => {
+          const isCombo = model.owned_by === "combo";
+          if (isCombo) {
+            const comboName = stripComboPrefix(model.id);
+            return isComboAllowed(apiKeyInfo, comboName);
+          }
+          const providerAlias = model.id.includes("/") ? model.id.split("/")[0] : model.owned_by;
+          return await isProviderAllowed(apiKeyInfo, providerAlias);
+        })
+      );
+      data = data.filter((_, i) => allowedChecks[i]);
+    }
+
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });

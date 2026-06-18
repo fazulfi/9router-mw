@@ -10,7 +10,7 @@ const providerRuleFor = (provider) => PROVIDERS[provider]?.reasoningInject;
 
 // Model-level rules: matched by predicate against model id
 const MODEL_RULES = [
-  { match: m => /^kimi-/i.test(m || ""), scope: "toolCalls" },
+  { match: m => /(?:^|\/)kimi-/i.test(m || ""), scope: "toolCalls" },
   { match: m => /deepseek/i.test(m || ""), scope: "all" }
 ];
 
