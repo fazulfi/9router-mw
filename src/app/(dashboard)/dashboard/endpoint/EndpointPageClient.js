@@ -34,6 +34,7 @@ export default function APIPageClient({ machineId }) {
   const [confirmState, setConfirmState] = useState(null);
 
   const [requireApiKey, setRequireApiKey] = useState(false);
+  const [allowRemoteNoApiKey, setAllowRemoteNoApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
   const [hasPassword, setHasPassword] = useState(true);
   const [tunnelDashboardAccess, setTunnelDashboardAccess] = useState(false);
@@ -240,6 +241,7 @@ export default function APIPageClient({ machineId }) {
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         setRequireApiKey(data.requireApiKey || false);
+        setAllowRemoteNoApiKey(data.allowRemoteNoApiKey || false);
         setRequireLogin(data.requireLogin !== false);
         setHasPassword(data.hasPassword || false);
         setTunnelDashboardAccess(data.tunnelDashboardAccess || false);
@@ -294,6 +296,19 @@ export default function APIPageClient({ machineId }) {
       if (res.ok) setRequireApiKey(value);
     } catch (error) {
       console.log("Error updating requireApiKey:", error);
+    }
+  };
+
+  const handleAllowRemoteNoApiKey = async (value) => {
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowRemoteNoApiKey: value }),
+      });
+      if (res.ok) setAllowRemoteNoApiKey(value);
+    } catch (error) {
+      console.log("Error updating allowRemoteNoApiKey:", error);
     }
   };
 
@@ -1245,6 +1260,28 @@ export default function APIPageClient({ machineId }) {
             onChange={() => handleRequireApiKey(!requireApiKey)}
           />
         </div>
+
+        {!requireApiKey && (
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
+            <div>
+              <p className="font-medium">Allow remote access without API key</p>
+              <p className="text-sm text-text-muted">
+                When enabled, requests from outside loopback (LAN, tunnel, internet)
+                are accepted with or without an API key. Use only on trusted networks.
+              </p>
+            </div>
+            <Toggle
+              checked={allowRemoteNoApiKey}
+              onChange={() => handleAllowRemoteNoApiKey(!allowRemoteNoApiKey)}
+            />
+          </div>
+        )}
+
+        {!requireApiKey && allowRemoteNoApiKey && (
+          <div className="mb-4 -mt-2">
+            <SecurityWarning message="Remote access without an API key is enabled — anyone who can reach this endpoint can use your providers." />
+          </div>
+        )}
 
         {isRemoteHost && !requireApiKey && (
           <div className="mb-4 -mt-2">

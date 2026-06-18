@@ -235,6 +235,94 @@ describe("dashboard guard local-only access", () => {
   });
 });
 
+describe("dashboard guard allowRemoteNoApiKey (open remote access)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.validateApiKey.mockResolvedValue(false);
+    mocks.getConsistentMachineId.mockResolvedValue("cli-token");
+    mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+  });
+
+  it("allows remote keyless access when requireApiKey=false and allowRemoteNoApiKey=true", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, requireApiKey: false, allowRemoteNoApiKey: true });
+
+    const response = await proxy(request("/v1/chat/completions", { host: "router.example.com" }));
+
+    expect(response).toBe(mocks.nextResponse);
+    expect(mocks.validateApiKey).not.toHaveBeenCalled();
+  });
+
+  it("allows remote keyless access on rewritten /api/v1 path too", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, requireApiKey: false, allowRemoteNoApiKey: true });
+
+    const response = await proxy(request("/api/v1/chat/completions", { host: "router.example.com" }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  it("allows remote keyless access when requireApiKey is unset (undefined) and allowRemoteNoApiKey=true", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, allowRemoteNoApiKey: true });
+
+    const response = await proxy(request("/v1beta/models", { host: "router.example.com" }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  it("rejects remote keyless access when allowRemoteNoApiKey=false", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, requireApiKey: false, allowRemoteNoApiKey: false });
+
+    const response = await proxy(request("/v1/chat/completions", { host: "router.example.com" }));
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("API key required for remote API access");
+  });
+
+  it("rejects remote keyless access when allowRemoteNoApiKey is unset", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, requireApiKey: false });
+
+    const response = await proxy(request("/v1/chat/completions", { host: "router.example.com" }));
+
+    expect(response.status).toBe(401);
+  });
+
+  it("does NOT bypass when requireApiKey=true even if allowRemoteNoApiKey=true (no contradiction)", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, requireApiKey: true, allowRemoteNoApiKey: true });
+
+    const response = await proxy(request("/v1/chat/completions", { host: "router.example.com" }));
+
+    expect(response.status).toBe(401);
+  });
+
+  it("still allows remote access with a valid API key while open access is enabled", async () => {
+    mocks.validateApiKey.mockResolvedValue(true);
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, requireApiKey: false, allowRemoteNoApiKey: true });
+
+    const response = await proxy(request("/v1/chat/completions", {
+      host: "router.example.com",
+      authorization: "Bearer sk-valid",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  it("rejects remote keyless access when settings cannot be loaded (fail-closed)", async () => {
+    mocks.getSettings.mockRejectedValue(new Error("db down"));
+
+    const response = await proxy(request("/v1/chat/completions", { host: "router.example.com" }));
+
+    expect(response.status).toBe(401);
+  });
+
+  it("loopback access is unaffected and never consults open-access setting", async () => {
+    mocks.getSettings.mockResolvedValue({ requireLogin: true, requireApiKey: false, allowRemoteNoApiKey: false });
+
+    const response = await proxy(request("/v1/chat/completions", { host: "localhost:20128" }));
+
+    expect(response).toBe(mocks.nextResponse);
+    expect(mocks.validateApiKey).not.toHaveBeenCalled();
+  });
+});
+
 describe("dashboard guard helpers", () => {
   it("extracts bearer API keys before x-api-key", () => {
     const apiRequest = request("/v1/chat/completions", {
