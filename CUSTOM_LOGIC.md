@@ -275,6 +275,71 @@ Request to /v1/*
 
 ---
 
+## 11. ZCode Start Plan Provider (Z.ai)
+
+### Purpose
+Custom provider for Z.ai (ZCode) — a Claude-format LLM provider offering GLM-5.x models via ZCode Plan's API with CAPTCHA solving and OAuth token management.
+
+### Provider Registry
+- **File:** `open-sse/providers/registry/zcode.js`
+- **ID:** `zcode`, alias `zc`, priority `141`
+- **Transport:** `baseUrl: https://api.z.ai/api/anthropic/v1/messages`, format `claude`
+- **Auth:** `x-api-key` header (raw scheme, combined)
+- **Models:** `GLM-5.2`, `GLM-5.2-Max`, `GLM-5-Turbo`, `GLM-5-Turbo-Max`
+
+### Executor
+- **File:** `open-sse/executors/zcode.js`
+- **Proxy endpoint:** `https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages`
+- **Auth:** `Bearer {zcodeJwtToken}` from `credentials.providerSpecificData`
+- **Spoof headers:** Full ZCode Desktop v3.1.0 fingerprint (User-Agent, platform, timezone)
+- **CAPTCHA solving:** Pre-flight Aliyun CAPTCHA via headless Playwright Chromium, cached 4 min TTL. On 401/403, re-solve and retry.
+- **Reasoning models:** `-Max` suffix stripped for upstream call, `thinking: { type: "enabled", budget_tokens: 4096 }` injected. `max_tokens` auto-bumped if too low.
+- **Token refresh:** POSTs `accessToken` to `api.z.ai/api/auth/z/login` for fresh `businessToken`.
+
+### OAuth Flow (Manual Paste)
+- **File:** `src/lib/oauth/constants/oauth.js` — `ZAI_CONFIG = { ...PROVIDER_OAUTH["zcode"] }`
+- **Flow:** `authorization_code` with custom scheme redirect (`zcode://zai-auth/callback`)
+- User opens auth URL → browser shows `ERR_UNKNOWN_URL_SCHEME` → copies callback URL → pastes into OAuthModal
+- Token exchange returns `accessToken`, `refreshToken`, `zcodeJwtToken`
+- Post-exchange: user info fetch → business token exchange → subscription/plan fetch (quota pools, model access)
+
+### Files
+| File | Purpose |
+|------|---------|
+| `open-sse/executors/zcode.js` | Executor with CAPTCHA + spoof headers |
+| `open-sse/providers/registry/zcode.js` | Provider definition + models |
+| `src/lib/oauth/constants/oauth.js` | ZAI_CONFIG + ZCODE in PROVIDERS |
+| `src/shared/components/OAuthModal.js` | zcode:// URL parsing for manual paste |
+
+---
+
+## 12. Multiple Connections Per Compatible Node
+
+### Purpose
+Allow operators to create multiple connections (each with its own API key) on the same compatible provider node, enabling round-robin/sticky routing across accounts for load balancing and quota management.
+
+### What Changed
+- **File:** `src/app/api/providers/route.js`
+- Removed the one-connection-per-node guard (`getProviderConnections` check + 400 rejection) for:
+  - OpenAI-compatible providers
+  - Anthropic-compatible providers
+  - Custom-embedding providers
+
+### Node Metadata Merged on Every POST
+| Provider Type | Merged Fields |
+|---|---|
+| OpenAI-compatible | `prefix`, `apiType`, `baseUrl`, `nodeName` |
+| Anthropic-compatible | `prefix`, `baseUrl`, `nodeName` |
+| Custom-embedding | `prefix`, `baseUrl`, `nodeName` |
+
+### Fallback
+If the node row doesn't exist (deleted between listing and POST), returns 404.
+
+### Commit
+`932698a2` — `fix(providers): allow multiple connections per compatible node` (+10, −43)
+
+---
+
 ## File Manifest
 
 ### Custom Files (not in upstream)
@@ -282,6 +347,8 @@ Request to /v1/*
 |------|---------|
 | `open-sse/rtk/ponytail.js` | Ponytail injector |
 | `open-sse/rtk/ponytailPrompts.js` | Ponytail prompt levels + skeptical rules |
+| `open-sse/executors/zcode.js` | ZCode executor (CAPTCHA + spoof + reasoning) |
+| `open-sse/providers/registry/zcode.js` | ZCode provider definition + GLM models |
 | `src/sse/services/allowedModels.js` | Model allowlist (isModelAllowed, modelKind) |
 | `src/sse/services/internalTrust.js` | Trusted internal request detection |
 | `AGENTS.md` | Behavioral rules for AI agents |
@@ -305,4 +372,5 @@ Request to /v1/*
 | `src/app/layout.js` | VansAI branding + upstream GA/font script |
 | `src/dashboardGuard.js` | canAccessPublicLlmApi with allowRemoteNoApiKey gate |
 | `src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js` | allowRemoteNoApiKey toggle UI |
+| `src/app/api/providers/route.js` | Multi-connection per compatible node (removed one-connection guard) |
 | `tests/unit/dashboard-guard.test.js` | 9 allowRemoteNoApiKey tests |
