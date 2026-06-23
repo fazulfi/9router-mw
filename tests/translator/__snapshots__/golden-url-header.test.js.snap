@@ -235,7 +235,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "X-CORE-VERSION": "0.5.8",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v24.13.1",
+    "X-PLATFORM-VERSION": "v24.15.0",
     "X-Title": "Cline",
   },
   "nonStream": {
@@ -248,7 +248,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "X-CORE-VERSION": "0.5.8",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v24.13.1",
+    "X-PLATFORM-VERSION": "v24.15.0",
     "X-Title": "Cline",
   },
   "oauth": {
@@ -262,7 +262,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "X-CORE-VERSION": "0.5.8",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
-    "X-PLATFORM-VERSION": "v24.13.1",
+    "X-PLATFORM-VERSION": "v24.15.0",
     "X-Title": "Cline",
   },
 }
@@ -536,6 +536,24 @@ exports[`GOLDEN buildHeaders (default executor providers) > kilocode → headers
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
   },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > kimchi → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "application/json;q=1, text/event-stream;q=0",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "kimchi/0.1.39",
+  },
+  "nonStream": {
+    "Accept": "application/json;q=1, text/event-stream;q=0",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+    "User-Agent": "kimchi/0.1.39",
+  },
+  "oauth": "THROW: Cannot read properties of undefined (reading 'header')",
 }
 `;
 
@@ -1125,6 +1143,13 @@ exports[`GOLDEN buildUrl (default executor providers) > kilocode → url (stream
 {
   "nonStream": "https://api.kilo.ai/api/openrouter/chat/completions",
   "stream": "https://api.kilo.ai/api/openrouter/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > kimchi → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://llm.kimchi.dev/openai/v1/chat/completions",
+  "stream": "https://llm.kimchi.dev/openai/v1/chat/completions",
 }
 `;
 

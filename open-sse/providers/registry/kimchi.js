@@ -30,16 +30,18 @@ export default {
     format: "openai",
     timeoutMs: 20000,
     headers: {
-      "User-Agent": "kimchi/0.1.36",
-      Accept: "application/json",
+      "User-Agent": "kimchi/0.1.39",
+      Accept: "application/json;q=1, text/event-stream;q=0",
     },
     auth: {
       apiKey: {
         header: "Authorization",
         scheme: "bearer",
+        hooks: ["kimchiHeaders"],
       },
     },
     forceStream: false,
+    preserveAccept: true,
     retry: {
       429: { attempts: 3, delayMs: 500 },
       502: { attempts: 3, delayMs: 500 },
