@@ -1,6 +1,7 @@
 // Real Antigravity-MITM requests (Gemini-internal: { request: { contents, ... } }) → OpenAI.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
+import { getRequestTranslator } from "../../open-sse/translator/registry.js";
 import { translateRequest } from "../../open-sse/translator/index.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
@@ -55,6 +56,10 @@ describe("Antigravity → OpenAI", () => {
 });
 
 describe("Antigravity executor", () => {
+  it("uses the same translator registry as translator modules", () => {
+    expect(getRequestTranslator("openai:antigravity")).toBeDefined();
+  });
+
   it("strips optional from nested tool schemas", () => {
     const out = new AntigravityExecutor().transformRequest("gemini-2.5-pro", {
       request: {
@@ -80,5 +85,76 @@ describe("Antigravity executor", () => {
 
     const query = out.request.tools[0].functionDeclarations[0].parameters.properties.query;
     expect(query).toEqual({ type: "string", description: "Search query" });
+  });
+
+  // Whitelist fix: Antigravity IDE passthrough sends unexpected OpenAI fields
+  // in body.request → Google API rejects with "Unknown name" 400.
+  it("whitelists request fields — strips max_tokens, messages, stream, etc.", () => {
+    const out = new AntigravityExecutor().transformRequest("gemini-3.5-flash-low", {
+      request: {
+        // Legitimate Antigravity fields
+        contents: [{ role: "user", parts: [{ text: "hello" }] }],
+        systemInstruction: { role: "user", parts: [{ text: "You are helpful" }] },
+        generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
+        sessionId: "sess-123",
+        // Unexpected fields from Antigravity IDE passthrough (must be stripped)
+        max_tokens: 4096,
+        messages: [{ role: "user", content: "hello" }],
+        temperature: 0.7,
+        top_p: 0.9,
+        tools: undefined,
+        tool_choice: "auto",
+        stream: true,
+        stream_options: { include_usage: true },
+      },
+    }, true, { projectId: "project-1", connectionId: "conn-1" });
+
+    const req = out.request;
+    // Legitimate fields preserved
+    expect(req.contents).toBeDefined();
+    expect(req.systemInstruction).toBeDefined();
+    expect(req.generationConfig).toBeDefined();
+    expect(req.sessionId).toBe("sess-123");
+
+    // Unexpected fields stripped
+    expect(req.max_tokens).toBeUndefined();
+    expect(req.messages).toBeUndefined();
+    expect(req.temperature).toBeUndefined();
+    expect(req.top_p).toBeUndefined();
+    expect(req.tool_choice).toBeUndefined();
+    expect(req.stream).toBeUndefined();
+    expect(req.stream_options).toBeUndefined();
+  });
+
+  it("preserves generationConfig.maxOutputTokens cap at 16384", () => {
+    const out = new AntigravityExecutor().transformRequest("gemini-3.5-flash-low", {
+      request: {
+        contents: [{ role: "user", parts: [{ text: "hi" }] }],
+        generationConfig: { maxOutputTokens: 100000 },
+      },
+    }, true, { projectId: "p", connectionId: "c" });
+
+    expect(out.request.generationConfig.maxOutputTokens).toBe(16384);
+  });
+
+  it("preserves translated envelope contents instead of reading nested request.request", () => {
+    const out = new AntigravityExecutor().transformRequest("gemini-3.5-flash-low", {
+      model: "gemini-3.5-flash-low",
+      project: "project-1",
+      userAgent: "antigravity",
+      requestType: "agent",
+      requestId: "agent-existing",
+      request: {
+        contents: [{ role: "user", parts: [{ text: "hello" }] }],
+        systemInstruction: { role: "user", parts: [{ text: "You are helpful" }] },
+        generationConfig: { maxOutputTokens: 32 },
+        sessionId: "sess-123",
+      },
+    }, true, { projectId: "project-1", connectionId: "conn-1" });
+
+    expect(out.request.contents).toEqual([{ role: "user", parts: [{ text: "hello" }] }]);
+    expect(out.request.systemInstruction).toEqual({ role: "user", parts: [{ text: "You are helpful" }] });
+    expect(out.request.generationConfig.maxOutputTokens).toBe(32);
+    expect(out.request.sessionId).toBe("sess-123");
   });
 });

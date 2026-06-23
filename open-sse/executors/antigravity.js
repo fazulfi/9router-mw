@@ -182,8 +182,21 @@ export class AntigravityExecutor extends BaseExecutor {
       tools = allDeclarations.length > 0 ? [{ functionDeclarations: allDeclarations }] : [];
     }
 
-    // Strip tools/toolConfig (handled separately) and blacklisted fields that Google rejects
-    const { tools: _originalTools, toolConfig: _originalToolConfig, ...requestWithoutTools } = body.request || {};
+    const sourceRequest = body.request?.request || body.request || body;
+
+    // Whitelist: only forward fields the Antigravity API protobuf accepts.
+    // Spread-all leaked unexpected fields (max_tokens, messages, stream, etc.)
+    // from Antigravity IDE passthrough → 400 "Unknown name" from Google API.
+    const AG_REQUEST_FIELDS = [
+      "contents", "systemInstruction", "generationConfig",
+      "sessionId", "safetySettings",
+    ];
+    const requestWithoutTools = {};
+    for (const key of AG_REQUEST_FIELDS) {
+      if (sourceRequest?.[key] !== undefined) {
+        requestWithoutTools[key] = sourceRequest[key];
+      }
+    }
     stripBlacklisted(requestWithoutTools);
     const generationConfig = { ...(requestWithoutTools.generationConfig || {}) };
     if (generationConfig.maxOutputTokens > MAX_ANTIGRAVITY_OUTPUT_TOKENS) {
@@ -195,13 +208,28 @@ export class AntigravityExecutor extends BaseExecutor {
       generationConfig,
       ...(contents && { contents }),
       ...(tools && { tools }),
-      sessionId: body.request?.sessionId || resolveSessionId({ headers: credentials?.rawHeaders, body, connectionId: credentials?.email || credentials?.connectionId, scope: "antigravity" }),
+      sessionId: sourceRequest?.sessionId || resolveSessionId({ headers: credentials?.rawHeaders, body, connectionId: credentials?.email || credentials?.connectionId, scope: "antigravity" }),
       safetySettings: undefined,
       ...(tools?.length > 0 && { toolConfig: { functionCallingConfig: { mode: "VALIDATED" } } })
     };
 
     // Strip blacklisted thinking fields from top-level body (set by thinkingUnified.js at root, not body.request)
     stripBlacklisted(body);
+
+    // Strip OpenAI-format fields that leak from passthrough or translation residue.
+    // The API only accepts: project, model, userAgent, requestId, requestType, request.
+    const OPENAI_LEAK_FIELDS = [
+      "messages", "max_tokens", "max_completion_tokens", "temperature", "top_p",
+      "top_k", "stream", "stream_options", "tools", "tool_choice", "tool_calls",
+      "n", "stop", "presence_penalty", "frequency_penalty", "seed", "user",
+      "response_format", "logprobs", "top_logprobs", "logit_bias",
+      "contents", "generationConfig", "safetySettings", "systemInstruction",
+      "thinking", "reasoning_effort", "reasoning", "thinkingConfig",
+      "output_config", "enable_thinking", "thinking_budget",
+    ];
+    for (const key of OPENAI_LEAK_FIELDS) {
+      if (key !== "request") delete body[key];
+    }
 
     this._lastSessionId = transformedRequest.sessionId; // cached for buildHeaders (base.execute order)
 
