@@ -15,7 +15,7 @@
 
   <a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
   
-  [🚀 Quick Start](#-quick-start) • [💡 Features](#-key-features) • [📖 Setup](#-setup-guide) • [🌐 Website](https://9router.com)
+  [🧭 Beginner Setup](#-beginner-setup-guide) • [🚀 Quick Start](#-quick-start) • [💡 Features](#-key-features) • [📖 Setup](#-setup-guide) • [🌐 Website](https://9router.com)
 
   [🇻🇳 Tiếng Việt](./i18n/README.vi.md) • [🇨🇳 中文](./i18n/README.zh-CN.md) • [🇯🇵 日本語](./i18n/README.ja-JP.md) • [🇷🇺 Русский](./i18n/README.ru.md)
 </div>
@@ -97,6 +97,282 @@
 
 Result: Never stop coding, minimal cost + 20-40% token savings via RTK
 ```
+
+---
+
+## 🧭 Beginner Setup Guide
+
+New to 9Router? Pick your OS below — everything from zero to running.
+
+<details>
+<summary><b>🪟 Windows (from zero)</b></summary>
+
+### Step 1 — Install Node.js
+
+1. Go to https://nodejs.org → download **LTS** (e.g. `node-v22.x.x-x64.msi`)
+2. Run the installer, click Next → Next → Install. **Check "Add to PATH"** when prompted.
+3. Open **Command Prompt** (`Win+R` → type `cmd` → Enter) and verify:
+
+```cmd
+node --version
+npm --version
+```
+
+Both should print version numbers (e.g. `v22.x.x` and `10.x.x`). If not, restart your PC and try again.
+
+### Step 2 — Install pnpm (package manager)
+
+```cmd
+npm install -g pnpm
+pnpm --version
+```
+
+Should print something like `11.x.x`.
+
+### Step 3 — Install Git
+
+1. Go to https://git-scm.com/download/win → download the installer
+2. Run it, keep all defaults → Install
+3. Verify: open a new Command Prompt and type:
+
+```cmd
+git --version
+```
+
+### Step 4 — Clone and install 9Router
+
+```cmd
+git clone https://github.com/Vanszs/VansRouter.git
+cd VansRouter
+copy .env.example .env
+pnpm install
+```
+
+### Step 5 — Configure `.env`
+
+Open `.env` with Notepad (or VS Code):
+
+```
+JWT_SECRET=ganti-dengan-string-acak-panjang
+INITIAL_PASSWORD=passwordmu
+DATA_DIR=C:\Users\NamaKamu\.9router
+PORT=20128
+NODE_ENV=production
+NEXT_PUBLIC_BASE_URL=http://localhost:20128
+```
+
+> **Tips:** Untuk `JWT_SECRET`, gunakan password acak panjang minimal 32 karakter.
+
+### Step 6 — Build
+
+```cmd
+pnpm run build
+```
+
+Build membutuhkan waktu 2–5 menit. Tunggu sampai muncul output seperti:
+```
+✓ Generating static pages (124/124)
+```
+
+### Step 7 — Jalankan
+
+```cmd
+set PORT=20128
+set HOSTNAME=0.0.0.0
+node .next\standalone\server.js
+```
+
+Buka browser: http://localhost:20128
+
+> **Untuk jalan otomatis saat Windows boot**, install PM2:
+> ```cmd
+> npm install -g pm2
+> npm install -g pm2-windows-startup
+> pm2 start .next\standalone\server.js --name 9router
+> pm2-startup install
+> pm2 save
+> ```
+
+### Troubleshooting Windows
+
+| Error | Penyebab | Solusi |
+|-------|----------|--------|
+| `node` not found | PATH belum diset | Restart CMD / PC setelah install Node |
+| `EACCES` / permission denied | Folder terlindungi | Jalankan CMD sebagai Administrator |
+| Port 20128 sudah dipakai | Proses lain | Ganti `PORT=20128` ke `PORT=20129` di `.env` |
+| Build gagal di `better-sqlite3` | Node version terlalu baru/lama | Gunakan Node LTS (v20 atau v22) |
+| `.next/standalone` tidak ada | Build belum selesai / gagal | Jalankan ulang `pnpm run build` |
+
+</details>
+
+<details>
+<summary><b>🐧 Linux / VPS (Ubuntu/Debian, dari nol)</b></summary>
+
+### Step 1 — Update sistem dan install dependencies
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl build-essential
+```
+
+### Step 2 — Install Node.js via NodeSource (Node 22 LTS)
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+node --version   # should print v22.x.x
+npm --version    # should print 10.x.x
+```
+
+### Step 3 — Install pnpm
+
+```bash
+npm install -g pnpm
+pnpm --version   # should print 11.x.x
+```
+
+### Step 4 — Install PM2 (process manager, agar jalan terus)
+
+```bash
+npm install -g pm2
+```
+
+### Step 5 — Clone dan install 9Router
+
+```bash
+git clone https://github.com/Vanszs/VansRouter.git
+cd VansRouter
+cp .env.example .env
+pnpm install
+```
+
+### Step 6 — Konfigurasi `.env`
+
+Edit dengan nano atau vim:
+
+```bash
+nano .env
+```
+
+Minimal yang harus diubah:
+
+```bash
+JWT_SECRET=string-acak-panjang-minimal-32-karakter
+INITIAL_PASSWORD=passwordmu
+DATA_DIR=/var/lib/9router
+PORT=20128
+NODE_ENV=production
+NEXT_PUBLIC_BASE_URL=http://IP_SERVER_KAMU:20128
+```
+
+Simpan: `Ctrl+O` → Enter → `Ctrl+X`
+
+Buat folder data:
+
+```bash
+sudo mkdir -p /var/lib/9router
+sudo chown $USER:$USER /var/lib/9router
+```
+
+### Step 7 — Build
+
+```bash
+pnpm run build
+```
+
+Tunggu sampai muncul:
+```
+✓ Generating static pages (124/124)
+```
+
+Build otomatis copy `public/` dan `.next/static` ke `.next/standalone`.
+
+### Step 8 — Jalankan via PM2
+
+```bash
+PORT=20128 HOSTNAME=0.0.0.0 pm2 start .next/standalone/server.js --name 9router
+pm2 save
+pm2 startup    # ikuti instruksi yang muncul (copy-paste perintah sudo yang ditampilkan)
+```
+
+Cek status:
+
+```bash
+pm2 status
+pm2 logs 9router --lines 20
+```
+
+Buka di browser: `http://IP_SERVER_KAMU:20128`
+
+### Step 9 — (Opsional) Nginx reverse proxy + HTTPS
+
+Jika kamu punya domain dan ingin akses via HTTPS:
+
+```bash
+sudo apt install -y nginx certbot python3-certbot-nginx
+
+# Buat config nginx
+sudo nano /etc/nginx/sites-available/9router
+```
+
+Isi:
+
+```nginx
+server {
+    server_name domainmu.com;
+
+    location /_next/static/ {
+        proxy_pass http://127.0.0.1:20128;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:20128;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/9router /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+
+# HTTPS dengan Let's Encrypt
+sudo certbot --nginx -d domainmu.com
+```
+
+### Step 10 — Update ke versi terbaru
+
+```bash
+cd VansRouter
+git pull
+pnpm install
+pnpm run build
+pm2 restart 9router
+```
+
+### Troubleshooting Linux
+
+| Error | Penyebab | Solusi |
+|-------|----------|--------|
+| `EACCES: permission denied` pada DATA_DIR | Folder milik root | `sudo chown $USER:$USER /var/lib/9router` |
+| `Error: Cannot find module` | `pnpm install` belum dijalankan | Jalankan `pnpm install` lagi |
+| `EADDRINUSE: address already in use` | Port sudah dipakai | `ss -tlnp \| grep 20128` untuk cek siapa yang pakai |
+| PM2 tidak start setelah reboot | `pm2 save` belum dijalankan | `pm2 save` lalu ikuti output `pm2 startup` |
+| Build error `better-sqlite3` | Node version tidak cocok | `node --version` harus v20 atau v22 |
+| Nginx 502 Bad Gateway | 9router tidak jalan / port salah | `pm2 status` dan pastikan port di nginx sesuai |
+| Chunk JS gagal load di browser | Browser cache lama | Hard refresh: `Ctrl+Shift+R` (Windows/Linux) |
+
+</details>
 
 ---
 
