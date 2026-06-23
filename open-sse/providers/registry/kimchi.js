@@ -1,0 +1,62 @@
+export default {
+  id: "kimchi",
+  priority: 25,
+  alias: "ki",
+  uiAlias: "ki",
+  display: {
+    name: "Kimchi",
+    icon: "local_dining",
+    color: "#FF6B35",
+    textIcon: "KC",
+    website: "https://kimchi.dev",
+    notice: {
+      apiKeyUrl: "https://app.kimchi.dev/settings",
+    },
+  },
+  category: "freeTier",
+  authType: "apikey",
+  hasOAuth: false,
+  authModes: ["apikey"],
+  serviceKinds: ["llm", "webSearch"],
+  searchConfig: {
+    baseUrl: "https://llm.kimchi.dev/v1/search",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    timeoutMs: 25000,
+  },
+  transport: {
+    baseUrl: "https://llm.kimchi.dev/openai/v1/chat/completions",
+    format: "openai",
+    timeoutMs: 20000,
+    headers: {
+      "User-Agent": "kimchi/0.1.36",
+      Accept: "application/json",
+    },
+    auth: {
+      apiKey: {
+        header: "Authorization",
+        scheme: "bearer",
+      },
+    },
+    forceStream: false,
+    retry: {
+      429: { attempts: 3, delayMs: 500 },
+      502: { attempts: 3, delayMs: 500 },
+      503: { attempts: 3, delayMs: 1000 },
+    },
+  },
+  models: [
+    { id: "kimi-k2.7", name: "Kimi K2.7" },
+    { id: "kimi-k2.6", name: "Kimi K2.6" },
+    { id: "kimi-k2.5", name: "Kimi K2.5" },
+    { id: "minimax-m3", name: "MiniMax M3" },
+    { id: "minimax-m2.7", name: "MiniMax M2.7" },
+    { id: "minimax-m2.5", name: "MiniMax M2.5" },
+    { id: "nemotron-3-ultra-fp4", name: "Nemotron 3 Ultra FP4" },
+    { id: "nemotron-3-super-fp4", name: "Nemotron 3 Super FP4" },
+    { id: "qwen3-coder-next-fp8", name: "Qwen3 Coder Next FP8" },
+    { id: "smollm2-360m", name: "SmolLM2 360M" },
+    { id: "smollm2-135m", name: "SmolLM2 135M" },
+  ],
+};
