@@ -42,6 +42,7 @@ export default {
     },
   ],
   models: [
+    { id: "kimi-k2.7", name: "Kimi K2.7" },
     { id: "kimi-k2.6", name: "Kimi K2.6" },
     { id: "kimi-k2.5", name: "Kimi K2.5" },
     { id: "kimi-k2.5-thinking", name: "Kimi K2.5 Thinking" },

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { needsTerminationPrompt } from "../../open-sse/handlers/chatCore.js";
 import { injectTerminationPrompt, TERMINATION_PROMPT } from "../../open-sse/rtk/terminationPrompt.js";
 import { FORMATS } from "../../open-sse/translator/formats.js";
 
@@ -51,5 +52,12 @@ describe("injectTerminationPrompt", () => {
     expect(TERMINATION_PROMPT).not.toContain("grep");
     expect(TERMINATION_PROMPT).not.toContain("find");
     expect(TERMINATION_PROMPT).not.toContain("read_file");
+  });
+
+  it("enables Kimi 2.6/2.7 termination guard", () => {
+    expect(needsTerminationPrompt("kimi", "kimi-k2.6")).toBe(true);
+    expect(needsTerminationPrompt("kimi", "kimi-k2.7")).toBe(true);
+    expect(needsTerminationPrompt("nvidia", "moonshotai/kimi-k2.7")).toBe(true);
+    expect(needsTerminationPrompt("openai", "gpt-5.5")).toBe(false);
   });
 });

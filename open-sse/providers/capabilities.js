@@ -93,6 +93,21 @@ export const MODEL_CAPABILITIES = {
  * Provider-specific capability overrides. Keyed by provider alias/id.
  */
 export const PROVIDER_CAPABILITIES = {
+  // Kimchi docs expose reasoning on Kimi/MiniMax models; keep other Kimchi
+  // models explicit non-reasoning overrides.
+  kimchi: {
+    "kimi-k2.7":              { vision: true, reasoning: true, thinkingFormat: "kimi", contextWindow: 262144, maxOutput: 262144 },
+    "kimi-k2.6":              { vision: true, reasoning: true, thinkingFormat: "kimi", contextWindow: 262144, maxOutput: 262144 },
+    "kimi-k2.5":              { vision: true, reasoning: true, thinkingFormat: "kimi", contextWindow: 262144, maxOutput: 262144 },
+    "minimax-m3":             { vision: true, reasoning: true, thinkingFormat: "minimax", contextWindow: 1048576, maxOutput: 512000 },
+    "minimax-m2.7":           { reasoning: true, thinkingFormat: "minimax", thinkingCanDisable: false, contextWindow: 204800, maxOutput: 131072 },
+    "minimax-m2.5":           { reasoning: true, thinkingFormat: "minimax", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 131072 },
+    "nemotron-3-ultra-fp4":   { reasoning: false, contextWindow: 128000, maxOutput: 8192 },
+    "nemotron-3-super-fp4":   { reasoning: false, contextWindow: 128000, maxOutput: 8192 },
+    "qwen3-coder-next-fp8":   { reasoning: false, contextWindow: 262144, maxOutput: 32768 },
+    "smollm2-360m":           { reasoning: false, contextWindow: 8192, maxOutput: 4096 },
+    "smollm2-135m":           { reasoning: false, contextWindow: 8192, maxOutput: 4096 },
+  },
   // CodeBuddy.cn — authoritative per-model metadata from the gateway's model
   // config (contextWindow=maxInputTokens, maxOutput=maxOutputTokens, vision=
   // supportsImages). Every model reasons via OpenAI-style reasoning_effort
@@ -114,6 +129,10 @@ export const PROVIDER_CAPABILITIES = {
     "deepseek-v4-pro":    { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 50000 },
     "deepseek-v4-flash":  { vision: true, reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 1000000, maxOutput: 50000 },
     "deepseek-v3-2-volc": { reasoning: true, thinkingFormat: "openai", thinkingCanDisable: false, contextWindow: 96000, maxOutput: 32000 },
+  },
+  kimi: {
+    "kimi-k2.7":              { vision: true, reasoning: true, thinkingFormat: "kimi", thinkingCanDisable: true, contextWindow: 262144, maxOutput: 262144 },
+    "kimi-k2.6":              { vision: true, reasoning: true, thinkingFormat: "kimi", thinkingCanDisable: true, contextWindow: 262144, maxOutput: 262144 },
   },
 };
 

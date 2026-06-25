@@ -96,6 +96,11 @@ describe("applyThinking per provider format", () => {
     const out = apply("openai", "kimi-k2.6", { reasoning_effort: "high" }, "kimi");
     expect(out.reasoning_effort).toBe("high");
   });
+  it("Kimi off → reasoning_effort none", () => {
+    const out = apply("openai", "kimi-k2.7", { reasoning_effort: "none" }, "kimi");
+    expect(out.reasoning_effort).toBe("none");
+    expect(out.thinking).toBeUndefined();
+  });
   it("MiniMax M3 → adaptive", () => {
     const out = apply("claude", "MiniMax-M3", { reasoning_effort: "high" }, "minimax");
     expect(out.thinking).toEqual({ type: "adaptive" });

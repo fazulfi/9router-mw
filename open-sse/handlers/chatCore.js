@@ -21,7 +21,7 @@ import { detectClientTool, isNativePassthrough } from "../utils/clientDetector.j
 import { dedupeTools } from "../utils/toolDeduper.js";
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
-import { injectToolProtocolPrompt } from "../rtk/terminationPrompt.js";
+import { injectTerminationPrompt, injectToolProtocolPrompt } from "../rtk/terminationPrompt.js";
 import { compressMessages, formatRtkLog } from "../rtk/index.js";
 import { compressWithHeadroom, formatHeadroomLog } from "../rtk/headroom.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
@@ -29,6 +29,10 @@ import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 
 const TOOL_PROTOCOL_PROMPT_PROVIDERS = new Set(["kimchi", "nvidia"]);
+
+export function needsTerminationPrompt(provider, model) {
+  return /(?:^|[/_-])kimi(?:[/_-]|$)|(?:^|[/_-])kimi-k2\.(?:6|7)(?:\b|[-_/])/i.test(`${provider}/${model}`);
+}
 
 function extractToolNames(tools) {
   if (!Array.isArray(tools)) return [];
@@ -191,6 +195,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (TOOL_PROTOCOL_PROMPT_PROVIDERS.has(provider) && Array.isArray(translatedBody.tools) && translatedBody.tools.length > 0) {
     injectToolProtocolPrompt(translatedBody, finalFormat, extractToolNames(translatedBody.tools));
     log?.debug?.("TOOLPROTO", `${provider}/${model} | ${finalFormat}`);
+  }
+
+  if (needsTerminationPrompt(provider, model) && Array.isArray(translatedBody.tools) && translatedBody.tools.length > 0) {
+    injectTerminationPrompt(translatedBody, finalFormat);
+    log?.debug?.("TERMINATION", `${provider}/${model} | ${finalFormat}`);
   }
 
   const executor = getExecutor(provider);

@@ -10,6 +10,9 @@ const STRIP_RULES = [
   { provider: "github", match: /gpt-5\.4/i, drop: ["temperature"] },
   // GitHub Copilot Claude (except opus/sonnet 4.6): thinking + reasoning_effort rejected. #713
   { provider: "github", match: (m) => /claude/i.test(m) && !/claude.*(opus|sonnet).*4\.6/i.test(m), drop: ["thinking", "reasoning_effort"] },
+  // Kimchi rejects sampling knobs; Kimi/MiniMax keep reasoning params via capability rules.
+  { provider: "kimchi", match: /.*/i, drop: ["temperature", "top_p", "presence_penalty", "frequency_penalty"] },
+  { provider: "kimchi", match: (m) => !/(kimi|minimax)/i.test(m), drop: ["reasoning_effort", "reasoning"] },
   // Cloudflare Workers AI: content must be plain string, rejects OpenAI content-part array (#1926)
   { provider: "cloudflare-ai", flattenContent: true },
 ];

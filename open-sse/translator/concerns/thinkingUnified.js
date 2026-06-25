@@ -211,7 +211,7 @@ function applyFormat(fmt, body, cfg, caps) {
       break;
     }
     case "kimi": {
-      if (none && canDisable) { body.thinking = { type: "disabled" }; break; }
+      if (none && canDisable) { body.reasoning_effort = "none"; break; }
       const level = toLevel(eff);
       if (level) body.reasoning_effort = level === "max" ? "high" : level;
       break;
