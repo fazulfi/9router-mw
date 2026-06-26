@@ -163,8 +163,15 @@ export class DefaultExecutor extends BaseExecutor {
       // values pass through unchanged and absent max_tokens is never injected. Mirrors
       // the contract in tests/unit/kimi-max-tokens.test.js (commit 3dd7a9e5, since
       // reverted via the registry consolidation refactor).
-      if (this.provider === "nvidia" && /kimi-k2\.(6|7)/i.test(model)) {
-        if (typeof transformed.max_tokens === "number" && transformed.max_tokens > 8192) {
+      //
+      // CLI-derived refinement: the Kimi CLI catalog (models.dev) advertises an
+      // output limit of 16384 for kimi-k2.6, so we raise its ceiling from 8192 while
+      // still staying below the observed degeneration threshold (~32k). k2.7 variants
+      // remain clamped at 8192 because no similarly safe published limit is available.
+      if (this.provider === "nvidia") {
+        if (/kimi-k2\.6/i.test(model) && typeof transformed.max_tokens === "number" && transformed.max_tokens > 16384) {
+          transformed.max_tokens = 16384;
+        } else if (/kimi-k2\.7/i.test(model) && typeof transformed.max_tokens === "number" && transformed.max_tokens > 8192) {
           transformed.max_tokens = 8192;
         }
       }

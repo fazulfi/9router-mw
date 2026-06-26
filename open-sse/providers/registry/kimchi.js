@@ -1,8 +1,8 @@
 export default {
   id: "kimchi",
   priority: 25,
-  alias: "ki",
-  uiAlias: "ki",
+  alias: "kimchi",
+  uiAlias: "kimchi",
   display: {
     name: "Kimchi",
     icon: "local_dining",
@@ -48,50 +48,12 @@ export default {
       503: { attempts: 3, delayMs: 1000 },
     },
   },
+  // Exactly the 5 models advertised by the Kimchi CLI (kimchi-dev provider).
   models: [
-    {
-      id: "kimi-k2.7",
-      name: "Kimi K2.7",
-    },
-    {
-      id: "kimi-k2.6",
-      name: "Kimi K2.6",
-    },
-    {
-      id: "kimi-k2.5",
-      name: "Kimi K2.5",
-    },
-    {
-      id: "minimax-m3",
-      name: "MiniMax M3",
-    },
-    {
-      id: "minimax-m2.7",
-      name: "MiniMax M2.7",
-    },
-    {
-      id: "minimax-m2.5",
-      name: "MiniMax M2.5",
-    },
-    {
-      id: "nemotron-3-ultra-fp4",
-      name: "Nemotron 3 Ultra FP4",
-    },
-    {
-      id: "nemotron-3-super-fp4",
-      name: "Nemotron 3 Super FP4",
-    },
-    {
-      id: "qwen3-coder-next-fp8",
-      name: "Qwen3 Coder Next FP8",
-    },
-    {
-      id: "smollm2-360m",
-      name: "SmolLM2 360M",
-    },
-    {
-      id: "smollm2-135m",
-      name: "SmolLM2 135M",
-    },
+    { id: "kimi-k2.7", name: "Kimi K2.7" },
+    { id: "minimax-m3", name: "MiniMax M3" },
+    { id: "kimi-k2.6", name: "Kimi K2.6" },
+    { id: "nemotron-3-ultra-fp4", name: "Nemotron 3 Ultra FP4" },
+    { id: "glm-5.2-fp8", name: "GLM 5.2 FP8" },
   ],
 };

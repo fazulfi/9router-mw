@@ -4,6 +4,7 @@ import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { FORMATS } from "../../translator/formats.js";
 import { PROVIDERS } from "../../config/providers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats } from "./requestDetail.js";
+import { extractToolNames, fuzzyMatchToolName } from "../../translator/concerns/toolCall.js";
 
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
 const isResponsesProvider = (p) => PROVIDERS[p]?.format === FORMATS.OPENAI_RESPONSES;
@@ -37,8 +38,14 @@ function pickAssistantMessageForChatCompletion(output) {
 /**
  * Parse OpenAI-style SSE text into a single chat completion JSON.
  * Used when provider forces streaming but client wants non-streaming.
+ *
+ * @param {string} rawSSE
+ * @param {string} fallbackModel
+ * @param {string[]} [validToolNames] - Tool names from the original request; used
+ *   to fuzzy-correct malformed names (e.g. "functionsread" → "read") that weak
+ *   models occasionally emit in tool_calls.
  */
-export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
+export function parseSSEToOpenAIResponse(rawSSE, fallbackModel, validToolNames = null) {
   const chunks = [];
 
   for (const line of String(rawSSE || "").split("\n")) {
@@ -84,7 +91,15 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
   const message = { role: "assistant", content: contentParts.join("") || (toolCallMap.size > 0 ? null : "") };
   if (reasoningParts.length > 0) message.reasoning_content = reasoningParts.join("");
   if (toolCallMap.size > 0) {
-    message.tool_calls = [...toolCallMap.entries()].sort((a, b) => a[0] - b[0]).map(([, tc]) => tc);
+    const toolCalls = [...toolCallMap.entries()].sort((a, b) => a[0] - b[0]).map(([, tc]) => tc);
+    if (validToolNames && validToolNames.length > 0) {
+      for (const tc of toolCalls) {
+        if (tc.function?.name) {
+          tc.function.name = fuzzyMatchToolName(tc.function.name, validToolNames);
+        }
+      }
+    }
+    message.tool_calls = toolCalls;
   }
 
   const result = {
@@ -193,7 +208,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, pr
   // Standard Chat Completions SSE path
   try {
     const sseText = await providerResponse.text();
-    const parsed = parseSSEToOpenAIResponse(sseText, model);
+    const parsed = parseSSEToOpenAIResponse(sseText, model, extractToolNames(body?.tools));
     if (!parsed) return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid SSE response for non-streaming request");
 
     if (onRequestSuccess) await onRequestSuccess();

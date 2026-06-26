@@ -17,6 +17,7 @@ import { buildRequestDetail, extractRequestConfig } from "./chatCore/requestDeta
 import { handleForcedSSEToJson } from "./chatCore/sseToJsonHandler.js";
 import { handleNonStreamingResponse } from "./chatCore/nonStreamingHandler.js";
 import { handleStreamingResponse, buildOnStreamComplete } from "./chatCore/streamingHandler.js";
+import { buildCoercedSSEResponse } from "./chatCore/coercedSseHandler.js";
 import { detectClientTool, isNativePassthrough } from "../utils/clientDetector.js";
 import { dedupeTools } from "../utils/toolDeduper.js";
 import { detectLoop } from "../utils/loopGuard.js";
@@ -33,6 +34,10 @@ const TOOL_PROTOCOL_PROMPT_PROVIDERS = new Set(["kimchi", "nvidia"]);
 
 export function needsTerminationPrompt(provider, model) {
   return /(?:^|[/_-])kimi(?:[/_-]|$)|(?:^|[/_-])kimi-k2\.(?:6|7)(?:\b|[-_/])/i.test(`${provider}/${model}`);
+}
+
+export function isNvidiaKimiStreamCoerce(provider, model) {
+  return provider === "nvidia" && /kimi-k2\.[67]/i.test(model || "");
 }
 
 function extractToolNames(tools) {
@@ -133,6 +138,14 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true;
   let stream = providerRequiresStreaming ? true : (body.stream !== false);
 
+  // NVIDIA NIM-hosted Kimi-k2.6/k2.7 degrade/empty-response when upstream is asked
+  // for streaming. Force upstream stream:false while remembering the client wanted SSE.
+  const shouldCoerceStream = isNvidiaKimiStreamCoerce(provider, model) && stream === true;
+  const upstreamStream = shouldCoerceStream ? false : stream;
+  if (shouldCoerceStream) {
+    log?.debug?.("STREAMCOERCE", `${provider}/${model} | stream=true → false (upstream)`);
+  }
+
   // Image generation models require non-streaming (Google v1internal:generateContent)
   const modelType = getModelType(alias, model);
   const isImageGenModel = modelType === "imageGen" || /image|imagen|image-generation/i.test(model);
@@ -189,7 +202,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
     if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, upstreamModel);
   } else {
-    translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
+    translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, upstreamStream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
     if (!translatedBody) {
       trackPendingRequest(model, provider, connectionId, false, true);
       return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
@@ -197,6 +210,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     toolNameMap = translatedBody._toolNameMap;
     delete translatedBody._toolNameMap;
     translatedBody.model = upstreamModel;
+  }
+
+  // NVIDIA NIM-hosted Kimi-k2.6/k2.7: ensure upstream body also has stream:false
+  if (shouldCoerceStream) {
+    translatedBody.stream = false;
   }
 
   // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
@@ -327,7 +345,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Execute request
   let providerResponse, providerUrl, providerHeaders, finalBody;
   try {
-    const result = await executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions });
+    const result = await executor.execute({ model, body: translatedBody, stream: upstreamStream, credentials, signal: streamController.signal, log, proxyOptions });
     providerResponse = result.response;
     providerUrl = result.url;
     providerHeaders = result.headers;
@@ -340,7 +358,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
-      request: extractRequestConfig(body, stream),
+      request: extractRequestConfig(body, upstreamStream),
       providerRequest: translatedBody || null,
       response: { error: error.message || String(error), status: error.name === "AbortError" ? 499 : 502, thinking: null },
       status: "error"
@@ -366,7 +384,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
           try { await onCredentialsRefreshed(newCredentials); } catch (e) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e.message}`); }
         }
         try {
-          const retryResult = await executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions });
+          const retryResult = await executor.execute({ model, body: translatedBody, stream: upstreamStream, credentials, signal: streamController.signal, log, proxyOptions });
           if (retryResult.response.ok) { providerResponse = retryResult.response; providerUrl = retryResult.url; }
         } catch { log?.warn?.("TOKEN", `${provider.toUpperCase()} | retry after refresh failed`); }
       } else {
@@ -386,7 +404,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       provider, model, connectionId,
       latency: { ttft: 0, total: Date.now() - requestStartTime },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
-      request: extractRequestConfig(body, stream),
+      request: extractRequestConfig(body, upstreamStream),
       providerRequest: finalBody || translatedBody || null,
       response: { error: message, status: statusCode, thinking: null },
       status: "error"
@@ -401,6 +419,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
+
+  // NVIDIA Kimi: upstream was coerced to non-streaming, convert response back to SSE
+  if (shouldCoerceStream && clientRequestedStreaming) {
+    const result = await handleNonStreamingResponse({ ...sharedCtx, stream: upstreamStream, providerResponse, sourceFormat, targetFormat, reqLogger, toolNameMap, trackDone, appendLog });
+    if (!result.success) return result;
+    const jsonBody = await result.response.json();
+    const sseResponse = buildCoercedSSEResponse(jsonBody);
+    streamController.handleComplete();
+    return { success: true, response: sseResponse };
+  }
 
   // Provider forced streaming but client wants JSON
   if (!clientRequestedStreaming && providerRequiresStreaming) {

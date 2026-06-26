@@ -1,235 +1,312 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.skip("Kimi NVIDIA hardening", () => {
-  beforeEach(() => {
-    vi.resetModules();
+// Mock proxyAwareFetch so handleChatCore end-to-end tests never hit the network.
+// proxyAwareFetch captures globalThis.fetch at module-load time, so spying on
+// global.fetch after import does nothing; module-level mock is required.
+vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
+  proxyAwareFetch: vi.fn(),
+}));
+
+import { isNvidiaKimiStreamCoerce, handleChatCore } from "../../open-sse/handlers/chatCore.js";
+import { buildCoercedSSEResponse } from "../../open-sse/handlers/chatCore/coercedSseHandler.js";
+import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";
+
+// ── isNvidiaKimiStreamCoerce ─────────────────────────────────────────────
+
+describe("isNvidiaKimiStreamCoerce", () => {
+  it("returns true for nvidia + kimi-k2.6", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", "kimi-k2.6")).toBe(true);
   });
 
-  // ── isKimiToolFailure ────────────────────────────────────────────────────
-
-  it("flags repetition_detected as tool-call failure when tools were requested", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.isKimiToolFailure({
-      stopReason: "repetition_detected",
-      content: "plain text",
-      expectsToolCalls: true,
-    })).toBe(true);
+  it("returns true for nvidia + kimi-k2.7", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", "kimi-k2.7")).toBe(true);
   });
 
-  it("flags repetition (short) stop reason as tool-call failure", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.isKimiToolFailure({
-      stopReason: "repetition",
-      content: "some text",
-      expectsToolCalls: true,
-    })).toBe(true);
+  it("returns true for nvidia + moonshotai/kimi-k2.6", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", "moonshotai/kimi-k2.6")).toBe(true);
   });
 
-  it("does not flag repetition_detected when request had no tools", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.isKimiToolFailure({
-      stopReason: "repetition_detected",
-      content: "plain text",
-      expectsToolCalls: false,
-    })).toBe(false);
+  it("returns true for nvidia + moonshotai/kimi-k2.7", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", "moonshotai/kimi-k2.7")).toBe(true);
   });
 
-  it("flags long unstructured plain text as tool-call failure in tool mode", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    const longText = "x".repeat(240);
-    expect(mod.__testing.isKimiToolFailure({
-      stopReason: "stop",
-      content: longText,
-      expectsToolCalls: true,
-    })).toBe(true);
+  it("is case-insensitive for model name", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", "KIMI-K2.6")).toBe(true);
+    expect(isNvidiaKimiStreamCoerce("nvidia", "Kimi-K2.7")).toBe(true);
   });
 
-  it("does not flag short plain text as failure (model may genuinely respond with text)", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.isKimiToolFailure({
-      stopReason: "stop",
-      content: "short reply",
-      expectsToolCalls: true,
-    })).toBe(false);
+  it("returns false for nvidia + non-Kimi models", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", "llama-3.1-8b")).toBe(false);
+    expect(isNvidiaKimiStreamCoerce("nvidia", "meta/llama-3.1-8b-instruct")).toBe(false);
   });
 
-  it("does not flag structured Kimi XML tool blocks as failure", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    const content = '<invoke name="functions.bash"><parameter name="cmd">pwd</parameter></invoke>';
-    expect(mod.__testing.isKimiToolFailure({
-      stopReason: "stop",
-      content,
-      expectsToolCalls: true,
-    })).toBe(false);
+  it("returns false for non-nvidia providers with Kimi models", () => {
+    expect(isNvidiaKimiStreamCoerce("github", "kimi-k2.6")).toBe(false);
+    expect(isNvidiaKimiStreamCoerce("kimchi", "kimi-k2.6")).toBe(false);
   });
 
-  it("does not flag Kimi special-token tool blocks as failure", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    const content = "<|tool_calls_section_begin|><|tool_call_begin|>bash<|tool_call_argument_begin|>{\"command\":\"ls\"}<|tool_call_end|><|tool_calls_section_end|>";
-    expect(mod.__testing.isKimiToolFailure({
-      stopReason: "stop",
-      content,
-      expectsToolCalls: true,
-    })).toBe(false);
+  it("returns false when model is missing", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", undefined)).toBe(false);
+    expect(isNvidiaKimiStreamCoerce("nvidia", null)).toBe(false);
+    expect(isNvidiaKimiStreamCoerce("nvidia", "")).toBe(false);
   });
 
-  // ── requestExpectsToolCalls ──────────────────────────────────────────────
-
-  it("detects tool expectations when tools array is present and tool_choice is auto", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.requestExpectsToolCalls({
-      tools: [{ type: "function", function: { name: "bash" } }],
-      tool_choice: "auto",
-    })).toBe(true);
+  it("returns false for wrong kimi versions", () => {
+    expect(isNvidiaKimiStreamCoerce("nvidia", "kimi-k2.5")).toBe(false);
+    expect(isNvidiaKimiStreamCoerce("nvidia", "kimi-k2.8")).toBe(false);
+    expect(isNvidiaKimiStreamCoerce("nvidia", "kimi-k1.5")).toBe(false);
   });
+});
 
-  it("detects tool expectations when tools array is present and no tool_choice set", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.requestExpectsToolCalls({
-      tools: [{ type: "function", function: { name: "bash" } }],
-    })).toBe(true);
-  });
+// ── buildCoercedSSEResponse ──────────────────────────────────────────────
 
-  it("does not detect tool expectations when tool_choice is none", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.requestExpectsToolCalls({
-      tools: [{ type: "function", function: { name: "bash" } }],
-      tool_choice: "none",
-    })).toBe(false);
-  });
+async function drainSSE(response) {
+  if (!response?.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let out = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    out += decoder.decode(value, { stream: true });
+  }
+  return out;
+}
 
-  it("does not detect tool expectations when tools array is empty", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.requestExpectsToolCalls({ tools: [] })).toBe(false);
-  });
-
-  it("does not detect tool expectations when body has no tools", async () => {
-    const mod = await import("../../open-sse/executors/default.js");
-    expect(mod.__testing.requestExpectsToolCalls({ messages: [] })).toBe(false);
-  });
-
-  // ── DefaultExecutor.execute – Kimi NVIDIA tool path (honor client, no interference) ──
-  // 9Router passes the request through unchanged (no forced tool_choice, no injected
-  // max_tokens) so behavior matches direct-NVIDIA usage. Response-side hardening still
-  // fail-fasts on repetition/garbage so combos can fall back.
-
-  it("honors client tool_choice and does NOT inject max_tokens (passthrough)", async () => {
-    const { DefaultExecutor } = await import("../../open-sse/executors/default.js");
-    const { BaseExecutor } = await import("../../open-sse/executors/base.js");
-    const executor = new DefaultExecutor("nvidia");
-    const baseSpy = vi.spyOn(BaseExecutor.prototype, "execute").mockResolvedValue({
-      response: new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "", tool_calls: [{ id: "t1", type: "function", function: { name: "bash", arguments: "{}" } }] }, finish_reason: "tool_calls" }] }), { status: 200, headers: { "content-type": "application/json" } }),
-      url: "https://example.test", headers: {}, transformedBody: {},
-    });
-
-    await executor.execute({
+describe("buildCoercedSSEResponse", () => {
+  it("returns SSE for a content completion", async () => {
+    const json = {
+      id: "test-id",
+      created: 1700000000,
       model: "moonshotai/kimi-k2.6",
-      body: { messages: [{ role: "user", content: "list" }], tools: [{ type: "function", function: { name: "bash" } }], tool_choice: "auto" },
-      stream: false, credentials: { apiKey: "k" }, signal: undefined, log: undefined, proxyOptions: null,
-    });
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "Hello world" },
+          finish_reason: "stop",
+        },
+      ],
+    };
 
-    expect(baseSpy).toHaveBeenCalledOnce();
-    const calledBody = baseSpy.mock.calls[0][0].body;
-    expect(calledBody.tool_choice).toBe("auto");      // honored, not forced
-    expect(calledBody.max_tokens).toBeUndefined();    // NOT injected (matches direct usage)
+    const response = buildCoercedSSEResponse(json);
+    expect(response.headers.get("content-type")).toBe("text/event-stream");
+    const text = await drainSSE(response);
+    const lines = text.split("\n").filter(Boolean);
+
+    expect(lines.some((l) => l.includes('"Hello world"'))).toBe(true);
+    expect(lines.some((l) => l.includes('"finish_reason":"stop"'))).toBe(true);
+    expect(lines.some((l) => l === "data: [DONE]")).toBe(true);
   });
 
-  it("passes through native tool_calls from NVIDIA", async () => {
-    const { DefaultExecutor } = await import("../../open-sse/executors/default.js");
-    const { BaseExecutor } = await import("../../open-sse/executors/base.js");
-    const executor = new DefaultExecutor("nvidia");
-    vi.spyOn(BaseExecutor.prototype, "execute").mockResolvedValue({
-      response: new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "", tool_calls: [{ id: "c1", type: "function", function: { name: "bash", arguments: '{"command":"ls /tmp"}' } }] }, finish_reason: "tool_calls" }] }), { status: 200, headers: { "content-type": "application/json" } }),
-      url: "https://example.test", headers: {}, transformedBody: {},
-    });
+  it("includes reasoning_content when present", async () => {
+    const json = {
+      id: "r-id",
+      created: 1700000001,
+      model: "kimi-k2.6",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            reasoning_content: "Let me think...",
+            content: "Answer: 42",
+          },
+          finish_reason: "stop",
+        },
+      ],
+    };
 
-    const result = await executor.execute({
-      model: "moonshotai/kimi-k2.6",
-      body: { messages: [{ role: "user", content: "ls" }], tools: [{ type: "function", function: { name: "bash" } }], tool_choice: "required" },
-      stream: false, credentials: { apiKey: "k" }, signal: undefined, log: undefined, proxyOptions: null,
-    });
-    const parsed = await result.response.json();
-    expect(parsed.choices[0].message.tool_calls[0].function.name).toBe("bash");
+    const text = await drainSSE(buildCoercedSSEResponse(json));
+    expect(text).toContain("Let me think...");
+    expect(text).toContain("Answer: 42");
+    expect(text).toContain('"finish_reason":"stop"');
+    expect(text).toContain("data: [DONE]");
   });
 
-  it("fail-fasts on repetition_detected (response-side hardening → fallback)", async () => {
-    const { DefaultExecutor } = await import("../../open-sse/executors/default.js");
-    const { BaseExecutor } = await import("../../open-sse/executors/base.js");
-    const executor = new DefaultExecutor("nvidia");
-    vi.spyOn(BaseExecutor.prototype, "execute").mockResolvedValue({
-      response: new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "the problem is a problem", tool_calls: [] }, finish_reason: "repetition", stop_reason: "repetition_detected" }] }), { status: 200, headers: { "content-type": "application/json" } }),
-      url: "https://example.test", headers: {}, transformedBody: {},
-    });
+  it("returns SSE for a tool_calls completion", async () => {
+    const json = {
+      id: "tool-id",
+      created: 1700000002,
+      model: "kimi-k2.6",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: "",
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: { name: "bash", arguments: '{"cmd":"ls"}' },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+    };
 
-    await expect(executor.execute({
-      model: "moonshotai/kimi-k2.6",
-      body: { messages: [{ role: "user", content: "x" }], tools: [{ type: "function", function: { name: "bash" } }], tool_choice: "required" },
-      stream: false, credentials: { apiKey: "k" }, signal: undefined, log: undefined, proxyOptions: null,
-    })).rejects.toThrow(/Kimi tool-call failure/i);
+    const text = await drainSSE(buildCoercedSSEResponse(json));
+    expect(text).toContain('"tool_calls"');
+    expect(text).toContain('"bash"');
+    expect(text).toContain('"finish_reason":"tool_calls"');
+    expect(text).toContain("data: [DONE]");
   });
 
-  it("allows plain Kimi chat requests without tool_choice override", async () => {
-    const { DefaultExecutor } = await import("../../open-sse/executors/default.js");
-    const { BaseExecutor } = await import("../../open-sse/executors/base.js");
-    const executor = new DefaultExecutor("nvidia");
+  it("includes usage in the finish chunk when provided", async () => {
+    const json = {
+      id: "usage-id",
+      created: 1700000003,
+      model: "kimi-k2.6",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "OK" },
+          finish_reason: "stop",
+        },
+      ],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    };
 
-    const baseSpy = vi.spyOn(BaseExecutor.prototype, "execute").mockResolvedValue({
-      response: new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "hi" } }] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-      url: "https://example.test",
-      headers: {},
-      transformedBody: {},
+    const text = await drainSSE(buildCoercedSSEResponse(json));
+    const finishLine = text
+      .split("\n")
+      .filter((l) => l.includes('"finish_reason":"stop"'))[0];
+    expect(finishLine).toBeTruthy();
+    const finishPayload = JSON.parse(finishLine.replace(/^data: /, ""));
+    expect(finishPayload.usage).toEqual({
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      total_tokens: 15,
     });
-
-    await expect(executor.execute({
-      model: "moonshotai/kimi-k2.6",
-      body: { messages: [{ role: "user", content: "hello" }] },
-      stream: false,
-      credentials: { apiKey: "k" },
-      signal: undefined,
-      log: undefined,
-      proxyOptions: null,
-    })).resolves.toMatchObject({ url: "https://example.test" });
-
-    expect(baseSpy).toHaveBeenCalledOnce();
-    // No tool_choice injected for plain chat
-    const calledBody = baseSpy.mock.calls[0][0].body;
-    expect(calledBody.tool_choice).toBeUndefined();
   });
 
-  it("does not override tool_choice for non-Kimi models", async () => {
-    const { DefaultExecutor } = await import("../../open-sse/executors/default.js");
-    const { BaseExecutor } = await import("../../open-sse/executors/base.js");
-    const executor = new DefaultExecutor("nvidia");
+  it("emits raw jsonResponse when choices/message are absent", async () => {
+    const json = { object: "error", message: "something went wrong" };
+    const text = await drainSSE(buildCoercedSSEResponse(json));
+    expect(text).toContain("something went wrong");
+    expect(text).toContain("data: [DONE]");
+  });
 
-    const baseSpy = vi.spyOn(BaseExecutor.prototype, "execute").mockResolvedValue({
-      response: new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "hi" } }] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-      url: "https://example.test",
-      headers: {},
-      transformedBody: {},
-    });
+  it("produces role delta before content delta", async () => {
+    const json = {
+      id: "order-id",
+      created: 1700000004,
+      model: "x",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "hi" },
+          finish_reason: "stop",
+        },
+      ],
+    };
+    const text = await drainSSE(buildCoercedSSEResponse(json));
+    const roleIdx = text.indexOf('"role":"assistant"');
+    const contentIdx = text.indexOf('"content":"hi"');
+    expect(roleIdx).toBeGreaterThanOrEqual(0);
+    expect(contentIdx).toBeGreaterThanOrEqual(0);
+    expect(roleIdx).toBeLessThan(contentIdx);
+  });
+});
 
-    await executor.execute({
-      model: "meta/llama-3.1-8b-instruct",
-      body: {
-        messages: [{ role: "user", content: "list files" }],
-        tools: [{ type: "function", function: { name: "bash" } }],
-        tool_choice: "auto",
+// ── Upstream stream:false coercion (e2e via handleChatCore) ──────────────
+describe("NVIDIA Kimi stream coercion end-to-end", () => {
+  const mockJsonBody = {
+    choices: [
+      {
+        message: { role: "assistant", content: "mocked" },
+        finish_reason: "stop",
       },
-      stream: false,
-      credentials: { apiKey: "k" },
-      signal: undefined,
-      log: undefined,
-      proxyOptions: null,
+    ],
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("coerces stream:true to stream:false on the upstream request body", async () => {
+    proxyAwareFetch.mockResolvedValue(
+      new Response(JSON.stringify(mockJsonBody), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    const result = await handleChatCore({
+      body: {
+        model: "nvidia/kimi-k2.6",
+        stream: true,
+        messages: [{ role: "user", content: "hello" }],
+      },
+      modelInfo: { provider: "nvidia", model: "kimi-k2.6" },
+      credentials: { apiKey: "test-key" },
+      log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn() },
+      clientRawRequest: { headers: {} },
     });
 
-    const calledBody = baseSpy.mock.calls[0][0].body;
-    // tool_choice stays "auto" for non-Kimi models
-    expect(calledBody.tool_choice).toBe("auto");
+    // The response should be a synthetic SSE Response
+    expect(result.success).toBe(true);
+    expect(result.response.headers.get("content-type")).toBe("text/event-stream");
+
+    // Verify the upstream fetch received a body with stream: false
+    expect(proxyAwareFetch).toHaveBeenCalled();
+    const [, fetchOpts] = proxyAwareFetch.mock.calls[0];
+    const upstreamBody = JSON.parse(fetchOpts.body);
+    expect(upstreamBody.stream).toBe(false);
+  });
+
+  it("does NOT coerce when stream is already false", async () => {
+    proxyAwareFetch.mockResolvedValue(
+      new Response(JSON.stringify(mockJsonBody), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    const result = await handleChatCore({
+      body: {
+        model: "nvidia/kimi-k2.6",
+        stream: false,
+        messages: [{ role: "user", content: "hello" }],
+      },
+      modelInfo: { provider: "nvidia", model: "kimi-k2.6" },
+      credentials: { apiKey: "test-key" },
+      log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn() },
+      clientRawRequest: { headers: {} },
+    });
+
+    expect(result.success).toBe(true);
+    const [, fetchOpts] = proxyAwareFetch.mock.calls[0];
+    const upstreamBody = JSON.parse(fetchOpts.body);
+    expect(upstreamBody.stream).toBe(false);
+  });
+
+  it("does NOT coerce for non-Kimi models on nvidia", async () => {
+    proxyAwareFetch.mockResolvedValue(
+      new Response(JSON.stringify(mockJsonBody), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    const result = await handleChatCore({
+      body: {
+        model: "nvidia/llama-3.1-8b",
+        stream: true,
+        messages: [{ role: "user", content: "hello" }],
+      },
+      modelInfo: { provider: "nvidia", model: "llama-3.1-8b" },
+      credentials: { apiKey: "test-key" },
+      log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn() },
+      clientRawRequest: { headers: {} },
+    });
+
+    expect(result.success).toBe(true);
+    const [, fetchOpts] = proxyAwareFetch.mock.calls[0];
+    const upstreamBody = JSON.parse(fetchOpts.body);
+    // Non-Kimi should keep stream: true
+    expect(upstreamBody.stream).toBe(true);
   });
 });

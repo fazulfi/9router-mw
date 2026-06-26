@@ -117,6 +117,103 @@ export function hasToolResults(msg, toolCallIds) {
   return false;
 }
 
+// Extract tool names from a tools array (handles OpenAI `tools[].function.name`
+// and generic `tools[].name`). Used by both request-side prompt injection and
+// response-side fuzzy correction.
+export function extractToolNames(tools) {
+  if (!Array.isArray(tools)) return [];
+  return tools
+    .map((tool) => tool?.function?.name || tool?.name)
+    .filter((name) => typeof name === "string" && name.trim());
+}
+
+// Known prefixes that weak / local models (notably Kimi-K2 served via kimchi)
+// incorrectly prepend to tool names. Symptom: model emits "functionsread" /
+// "functions.read" instead of "read" → client rejects as unavailable tool.
+// Trim prefixes case-insensitively then re-check exact match.
+const BAD_TOOL_NAME_PREFIXES = [
+  "functions.", "functions/", "functions_",
+  "function.", "function/", "function_",
+  "tools.", "tools/", "tools_",
+  "tool.", "tool/", "tool_",
+  "funcs.", "funcs/", "funcs_",
+  "fn.", "fn/", "fn_",
+  "mcp__",
+];
+
+// Bare (no-separator) variants — strip only when the remainder is a real tool
+// name of length ≥4, to avoid false positives like stripping "function" from
+// "functional" and then colliding with a short tool like "al".
+const BAD_TOOL_NAME_BARE_PREFIXES = [
+  "functions", "function", "tools", "tool", "funcs", "fn",
+];
+
+// Minimum stripped-remainder length to accept a bare-prefix correction.
+const BARE_PREFIX_MIN_REMAINDER = 4;
+
+// Try to fuzzy-correct a malformed tool name against the list of valid tools
+// sent in the request. Returns the corrected name if a confident match is
+// found, otherwise returns the candidate unchanged (let downstream error
+// surface). Conservative: never modifies a name that already matches exactly.
+export function fuzzyMatchToolName(candidate, validToolNames) {
+  if (!candidate || typeof candidate !== "string") return candidate;
+  if (!Array.isArray(validToolNames) || validToolNames.length === 0) return candidate;
+
+  // 1. Exact match — nothing to do
+  if (validToolNames.includes(candidate)) return candidate;
+
+  const lowerCandidate = candidate.toLowerCase();
+
+  // 2. Case-insensitive exact match
+  const ciMatch = validToolNames.find(
+    (n) => typeof n === "string" && n.toLowerCase() === lowerCandidate
+  );
+  if (ciMatch) return ciMatch;
+
+  // 3. Strip known bad prefixes (with separator) and re-check exact match
+  for (const prefix of BAD_TOOL_NAME_PREFIXES) {
+    if (lowerCandidate.startsWith(prefix) && candidate.length > prefix.length) {
+      const stripped = candidate.slice(prefix.length);
+      if (validToolNames.includes(stripped)) return stripped;
+      const strippedCi = validToolNames.find(
+        (n) => typeof n === "string" && n.toLowerCase() === stripped.toLowerCase()
+      );
+      if (strippedCi) return strippedCi;
+    }
+  }
+
+  // 4. Bare prefixes (no separator). Only accept when remainder is ≥4 chars
+  //    so e.g. "function" → "al" (where "al" is a tool) cannot happen.
+  for (const prefix of BAD_TOOL_NAME_BARE_PREFIXES) {
+    if (lowerCandidate.startsWith(prefix) && candidate.length > prefix.length) {
+      const stripped = candidate.slice(prefix.length);
+      if (stripped.length < BARE_PREFIX_MIN_REMAINDER) continue;
+      if (validToolNames.includes(stripped)) return stripped;
+      const strippedCi = validToolNames.find(
+        (n) => typeof n === "string" && n.toLowerCase() === stripped.toLowerCase()
+      );
+      if (strippedCi) return strippedCi;
+    }
+  }
+
+  // 5. Conservative substring match. Avoid false positives from tiny overlaps
+  //    by requiring both names ≥4 chars and length difference ≤ max(4, 50%).
+  if (candidate.length >= 4) {
+    for (const name of validToolNames) {
+      if (typeof name !== "string" || name.length < 4) continue;
+      const lengthDiff = Math.abs(name.length - candidate.length);
+      const maxAllowedDiff = Math.max(4, Math.floor(Math.min(name.length, candidate.length) * 0.5));
+      if (lengthDiff > maxAllowedDiff) continue;
+      const lowerName = name.toLowerCase();
+      if (lowerCandidate.includes(lowerName) || lowerName.includes(lowerCandidate)) {
+        return name;
+      }
+    }
+  }
+
+  return candidate;
+}
+
 // Fix missing tool responses - insert empty tool_result if assistant has tool_use but next message has no tool_result
 export function fixMissingToolResponses(body) {
   if (!body.messages || !Array.isArray(body.messages)) return body;

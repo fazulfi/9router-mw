@@ -5,11 +5,51 @@ import { extractUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage,
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers.js";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
+import { extractToolNames, fuzzyMatchToolName } from "../translator/concerns/toolCall.js";
 
 import { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER } from "./sseConstants.js";
 
 export { COLORS, formatSSE };
 export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
+
+/**
+ * Build an OpenAI-style SSE chunk that exposes structured tool_calls.
+ *
+ * @param {Array} toolCalls - OpenAI tool_calls array
+ * @param {string} messageId - Chat completion id prefix/suffix
+ * @param {string} modelName - Model name to include in the chunk
+ * @returns {object}
+ */
+export function buildOpenAIToolCallsChunk(toolCalls, messageId, modelName) {
+  const id = messageId?.startsWith("chatcmpl-") ? messageId : `chatcmpl-${messageId || Date.now()}`;
+  return {
+    id,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: modelName || null,
+    choices: [{
+      index: 0,
+      delta: { tool_calls: toolCalls },
+      finish_reason: "tool_calls",
+    }],
+  };
+}
+
+/**
+ * Emit a synthetic tool_calls chunk for native Kimi markup that leaked into
+ * streaming content. Returns true when a chunk was emitted. No-op when
+ * sourceFormat is not OpenAI.
+ */
+export function emitKimiToolCallsChunk(controller, toolCalls, state, modelName, sourceFormat, reqLogger) {
+  if (!toolCalls || toolCalls.length === 0) return false;
+  if (sourceFormat !== FORMATS.OPENAI) return false;
+
+  const chunk = buildOpenAIToolCallsChunk(toolCalls, state?.messageId, modelName);
+  const output = formatSSE(chunk, FORMATS.OPENAI);
+  reqLogger?.appendConvertedChunk?.(output);
+  controller.enqueue(sharedEncoder.encode(output));
+  return true;
+}
 
 // sharedEncoder is stateless — safe to share across streams
 const sharedEncoder = new TextEncoder();
@@ -48,11 +88,17 @@ export function createSSEStream(options = {}) {
     connectionId = null,
     body = null,
     onStreamComplete = null,
-    apiKey = null
+    apiKey = null,
+    normalizeKimiToolCalls = null
   } = options;
 
   let buffer = "";
   let usage = null;
+
+  // Cache valid tool names from request body — used to correct malformed tool
+  // names that weak models (e.g. Kimi served via kimchi) emit in the response
+  // (e.g. "functionsread" instead of "read"). Computed once per stream.
+  const validToolNames = body?.tools ? extractToolNames(body.tools) : null;
 
   // Per-stream decoder with stream:true to correctly handle multi-byte chars split across chunks
   const decoder = new TextDecoder("utf-8", { fatal: false });
@@ -66,6 +112,12 @@ export function createSSEStream(options = {}) {
   let sseLineCount = 0;
   let sseEmittedCount = 0;
   const eventTypeCounts = {};
+
+  // Track native Kimi tool-call markup that leaks into streaming content.
+  // When detected, a synthetic tool_calls chunk is emitted before [DONE].
+  const isKimiModel = /kimi-k2\./i.test(model || "");
+  let kimiToolCalls = null;
+  let kimiToolCallsEmitted = false;
 
   // Track Responses API event framing for same-format passthrough (codex)
   let currentOpenAIResponsesEvent = null;
@@ -125,6 +177,25 @@ export function createSSEStream(options = {}) {
                   if (choice.content_filter_results !== undefined) {
                     delete choice.content_filter_results;
                     fieldsInjected = true;
+                  }
+                }
+              }
+
+              // Fuzzy-correct malformed tool names (e.g. "functionsread" → "read")
+              // that weak models emit in delta.tool_calls[].function.name.
+              if (validToolNames && validToolNames.length > 0 && Array.isArray(parsed.choices)) {
+                for (const choice of parsed.choices) {
+                  const delta = choice?.delta;
+                  if (Array.isArray(delta?.tool_calls)) {
+                    for (const tc of delta.tool_calls) {
+                      if (tc.function?.name) {
+                        const corrected = fuzzyMatchToolName(tc.function.name, validToolNames);
+                        if (corrected !== tc.function.name) {
+                          tc.function.name = corrected;
+                          fieldsInjected = true;
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -234,6 +305,32 @@ export function createSSEStream(options = {}) {
           totalContentLength += parsed.choices[0].delta.content.length;
           accumulatedContent += parsed.choices[0].delta.content;
         }
+
+        // Detect and correct native Kimi tool-call markup that leaks into the
+        // content stream instead of being emitted as structured tool_calls.
+        if (isKimiModel && normalizeKimiToolCalls && parsed.choices?.[0]?.delta?.content) {
+          const originalDelta = parsed.choices[0].delta.content;
+          const { message: normalized, hasTools } = normalizeKimiToolCalls({
+            role: "assistant",
+            content: originalDelta,
+          });
+          if (hasTools) {
+            kimiToolCalls = normalized.tool_calls;
+            // Replace the raw markup with any leading prose so the user doesn't
+            // see the native token soup. If there is no prose, drop the content.
+            parsed.choices[0].delta.content = normalized.content || undefined;
+            if (!parsed.choices[0].delta.content) {
+              delete parsed.choices[0].delta.content;
+            }
+            // Adjust accumulated content to reflect the stripped markup.
+            totalContentLength -= originalDelta.length;
+            accumulatedContent = accumulatedContent.slice(0, accumulatedContent.length - originalDelta.length);
+            if (normalized.content) {
+              totalContentLength += normalized.content.length;
+              accumulatedContent += normalized.content;
+            }
+          }
+        }
         // OpenAI format - reasoning
         if (parsed.choices?.[0]?.delta?.reasoning_content) {
           totalContentLength += parsed.choices[0].delta.reasoning_content.length;
@@ -285,13 +382,26 @@ export function createSSEStream(options = {}) {
         if (translated?.length > 0) {
           for (const item of translated) {
             if (item === null || item === undefined) continue;
+
+            // If native Kimi tool calls were detected in this chunk stream and
+            // this is the finish chunk, replace it with a structured tool_calls
+            // chunk so the client sees the correct finish_reason.
+            const isFinishChunk = item.type === "message_delta" || item.choices?.[0]?.finish_reason;
+            if (kimiToolCalls && isFinishChunk && sourceFormat === FORMATS.OPENAI) {
+              const emitted = emitKimiToolCallsChunk(controller, kimiToolCalls, state, model, sourceFormat, reqLogger);
+              if (emitted) {
+                sseEmittedCount++;
+                kimiToolCallsEmitted = true;
+              }
+              continue;
+            }
+
             // Filter empty chunks
             if (!hasValuableContent(item, sourceFormat)) {
               continue; // Skip this empty chunk
             }
 
             // Inject estimated usage if finish chunk has no valid usage
-            const isFinishChunk = item.type === "message_delta" || item.choices?.[0]?.finish_reason;
             if (state.finishReason && isFinishChunk && !hasValidUsage(item.usage) && totalContentLength > 0) {
               const estimated = estimateUsage(body, totalContentLength, sourceFormat);
               item.usage = filterUsageForFormat(estimated, sourceFormat); // Filter + already has buffer
@@ -397,6 +507,23 @@ export function createSSEStream(options = {}) {
           }
         }
 
+        // Fallback: if native Kimi tool-call markup leaked into the accumulated
+        // content but no finish chunk triggered emission, synthesize a final
+        // tool_calls chunk now. This covers fragmented markup and passthrough.
+        if (!kimiToolCallsEmitted && isKimiModel && normalizeKimiToolCalls) {
+          const { hasTools, message: normalized } = normalizeKimiToolCalls({
+            role: "assistant",
+            content: accumulatedContent,
+          });
+          if (hasTools) {
+            const emitted = emitKimiToolCallsChunk(controller, normalized.tool_calls, state, model, sourceFormat, reqLogger);
+            if (emitted) {
+              sseEmittedCount++;
+              kimiToolCallsEmitted = true;
+            }
+          }
+        }
+
         // Synthesize response.failed if a Responses passthrough stream never reached a terminal event
         const keepsOpenAIResponsesFormat = targetFormat === FORMATS.OPENAI_RESPONSES && sourceFormat === FORMATS.OPENAI_RESPONSES;
         if (keepsOpenAIResponsesFormat && !openAIResponsesTerminalSeen) {
@@ -435,7 +562,7 @@ export function createSSEStream(options = {}) {
   });
 }
 
-export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider = null, reqLogger = null, toolNameMap = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null) {
+export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider = null, reqLogger = null, toolNameMap = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, normalizeKimiToolCalls = null) {
   return createSSEStream({
     mode: STREAM_MODE.TRANSLATE,
     targetFormat,
@@ -447,11 +574,12 @@ export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, p
     connectionId,
     body,
     onStreamComplete,
-    apiKey
+    apiKey,
+    normalizeKimiToolCalls
   });
 }
 
-export function createPassthroughStreamWithLogger(provider = null, reqLogger = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null) {
+export function createPassthroughStreamWithLogger(provider = null, reqLogger = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, normalizeKimiToolCalls = null) {
   return createSSEStream({
     mode: STREAM_MODE.PASSTHROUGH,
     provider,
@@ -460,6 +588,7 @@ export function createPassthroughStreamWithLogger(provider = null, reqLogger = n
     connectionId,
     body,
     onStreamComplete,
-    apiKey
+    apiKey,
+    normalizeKimiToolCalls
   });
 }
