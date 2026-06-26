@@ -31,7 +31,7 @@ export default {
     timeoutMs: 20000,
     headers: {
       "User-Agent": "kimchi/0.1.39",
-      Accept: "application/json;q=1, text/event-stream;q=0",
+      Accept: "text/event-stream,application/json",
     },
     auth: {
       apiKey: {
