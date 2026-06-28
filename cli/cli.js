@@ -77,9 +77,9 @@ function getDisplayHost() {
   return host === DEFAULT_HOST ? "localhost" : host;
 }
 const MAX_PORT_ATTEMPTS = 10;
-// Identifiers for killAllAppProcesses - only kill 9router specifically
+// Identifiers for killAllAppProcesses - only kill this app's processes
 const PROCESS_IDENTIFIERS = [
-  '9router'  // Only package name - avoid killing other apps
+  APP_NAME  // Use package name from package.json (e.g. vansrouter)
 ];
 
 // Parse arguments
@@ -239,7 +239,7 @@ function killAllAppProcesses(appPort) {
             // Avoids killing editors/grep/strace/cursor that just have "9router" in cmdline.
             const cmd = line.toLowerCase();
             const isAppProcess =
-              (cmd.includes("node") && cmd.includes("9router") && (cmd.includes("cli.js") || cmd.includes("\\9router") || cmd.includes("/9router")))
+              (cmd.includes("node") && cmd.includes(APP_NAME.toLowerCase()) && (cmd.includes("cli.js") || cmd.includes(`\\${APP_NAME.toLowerCase()}`) || cmd.includes(`/${APP_NAME.toLowerCase()}`)))
               || cmd.includes("next-server");
             if (isAppProcess) {
               const match = line.match(/^"(\d+)"/);
@@ -265,7 +265,7 @@ function killAllAppProcesses(appPort) {
             // Avoids killing grep/strace/editors/cursor that incidentally match "9router".
             const cmd = line.toLowerCase();
             const isAppProcess =
-              (cmd.includes("node") && cmd.includes("9router") && (cmd.includes("cli.js") || cmd.includes("/9router")))
+              (cmd.includes("node") && cmd.includes(APP_NAME.toLowerCase()) && (cmd.includes("cli.js") || cmd.includes(`/${APP_NAME.toLowerCase()}`)))
               || cmd.includes("next-server");
             if (isAppProcess) {
               const parts = line.trim().split(/\s+/);

@@ -1,7 +1,7 @@
 import https from "https";
 import pkg from "../../../../package.json" with { type: "json" };
 
-const NPM_PACKAGE_NAME = "9router";
+const NPM_PACKAGE_NAME = "vansrouter";
 const GITHUB_RAW_PKG = "https://raw.githubusercontent.com/Vanszs/VansRouter/main/package.json";
 
 function fetchJson(url) {

@@ -1,9 +1,9 @@
 {
-  "name": "9router",
+  "name": "vansrouter",
   "version": "0.5.12",
-  "description": "9Router CLI - Start and manage 9Router server",
+  "description": "VansRouter CLI - Start and manage VansRouter server",
   "bin": {
-    "9router": "./cli.js"
+    "vansrouter": "./cli.js"
   },
   "files": [
     "cli.js",
