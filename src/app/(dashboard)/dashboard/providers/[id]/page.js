@@ -1367,7 +1367,7 @@ export default function ProviderDetailPage() {
                   size="sm"
                   variant="danger"
                   icon="delete_sweep"
-                  onClick={handleBatchDelete}
+                  onClick={handleBulkDelete}
                   disabled={selectedConnectionIds.length === 0}
                 >
                   Delete{selectedConnectionIds.length > 0 ? ` (${selectedConnectionIds.length})` : ""}
