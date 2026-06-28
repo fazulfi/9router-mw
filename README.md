@@ -19,6 +19,14 @@
 
 ---
 
+> ⚠️ **Status: porting in progress**
+>
+> We are currently porting VansRoute to **Go**. During this transition, updates may be slower than usual.
+> Incoming commits will **focus on bug fixes only** — please open issues for any bugs you find, but hold off on new feature requests until the Go port stabilizes.
+> The current Node.js build remains the recommended way to run VansRoute in the meantime.
+
+---
+
 ## 🤔 Why VansRoute?
 
 **Stop wasting money, tokens and hitting limits:**

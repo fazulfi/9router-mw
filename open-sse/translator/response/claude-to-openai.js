@@ -22,6 +22,15 @@ export function claudeToOpenAIResponse(chunk, state) {
   const results = [];
   const event = chunk.type;
 
+  // Only wrap Claude thinking blocks with <think>…</think> content tags for
+  // native Claude models. OpenAI-style reasoning models (GLM-5.2, GPT-5.5,
+  // …) proxied through Claude-format transports (e.g. AgentRouter) already
+  // surface reasoning via the OpenAI-native reasoning_content field; emitting
+  // <think>…</think> alongside produces duplicate markers that leak as plain
+  // text in clients like OpenCode that already captured reasoning_content as
+  // 'thought'. See .kimchi/docs/ferment-handoff.md Ferment 4 Phase 2.
+  const wrapThinkTags = (state.model || "").toLowerCase().includes("claude");
+
   switch (event) {
     case "message_start": {
       state.messageId = chunk.message?.id || `msg_${Date.now()}`;
@@ -43,7 +52,7 @@ export function claudeToOpenAIResponse(chunk, state) {
       } else if (block?.type === CLAUDE_BLOCK.THINKING) {
         state.inThinkingBlock = true;
         state.currentBlockIndex = chunk.index;
-        results.push(createChunk(state, { content: "<think>" }));
+        if (wrapThinkTags) results.push(createChunk(state, { content: "<think>" }));
       } else if (block?.type === CLAUDE_BLOCK.TOOL_USE) {
         const toolCallIndex = state.toolCallIndex++;
         // Restore original tool name from mapping (Claude OAuth)
@@ -94,7 +103,7 @@ export function claudeToOpenAIResponse(chunk, state) {
         break;
       }
       if (state.inThinkingBlock && chunk.index === state.currentBlockIndex) {
-        results.push(createChunk(state, { content: "</think>" }));
+        if (wrapThinkTags) results.push(createChunk(state, { content: "</think>" }));
         state.inThinkingBlock = false;
       }
       state.textBlockStarted = false;
