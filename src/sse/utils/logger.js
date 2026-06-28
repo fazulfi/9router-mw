@@ -7,7 +7,7 @@ const LOG_LEVELS = {
   ERROR: 3
 };
 
-const LEVEL = LOG_LEVELS.DEBUG;
+const LEVEL = LOG_LEVELS[process.env.LOG_LEVEL?.toUpperCase?.()] ?? LOG_LEVELS.INFO;
 
 function formatTime() {
   return new Date().toLocaleTimeString("en-US", { hour12: false });
@@ -56,13 +56,13 @@ export function request(method, path, extra) {
   console.log(`\x1b[36m[${formatTime()}] 📥 ${method} ${path}${dataStr}\x1b[0m`);
 }
 
-function response(status, duration, extra) {
+export function response(status, duration, extra) {
   const icon = status < 400 ? "📤" : "💥";
   const dataStr = extra ? ` ${formatData(extra)}` : "";
   console.log(`[${formatTime()}] ${icon} ${status} (${duration}ms)${dataStr}`);
 }
 
-function stream(event, data) {
+export function stream(event, data) {
   const dataStr = data ? ` ${formatData(data)}` : "";
   console.log(`[${formatTime()}] 🌊 [STREAM] ${event}${dataStr}`);
 }
@@ -72,4 +72,3 @@ export function maskKey(key) {
   if (!key || key.length < 8) return "***";
   return `${key.slice(0, 4)}...${key.slice(-4)}`;
 }
-

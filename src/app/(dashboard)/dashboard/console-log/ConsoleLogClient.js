@@ -19,34 +19,37 @@ function colorLine(line) {
   return <span className={color}>{line}</span>;
 }
 
-async function clearConsoleLogs() {
-  try {
-    await fetch("/api/translator/console-logs", { method: "DELETE" });
-  } catch (err) {
-    console.error("Failed to clear console logs:", err);
-  }
-}
-
 export default function ConsoleLogClient() {
   const [logs, setLogs] = useState([]);
-  const connectedRef = useRef(false);
+  const [connected, setConnected] = useState(false);
   const logRef = useRef(null);
-  const idRef = useRef(0);
 
-  const handleClear = clearConsoleLogs;
+  const handleClear = async () => {
+    try {
+      await fetch("/api/translator/console-logs", { method: "DELETE" });
+      // UI cleared via SSE "clear" event
+    } catch (err) {
+      console.error("Failed to clear console logs:", err);
+    }
+  };
 
   useEffect(() => {
     const es = new EventSource("/api/translator/console-logs/stream");
 
-    es.onopen = () => connectedRef.current = true;
+    es.onopen = () => setConnected(true);
 
     es.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === "init") {
-        setLogs(msg.logs.slice(-CONSOLE_LOG_CONFIG.maxLines).map(line => ({ id: ++idRef.current, line })));
+        setLogs(msg.logs.slice(-CONSOLE_LOG_CONFIG.maxLines));
       } else if (msg.type === "line") {
         setLogs((prev) => {
-          const next = [...prev, { id: ++idRef.current, line: msg.line }];
+          const next = [...prev, msg.line];
+          return next.length > CONSOLE_LOG_CONFIG.maxLines ? next.slice(-CONSOLE_LOG_CONFIG.maxLines) : next;
+        });
+      } else if (msg.type === "lines") {
+        setLogs((prev) => {
+          const next = [...prev, ...msg.lines];
           return next.length > CONSOLE_LOG_CONFIG.maxLines ? next.slice(-CONSOLE_LOG_CONFIG.maxLines) : next;
         });
       } else if (msg.type === "clear") {
@@ -54,7 +57,7 @@ export default function ConsoleLogClient() {
       }
     };
 
-    es.onerror = () => connectedRef.current = false;
+    es.onerror = () => setConnected(false);
 
     return () => es.close();
   }, []);
@@ -81,8 +84,8 @@ export default function ConsoleLogClient() {
             <span className="text-text-muted">No console logs yet.</span>
           ) : (
             <div className="space-y-0.5">
-              {logs.map((entry) => (
-                <div key={entry.id}>{colorLine(entry.line)}</div>
+              {logs.map((line, i) => (
+                <div key={i}>{colorLine(line)}</div>
               ))}
             </div>
           )}
