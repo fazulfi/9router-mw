@@ -27,6 +27,7 @@ cli/.build-home/
 .env.*
 !.env.example
 .kiro/steering/secrets.md
+.npmrc
 
 # =============================================================================
 # IDE & editor
