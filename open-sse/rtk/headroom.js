@@ -304,6 +304,7 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
       return data;
     }
 
+
     // OpenAI shape: messages/input go straight to the proxy.
     const key = Array.isArray(body.messages) ? "messages"
       : Array.isArray(body.input) ? "input"
