@@ -262,16 +262,10 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
     stripAll(body);
     return body;
   }
+  if (!cfg) return body;
 
   const fmt = resolveFormat(targetFormat, cleanModel, provider);
-
-  // GLM's zai format defaults thinking ON on the provider side. If the client
-  // did not explicitly request reasoning, force-disable it to prevent reasoning
-  // content from leaking into the response.
-  const effectiveCfg = cfg || (fmt === "zai" && caps.thinkingCanDisable !== false ? { mode: "none" } : null);
-  if (!effectiveCfg) return body;
-
   stripAll(body);
-  applyFormat(fmt, body, effectiveCfg, caps);
+  applyFormat(fmt, body, cfg, caps);
   return body;
 }
