@@ -21,7 +21,6 @@ onlyBuiltDependencies:
 pnpm:
   requiredScripts:
     - build
-storeDir: /tmp/pnpm-store
 trustPolicy: no-downgrade
 trustPolicyExclude:
   - react-redux

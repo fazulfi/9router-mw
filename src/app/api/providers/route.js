@@ -84,7 +84,18 @@ export async function GET() {
       if (def.alias && def.alias !== id) aliasMap[def.alias] = id;
     }
 
-    return NextResponse.json({ connections: safeConnections, aliasMap });
+    // Include all registered providers (not just those with connections) so
+    // the ACL dialog can show free/noAuth providers even when no connection exists.
+    const providers = Object.entries(AI_PROVIDERS).map(([id, def]) => ({
+      id,
+      alias: def.alias || null,
+      aliases: def.aliases || [],
+      displayName: def.display?.name || id,
+      noAuth: !!def.noAuth,
+      serviceKinds: def.serviceKinds || [],
+    }));
+
+    return NextResponse.json({ connections: safeConnections, aliasMap, providers });
   } catch (error) {
     console.log("Error fetching providers:", error);
     return NextResponse.json({ error: "Failed to fetch providers" }, { status: 500 });

@@ -3,7 +3,7 @@ import { PROVIDERS } from "../config/providers.js";
 import { HTTP_STATUS, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager.js";
 import os from "os";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { dbg } from "../utils/debugLog.js";
@@ -143,7 +143,7 @@ export class ZcodeExecutor extends BaseExecutor {
       ...buildZCodeSourceHeaders(),
       "Authorization": `Bearer ${zcodeJwtToken}`,
       "anthropic-version": "2023-06-01",
-      "x-request-id": uuidv4(),
+      "x-request-id": randomUUID(),
     };
     if (captchaParam) {
       headers["X-Aliyun-Captcha-Verify-Param"] = captchaParam;
@@ -232,7 +232,7 @@ export class ZcodeExecutor extends BaseExecutor {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-request-id": uuidv4(),
+          "x-request-id": randomUUID(),
         },
         body: JSON.stringify({ token: credentials.accessToken }),
         signal: ctrl.signal,

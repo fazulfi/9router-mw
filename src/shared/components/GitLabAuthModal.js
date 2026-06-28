@@ -1,7 +1,6 @@
 "use client";
 
 import { useReducer } from "react";
-import PropTypes from "prop-types";
 import { Modal, Button, Input, OAuthModal } from "@/shared/components";
 
 const GITLAB_COM = "https://gitlab.com";
@@ -183,9 +182,3 @@ export default function GitLabAuthModal({ isOpen, providerInfo, onSuccess, onClo
   );
 }
 
-GitLabAuthModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  providerInfo: PropTypes.shape({ name: PropTypes.string }),
-  onSuccess: PropTypes.func,
-  onClose: PropTypes.func.isRequired,
-};

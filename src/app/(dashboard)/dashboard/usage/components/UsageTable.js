@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useMemo, Fragment } from "react";
-import PropTypes from "prop-types";
 import Card from "@/shared/components/Card";
 import Badge from "@/shared/components/Badge";
 
@@ -22,12 +21,6 @@ function SortIcon({ field, currentSort, currentOrder }) {
   if (currentSort !== field) return <span className="ml-1 opacity-20">↕</span>;
   return <span className="ml-1">{currentOrder === "asc" ? "↑" : "↓"}</span>;
 }
-
-SortIcon.propTypes = {
-  field: PropTypes.string.isRequired,
-  currentSort: PropTypes.string.isRequired,
-  currentOrder: PropTypes.string.isRequired,
-};
 
 /**
  * Render 3 token or cost cells based on viewMode
@@ -62,12 +55,6 @@ function ValueCells({ item, viewMode, isSummary = false }) {
     </>
   );
 }
-
-ValueCells.propTypes = {
-  item: PropTypes.object.isRequired,
-  viewMode: PropTypes.string.isRequired,
-  isSummary: PropTypes.bool,
-};
 
 /**
  * Reusable sortable usage table with expandable group rows.
@@ -217,25 +204,6 @@ export default function UsageTable({
     </Card>
   );
 }
-
-UsageTable.propTypes = {
-  title: PropTypes.string.isRequired,
-  columns: PropTypes.arrayOf(PropTypes.shape({
-    field: PropTypes.string.isRequired,
-    label: PropTypes.string.isRequired,
-    align: PropTypes.string,
-  })).isRequired,
-  groupedData: PropTypes.array.isRequired,
-  tableType: PropTypes.string.isRequired,
-  sortBy: PropTypes.string.isRequired,
-  sortOrder: PropTypes.string.isRequired,
-  onToggleSort: PropTypes.func.isRequired,
-  viewMode: PropTypes.string.isRequired,
-  storageKey: PropTypes.string.isRequired,
-  renderDetailCells: PropTypes.func.isRequired,
-  renderSummaryCells: PropTypes.func.isRequired,
-  emptyMessage: PropTypes.string.isRequired,
-};
 
 // Re-export utilities for use in UsageStats orchestrator
 export { fmt, fmtCost, fmtTime };

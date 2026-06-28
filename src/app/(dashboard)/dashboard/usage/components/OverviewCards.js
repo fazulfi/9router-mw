@@ -1,6 +1,5 @@
 "use client";
 
-import PropTypes from "prop-types";
 import Card from "@/shared/components/Card";
 
 const _nf = new Intl.NumberFormat();
@@ -31,6 +30,3 @@ export default function OverviewCards({ stats }) {
   );
 }
 
-OverviewCards.propTypes = {
-  stats: PropTypes.object.isRequired,
-};

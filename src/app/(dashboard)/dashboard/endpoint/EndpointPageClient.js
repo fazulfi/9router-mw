@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import PropTypes from "prop-types";
 import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { getCurrentLocale, onLocaleChange } from "@/i18n/runtime";
@@ -40,6 +39,7 @@ export default function APIPageClient({ machineId }) {
   const [editCombosAll, setEditCombosAll] = useState(true);
   const [editSaving, setEditSaving] = useState(false);
   const [providerList, setProviderList] = useState([]);
+  const [providerRegistry, setProviderRegistry] = useState([]);
   const [aliasMap, setAliasMap] = useState({}); // alias → provider ID
   const [comboList, setComboList] = useState([]);
 
@@ -431,8 +431,10 @@ export default function APIPageClient({ machineId }) {
   // ── ACL Edit Key handlers ──────────────────────────────────────────
   const ALL_KINDS = ["llm", "embedding", "image", "tts", "stt", "webSearch", "webFetch"];
 
-  // Build unique provider list grouped from connections + nodes
-  const buildProviderList = (connections, nodes) => {
+  // Build unique provider list grouped from connections + nodes + registry.
+  // Registry providers (especially noAuth/free ones) are included even when
+  // there is no connection, so ACL can allow/deny them explicitly.
+  const buildProviderList = (connections, nodes, registry) => {
     const nodeMap = {};
     for (const n of (nodes || [])) {
       // API returns prefix/apiType/baseUrl as top-level fields (parsed from data JSON)
@@ -445,13 +447,21 @@ export default function APIPageClient({ machineId }) {
       if (!byProvider[p]) byProvider[p] = { id: p, count: 0, alias: c.alias || null };
       byProvider[p].count++;
     }
+    // Merge registry providers (free/noAuth and any other registered provider)
+    for (const def of (registry || [])) {
+      const id = def.id;
+      if (!byProvider[id]) {
+        byProvider[id] = { id, count: 0, alias: def.alias || null };
+      }
+    }
     // Build final list with friendly names
     return Object.values(byProvider).map(({ id, count, alias }) => {
       const node = nodeMap[id];
-      let displayName = id;
+      const reg = (registry || []).find((r) => r.id === id);
+      let displayName = reg?.displayName || id;
       let prefix = null;
       if (node) {
-        displayName = node.name || id;
+        displayName = node.name || displayName;
         prefix = node.prefix || null;
       }
       return { id, displayName, prefix, alias, count };
@@ -545,16 +555,19 @@ export default function APIPageClient({ machineId }) {
       }
       let connections = [];
       let nodes = [];
+      let registry = [];
       if (providersRes.ok) {
         const pData = await providersRes.json();
         connections = pData.connections || [];
+        registry = pData.providers || [];
+        setProviderRegistry(registry);
         if (pData.aliasMap) setAliasMap(pData.aliasMap);
       }
       if (nodesRes.ok) {
         const nData = await nodesRes.json();
         nodes = nData.nodes || [];
       }
-      setProviderList(buildProviderList(connections, nodes));
+      setProviderList(buildProviderList(connections, nodes, registry));
       if (combosRes.ok) {
         const cData = await combosRes.json();
         setComboList(cData.combos || []);
@@ -2008,6 +2021,3 @@ export default function APIPageClient({ machineId }) {
 }
 
 
-APIPageClient.propTypes = {
-  machineId: PropTypes.string.isRequired,
-};

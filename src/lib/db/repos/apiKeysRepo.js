@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { getAdapter } from "../driver.js";
 
 // Parse a JSON TEXT column with null=all / []=none semantics.
@@ -49,7 +49,7 @@ export async function createApiKey(name, machineId) {
   ]);
   const result = generateApiKeyWithMachine(machineId);
   const apiKey = {
-    id: uuidv4(),
+    id: randomUUID(),
     name,
     key: result.key,
     machineId,

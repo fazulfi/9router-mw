@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import PropTypes from "prop-types";
 
 export default function ProviderIcon({
   src,
@@ -43,11 +42,3 @@ export default function ProviderIcon({
   );
 }
 
-ProviderIcon.propTypes = {
-  src: PropTypes.string,
-  alt: PropTypes.string,
-  size: PropTypes.number,
-  className: PropTypes.string,
-  fallbackText: PropTypes.string,
-  fallbackColor: PropTypes.string,
-};

@@ -21,11 +21,11 @@ cp -r .next/static .next/standalone/.next/static
 ```
 
 ## 4. Menjalankan dengan PM2
-Jalankan file `.next/standalone/server.js` menggunakan PM2. Sangat disarankan untuk langsung mendefinisikan port di environment saat menjalankan PM2 (pastikan port sesuai dengan upstream proxy Nginx Anda, contoh port 3003):
+Jalankan file `server.js` menggunakan PM2. File ini adalah wrapper yang default ke port `20128` jika `PORT` tidak di-set, dan sangat disarankan untuk tetap mendefinisikan port di environment saat menjalankan PM2 (pastikan port sesuai dengan upstream proxy Nginx Anda, contoh port 3003):
 
 ```bash
 # Menjalankan instance baru (ganti 3003 sesuai konfigurasi upstream Nginx)
-PORT=3003 pm2 start .next/standalone/server.js --name 9router
+PORT=3003 pm2 start server.js --name 9router
 
 # Jika aplikasi sudah pernah berjalan sebelumnya, pastikan restart selalu membawa argumen --update-env
 PORT=3003 pm2 restart 9router --update-env

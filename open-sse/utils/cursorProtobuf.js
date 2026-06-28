@@ -3,7 +3,7 @@
  * Implements ConnectRPC protobuf wire format for Cursor API
  */
 
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import zlib from "zlib";
 
 const DEBUG = process.env.CURSOR_PROTOBUF_DEBUG === "1";
@@ -514,7 +514,7 @@ function encodeRequest(messages, modelName, tools = [], reasoningEffort = null, 
   for (let i = 0; i < normalizedMessages.length; i++) {
     const msg = normalizedMessages[i];
     const role = msg.role === "user" ? ROLE.USER : ROLE.ASSISTANT;
-    const msgId = uuidv4();
+    const msgId = randomUUID();
     const isLast = i === normalizedMessages.length - 1;
 
     formattedMessages.push({
@@ -552,7 +552,7 @@ function encodeRequest(messages, modelName, tools = [], reasoningEffort = null, 
     encodeField(FIELD.UNKNOWN_13, WIRE_TYPE.VARINT, 1),
     encodeField(FIELD.CURSOR_SETTING, WIRE_TYPE.LEN, encodeCursorSetting()),
     encodeField(FIELD.UNKNOWN_19, WIRE_TYPE.VARINT, 1),
-    encodeField(FIELD.CONVERSATION_ID, WIRE_TYPE.LEN, uuidv4()),
+    encodeField(FIELD.CONVERSATION_ID, WIRE_TYPE.LEN, randomUUID()),
     encodeField(FIELD.METADATA, WIRE_TYPE.LEN, encodeMetadata()),
 
     // Tool-related fields

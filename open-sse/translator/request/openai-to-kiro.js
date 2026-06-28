@@ -4,7 +4,7 @@
  */
 import { register } from "../registry.js";
 import { FORMATS } from "../formats.js";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { resolveSessionId } from "../../utils/sessionManager.js";
 import {
   resolveKiroModel,
@@ -298,7 +298,7 @@ function convertMessages(messages, tools, model) {
               const format = parsed.mimeType.split("/")[1] || parsed.mimeType;
               pendingImages.push({ format, source: { bytes: parsed.base64 } });
             } else if (url.startsWith("http://") || url.startsWith("https://")) {
-              // Kiro only supports base64 — fallback to URL text
+              // Kiro only supports base64 — fallback to URL text placeholder
               textParts.push(`[Image: ${url}]`);
             }
           } else if (c.type === CLAUDE_BLOCK.IMAGE) {
@@ -373,13 +373,13 @@ function convertMessages(messages, tools, model) {
           lastMsg.assistantResponseMessage.toolUses = toolUses.map(tc => {
             if (tc.function) {
               return {
-                toolUseId: tc.id || uuidv4(),
+                toolUseId: tc.id || randomUUID(),
                 name: tc.function.name,
                 input: safeJSONParse(tc.function.arguments, {})
               };
             } else {
               return {
-                toolUseId: tc.id || uuidv4(),
+                toolUseId: tc.id || randomUUID(),
                 name: tc.name,
                 input: tc.input || {}
               };

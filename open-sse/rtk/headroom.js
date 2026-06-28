@@ -7,6 +7,15 @@ import {
 
 const DEFAULT_TIMEOUT_MS = 3000;
 
+// Approximate byte size of a request body for diagnostics.
+function captureSizeSnapshot(body) {
+  try {
+    return Buffer.byteLength(JSON.stringify(body), "utf8");
+  } catch {
+    return 0;
+  }
+}
+
 // POST messages to Headroom /v1/compress; returns compressed messages + stats or null.
 async function callCompress(url, messages, model, timeoutMs, compressUserMessages) {
   const endpoint = `${String(url).replace(/\/$/, "")}/v1/compress`;
@@ -27,7 +36,7 @@ async function callCompress(url, messages, model, timeoutMs, compressUserMessage
 // Compress request body via Headroom proxy. Fail-open: returns null on any error.
 // /v1/compress only understands OpenAI shape, so Claude bodies are translated
 // to OpenAI, compressed, then translated back using 9Router's own translators.
-export async function compressWithHeadroom(body, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+export async function compressWithHeadroom(body, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS, diagnostics } = {}) {
   if (!enabled || !url || !body) return null;
 
   try {
@@ -49,7 +58,7 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
     if (format === "openai-responses") {
       const oai = openaiResponsesToOpenAIRequest(model, body, false);
       if (!Array.isArray(oai?.messages)) return null;
-      const data = await callCompress(url, oai.messages, model, timeoutMs, compressUserMessages, diagnostics || {});
+      const data = await callCompress(url, oai.messages, model, timeoutMs, compressUserMessages);
       if (!data) return null;
       // input: undefined so the translator rebuilds input from the compressed
       // messages instead of returning the original input unchanged.

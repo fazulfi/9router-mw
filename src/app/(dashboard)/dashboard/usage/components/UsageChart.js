@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import PropTypes from "prop-types";
 import dynamic from "next/dynamic";
 import Card from "@/shared/components/Card";
 
@@ -141,6 +140,3 @@ export default function UsageChart({ period = "7d" }) {
   );
 }
 
-UsageChart.propTypes = {
-  period: PropTypes.string,
-};

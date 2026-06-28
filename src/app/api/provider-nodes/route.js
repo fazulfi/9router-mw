@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, CUSTOM_EMBEDDING_PREFIX } from "@/shared/constants/providers";
-import { generateId } from "@/shared/utils";
+import { randomUUID } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +51,7 @@ export async function POST(request) {
       }
 
       const node = await createProviderNode({
-        id: `${OPENAI_COMPATIBLE_PREFIX}${apiType}-${generateId()}`,
+        id: `${OPENAI_COMPATIBLE_PREFIX}${apiType}-${randomUUID()}`,
         type: "openai-compatible",
         prefix: prefix.trim(),
         apiType,
@@ -69,7 +69,7 @@ export async function POST(request) {
       }
 
       const node = await createProviderNode({
-        id: `${CUSTOM_EMBEDDING_PREFIX}${generateId()}`,
+        id: `${CUSTOM_EMBEDDING_PREFIX}${randomUUID()}`,
         type: "custom-embedding",
         prefix: prefix.trim(),
         baseUrl: sanitizedBaseUrl,
@@ -87,7 +87,7 @@ export async function POST(request) {
       }
 
       const node = await createProviderNode({
-        id: `${ANTHROPIC_COMPATIBLE_PREFIX}${generateId()}`,
+        id: `${ANTHROPIC_COMPATIBLE_PREFIX}${randomUUID()}`,
         type: "anthropic-compatible",
         prefix: prefix.trim(),
         baseUrl: sanitizedBaseUrl,

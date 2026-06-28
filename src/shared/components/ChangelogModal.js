@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import PropTypes from "prop-types";
 import { marked } from "marked";
 import { GITHUB_CONFIG } from "@/shared/constants/config";
 
@@ -109,7 +108,3 @@ export default function ChangelogModal({ isOpen, onClose }) {
   );
 }
 
-ChangelogModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-};

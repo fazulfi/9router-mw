@@ -29,16 +29,17 @@ describe("OpenAI → Kiro", () => {
     expect(out.inferenceConfig?.maxTokens, "client max_tokens ignored").toBe(100);
   });
 
-  // openai-to-kiro.js:132-134 — remote http image becomes "[Image: url]" text (lost)
-  // FIXED: collapseTextParts now joins multiple text parts correctly, preserving image_url blocks
-  it("remote image url is preserved as an image, not text", () => {
+  // openai-to-kiro.js:132-134 — base64 data URI image is preserved as an image, not text
+  it("base64 data-uri image is preserved as an image, not text", () => {
     const out = O2K({
       messages: [{ role: "user", content: [
         { type: "text", text: "see" },
-        { type: "image_url", image_url: { url: "https://x.com/p.png" } },
+        { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
       ] }],
     });
-    const content = out.conversationState?.currentMessage?.userInputMessage?.content || "";
-    expect(content, "remote image flattened to text").not.toContain("[Image:");
+    const currentMsg = out.conversationState?.currentMessage?.userInputMessage;
+    const content = currentMsg?.content || "";
+    expect(content, "data-uri image flattened to text").not.toContain("[Image:");
+    expect(currentMsg?.images?.length, "data-uri image dropped").toBeGreaterThan(0);
   });
 });

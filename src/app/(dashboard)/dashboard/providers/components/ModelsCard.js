@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import PropTypes from "prop-types";
 import { Card, Button, Modal } from "@/shared/components";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getProviderAlias } from "@/shared/constants/providers";
@@ -53,19 +52,6 @@ export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCusto
   );
 }
 
-ModelRow.propTypes = {
-  model: PropTypes.shape({ id: PropTypes.string.isRequired }).isRequired,
-  fullModel: PropTypes.string.isRequired,
-  copied: PropTypes.string,
-  onCopy: PropTypes.func.isRequired,
-  testStatus: PropTypes.oneOf(["ok", "error"]),
-  isCustom: PropTypes.bool,
-  isFree: PropTypes.bool,
-  onDeleteAlias: PropTypes.func,
-  onTest: PropTypes.func,
-  isTesting: PropTypes.bool,
-};
-
 // ── AddCustomModelModal ────────────────────────────────────────
 function AddCustomModelModal({ isOpen, onSave, onClose }) {
   const [modelId, setModelId] = useState("");
@@ -99,11 +85,6 @@ function AddCustomModelModal({ isOpen, onSave, onClose }) {
   );
 }
 
-AddCustomModelModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onSave: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired,
-};
 
 // ── ModelsCard ─────────────────────────────────────────────────
 // Self-contained card: shows models for a provider, filtered by optional `kindFilter`.
@@ -287,8 +268,3 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   );
 }
 
-ModelsCard.propTypes = {
-  providerId: PropTypes.string.isRequired,
-  kindFilter: PropTypes.string, // e.g. "tts", "embedding" — filters models shown
-  providerAliasOverride: PropTypes.string, // override alias (e.g. for custom-embedding nodes using prefix)
-};

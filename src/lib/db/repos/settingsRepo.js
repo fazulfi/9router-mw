@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   comboStickyRoundRobinLimit: 1,
   comboStrategies: {},
   requireLogin: true,
+  requireApiKey: process.env.REQUIRE_API_KEY === "true",
   allowRemoteNoApiKey: false,
   tunnelDashboardAccess: true,
   authMode: "password",

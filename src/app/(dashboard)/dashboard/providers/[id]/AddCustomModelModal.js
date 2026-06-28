@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useReducer, useRef } from "react";
-import PropTypes from "prop-types";
 import { Button, Modal } from "@/shared/components";
 
 function modalReducer(state, action) {
@@ -127,10 +126,3 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
   );
 }
 
-AddCustomModelModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  providerAlias: PropTypes.string.isRequired,
-  providerDisplayAlias: PropTypes.string.isRequired,
-  onSave: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired,
-};

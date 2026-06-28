@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import PropTypes from "prop-types";
 
 const EMPTY_PROVIDERS = [];
 const EMPTY_REQUESTS = [];
@@ -78,9 +77,6 @@ function ProviderNode({ data }) {
   );
 }
 
-ProviderNode.propTypes = {
-  data: PropTypes.object.isRequired,
-};
 
 // Center 9Router node
 function RouterNode({ data }) {
@@ -102,9 +98,6 @@ function RouterNode({ data }) {
   );
 }
 
-RouterNode.propTypes = {
-  data: PropTypes.object.isRequired,
-};
 
 const nodeTypes = { provider: ProviderNode, router: RouterNode };
 
@@ -316,17 +309,3 @@ export default function ProviderTopology({ providers = EMPTY_PROVIDERS, activeRe
   );
 }
 
-ProviderTopology.propTypes = {
-  providers: PropTypes.arrayOf(PropTypes.shape({
-    id: PropTypes.string,
-    provider: PropTypes.string,
-    name: PropTypes.string,
-  })),
-  activeRequests: PropTypes.arrayOf(PropTypes.shape({
-    provider: PropTypes.string,
-    model: PropTypes.string,
-    account: PropTypes.string,
-  })),
-  lastProvider: PropTypes.string,
-  errorProvider: PropTypes.string,
-};

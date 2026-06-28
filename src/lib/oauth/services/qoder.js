@@ -3,8 +3,7 @@ import {
   QODER_LOGIN_URL,
   QODER_USERINFO_URL,
 } from "../../qoder/constants.js";
-import crypto from "crypto";
-import { v4 as uuidv4 } from "uuid";
+import crypto, { randomUUID } from "node:crypto";
 
 /**
  * Qoder OAuth Service
@@ -68,8 +67,8 @@ export class QoderService {
    */
   initiateDeviceFlow() {
     const { verifier, challenge } = this.generatePkcePair();
-    const nonce = uuidv4();
-    const machineId = uuidv4();
+    const nonce = randomUUID();
+    const machineId = randomUUID();
 
     const params = new URLSearchParams({
       challenge,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useReducer } from "react";
-import PropTypes from "prop-types";
 import { Modal, Button, Input } from "@/shared/components";
 
 function cursorReducer(state, action) {
@@ -204,8 +203,3 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }) {
   );
 }
 
-CursorAuthModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onSuccess: PropTypes.func,
-  onClose: PropTypes.func.isRequired,
-};

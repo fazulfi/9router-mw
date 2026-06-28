@@ -24,7 +24,7 @@
  */
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import {
   resolveKiroModel,
   resolveKiroThinkingBudget,
@@ -423,7 +423,7 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
   const payload = {
     conversationState: {
       chatTriggerType: "MANUAL",
-      conversationId: uuidv4(),
+      conversationId: randomUUID(),
       currentMessage: {
         userInputMessage: {
           content: finalContent,

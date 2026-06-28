@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import PropTypes from "prop-types";
 import {
   Card,
   CardSkeleton,
@@ -602,24 +601,6 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
   );
 }
 
-ProviderCard.propTypes = {
-  providerId: PropTypes.string.isRequired,
-  provider: PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    color: PropTypes.string,
-    textIcon: PropTypes.string,
-  }).isRequired,
-  stats: PropTypes.shape({
-    connected: PropTypes.number,
-    error: PropTypes.number,
-    errorCode: PropTypes.string,
-    errorTime: PropTypes.string,
-  }).isRequired,
-  authType: PropTypes.string,
-  onToggle: PropTypes.func,
-};
-
 function ApiKeyProviderCard({
   providerId,
   provider,
@@ -739,25 +720,6 @@ function ApiKeyProviderCard({
     </Link>
   );
 }
-
-ApiKeyProviderCard.propTypes = {
-  providerId: PropTypes.string.isRequired,
-  provider: PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    color: PropTypes.string,
-    textIcon: PropTypes.string,
-    apiType: PropTypes.string,
-  }).isRequired,
-  stats: PropTypes.shape({
-    connected: PropTypes.number,
-    error: PropTypes.number,
-    errorCode: PropTypes.string,
-    errorTime: PropTypes.string,
-  }).isRequired,
-  authType: PropTypes.string,
-  onToggle: PropTypes.func,
-};
 
 function AddOpenAICompatibleModal({ isOpen, onClose, onCreated }) {
   const [formData, setFormData] = useState({
@@ -936,12 +898,6 @@ function AddOpenAICompatibleModal({ isOpen, onClose, onCreated }) {
   );
 }
 
-AddOpenAICompatibleModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onCreated: PropTypes.func.isRequired,
-};
-
 function AddAnthropicCompatibleModal({ isOpen, onClose, onCreated }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -1110,12 +1066,6 @@ function AddAnthropicCompatibleModal({ isOpen, onClose, onCreated }) {
   );
 }
 
-AddAnthropicCompatibleModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onCreated: PropTypes.func.isRequired,
-};
-
 function ProviderTestResultsView({ results }) {
   if (results.error && !results.results) {
     return (
@@ -1200,15 +1150,3 @@ function ProviderTestResultsView({ results }) {
   );
 }
 
-ProviderTestResultsView.propTypes = {
-  results: PropTypes.shape({
-    mode: PropTypes.string,
-    results: PropTypes.array,
-    summary: PropTypes.shape({
-      total: PropTypes.number,
-      passed: PropTypes.number,
-      failed: PropTypes.number,
-    }),
-    error: PropTypes.string,
-  }).isRequired,
-};

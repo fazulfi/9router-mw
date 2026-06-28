@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getStatusVariant as getConnectionStatusVariant } from "@/shared/utils/connectionStatus";
-import PropTypes from "prop-types";
 import { Card, Badge, Button, Modal, Select, Toggle, EditConnectionModal, ConfirmModal } from "@/shared/components";
 
 // ── CooldownTimer ──────────────────────────────────────────────
@@ -26,8 +25,6 @@ function CooldownTimer({ until }) {
   if (!remaining) return null;
   return <span className="text-xs text-orange-500 font-mono">⏱ {remaining}</span>;
 }
-
-CooldownTimer.propTypes = { until: PropTypes.string.isRequired };
 
 // ── ConnectionRow ──────────────────────────────────────────────
 function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete }) {
@@ -170,29 +167,6 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
   );
 }
 
-ConnectionRow.propTypes = {
-  connection: PropTypes.shape({
-    id: PropTypes.string,
-    name: PropTypes.string,
-    email: PropTypes.string,
-    displayName: PropTypes.string,
-    testStatus: PropTypes.string,
-    isActive: PropTypes.bool,
-    lastError: PropTypes.string,
-    priority: PropTypes.number,
-  }).isRequired,
-  proxyPools: PropTypes.array,
-  isOAuth: PropTypes.bool.isRequired,
-  isFirst: PropTypes.bool.isRequired,
-  isLast: PropTypes.bool.isRequired,
-  onMoveUp: PropTypes.func.isRequired,
-  onMoveDown: PropTypes.func.isRequired,
-  onToggleActive: PropTypes.func.isRequired,
-  onUpdateProxy: PropTypes.func,
-  onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-};
-
 // ── AddApiKeyModal ─────────────────────────────────────────────
 function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, onClose }) {
   const NONE = "__none__";
@@ -284,14 +258,6 @@ function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, on
   );
 }
 
-AddApiKeyModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  provider: PropTypes.string,
-  providerName: PropTypes.string,
-  proxyPools: PropTypes.array,
-  onSave: PropTypes.func.isRequired,
-  onClose: PropTypes.func.isRequired,
-};
 
 // ── ConnectionsCard ────────────────────────────────────────────
 // Self-contained card: fetches, displays and manages all connections for a provider.
@@ -487,7 +453,3 @@ export default function ConnectionsCard({ providerId, isOAuth }) {
   );
 }
 
-ConnectionsCard.propTypes = {
-  providerId: PropTypes.string.isRequired,
-  isOAuth: PropTypes.bool,
-};

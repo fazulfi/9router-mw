@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useReducer, useRef } from "react";
-import PropTypes from "prop-types";
 import { Modal, Input, Button, Badge } from "@/shared/components";
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
@@ -179,15 +178,3 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
   );
 }
 
-AddCustomEmbeddingModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-  onCreated: PropTypes.func,
-  onSaved: PropTypes.func,
-  node: PropTypes.shape({
-    id: PropTypes.string,
-    name: PropTypes.string,
-    prefix: PropTypes.string,
-    baseUrl: PropTypes.string,
-  }),
-};

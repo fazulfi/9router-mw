@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import PropTypes from "prop-types";
 import { GITHUB_CONFIG } from "@/shared/constants/config";
 
 export default function DonateModal({ isOpen, onClose }) {
@@ -144,7 +143,3 @@ function DonateChannelCard({ channel }) {
   );
 }
 
-DonateModal.propTypes = {
-  isOpen: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
-};

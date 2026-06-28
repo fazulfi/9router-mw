@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
@@ -60,7 +60,7 @@ export async function createProxyPool(data) {
   const db = await getAdapter();
   const now = new Date().toISOString();
   const pool = {
-    id: data.id || uuidv4(),
+    id: data.id || randomUUID(),
     name: data.name,
     proxyUrl: data.proxyUrl,
     noProxy: data.noProxy || "",

@@ -37,8 +37,6 @@ export function getKimchiVersionSync() {
   return _kimchiVersionCache?.ver || KIMCHI_FALLBACK_VERSION;
 }
 
-getKimchiVersion();
-
 // === Gemini CLI === derive từ registry gemini-cli.transport
 export const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion;
 export const GEMINI_CLI_API_CLIENT = PROVIDERS["gemini-cli"]?.apiClient;
