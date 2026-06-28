@@ -141,6 +141,8 @@ export const TABLES = {
       provider: "TEXT",
       model: "TEXT",
       connectionId: "TEXT",
+      apiKey: "TEXT",
+      apiKeyName: "TEXT",
       status: "TEXT",
       meta: "TEXT",
       data: "TEXT NOT NULL",

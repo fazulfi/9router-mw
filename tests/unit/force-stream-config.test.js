@@ -68,7 +68,8 @@ vi.mock("../../open-sse/rtk/index.js", () => ({
   formatRtkLog: vi.fn(() => ""),
 }));
 
-vi.mock("../../open-sse/rtk/headroom.js", () => ({
+vi.mock("../../open-sse/rtk/headroom.js", async (importOriginal) => ({
+  ...await importOriginal(),
   compressWithHeadroom: vi.fn(async () => null),
   formatHeadroomLog: vi.fn(() => ""),
 }));

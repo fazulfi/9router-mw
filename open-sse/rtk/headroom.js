@@ -1,5 +1,6 @@
 import { claudeToOpenAIRequest } from "../translator/request/claude-to-openai.js";
 import { openaiToClaudeRequest } from "../translator/request/openai-to-claude.js";
+import { openaiResponsesToOpenAIRequest, openaiToOpenAIResponsesRequest } from "../translator/request/openai-responses.js";
 
 const DEFAULT_TIMEOUT_MS = 3000;
 
@@ -131,6 +132,21 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
       const claudeBody = openaiToClaudeRequest(model, { ...oai, messages: data.messages }, false);
       if (Array.isArray(claudeBody?.messages)) body.messages = claudeBody.messages;
       if (claudeBody?.system !== undefined) body.system = claudeBody.system;
+      if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
+      return data;
+    }
+
+    // OpenAI Responses shape: translate → OpenAI → compress → translate back.
+    if (format === "openai-responses" && Array.isArray(body?.input)) {
+      const translated = openaiResponsesToOpenAIRequest(model, { ...body }, false);
+      if (!Array.isArray(translated?.messages)) {
+        setDiagnostic(diagnostics, "OpenAI Responses request did not translate to messages[]");
+        return null;
+      }
+      const data = await callCompress(url, translated.messages, model, timeoutMs, compressUserMessages, diagnostics || {});
+      if (!data) return null;
+      const responsesBody = openaiToOpenAIResponsesRequest(model, { messages: data.messages }, false);
+      if (Array.isArray(responsesBody?.input)) body.input = responsesBody.input;
       if (diagnostics) diagnostics.after = captureSizeSnapshot(body);
       return data;
     }
