@@ -40,11 +40,11 @@
 **Option 1 — npm (recommended for desktop):**
 
 ```bash
-npm install -g vansrouter
-vansrouter
+npm install -g @vanroute/vansrouter
+@vanroute/vansrouter
 
 # Or run directly with npx
-npx vansrouter
+npx @vanroute/vansrouter
 ```
 
 **Option 2 — Docker (server/VPS):**
@@ -79,11 +79,11 @@ That's it! Start coding with FREE AI models.
 ## 🚀 CLI Options
 
 ```bash
-vansrouter                    # Start with default settings
-vansrouter --port 8080        # Custom port
-vansrouter --no-browser       # Don't open browser
-vansrouter --skip-update      # Skip auto-update check
-vansrouter --help             # Show all options
+@vanroute/vansrouter                    # Start with default settings
+@vanroute/vansrouter --port 8080        # Custom port
+@vanroute/vansrouter --no-browser       # Don't open browser
+@vanroute/vansrouter --skip-update      # Skip auto-update check
+@vanroute/vansrouter --help             # Show all options
 ```
 
 **Dashboard**: `http://localhost:20128/dashboard`

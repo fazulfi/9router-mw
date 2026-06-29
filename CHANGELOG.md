@@ -1,3 +1,17 @@
+# v0.7.2 (2026-06-29)
+
+Publish npm package under the scoped name `@vanroute/vansrouter`. The unscoped `vansrouter` name on npmjs.com is owned by the upstream `decolua/9router` project and cannot be republished.
+
+## Changed
+- Rename CLI npm package from `vansrouter` to `@vanroute/vansrouter`.
+- Update version endpoint, updater config, sidebar messages, and CLI README install commands to use the new scoped name.
+- Bump version to `0.7.2` (`0.7.0` and `0.7.1` npm publish attempts failed silently with E404 because the unscoped package name was already taken upstream).
+
+## Install
+```bash
+npm install -g @vanroute/vansrouter
+```
+
 # v0.7.0 (2026-06-29)
 
 First independent VansRouter release. Fork branding is now applied throughout the UI, CLI, documentation, and published artifacts while preserving the `~/.9router` data directory for backward compatibility.
