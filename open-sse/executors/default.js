@@ -87,11 +87,13 @@ export class DefaultExecutor extends BaseExecutor {
   }
 
   async execute(args) {
+    const accountCount = args.accountCount || 0;
+    const maxAttempts = accountCount >= 5 ? 1 : (accountCount >= 3 ? 2 : TRANSIENT_BODY_MAX_ATTEMPTS);
     let attempt = 0;
     while (true) {
       const result = await super.execute(args);
       attempt++;
-      if (attempt >= TRANSIENT_BODY_MAX_ATTEMPTS) return result;
+      if (attempt >= maxAttempts) return result;
       if (!result.response?.ok || result.response.status >= 500) return result;
       const peek = await this._peekTransientBodyError(result.response);
       if (!peek.matched) {
@@ -104,7 +106,7 @@ export class DefaultExecutor extends BaseExecutor {
         }
         return result;
       }
-      args.log?.warn?.("RETRY", `${this.provider.toUpperCase()} | transient body error "${peek.matched.slice(0, 60)}" — retry ${attempt}/${TRANSIENT_BODY_MAX_ATTEMPTS}`);
+      args.log?.warn?.("RETRY", `${this.provider.toUpperCase()} | transient body error "${peek.matched.slice(0, 60)}" — retry ${attempt}/${maxAttempts}`);
       try { await result.response.body?.cancel?.(); } catch {}
       await new Promise(r => setTimeout(r, TRANSIENT_BODY_DELAY_MS));
     }

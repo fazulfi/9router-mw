@@ -1,6 +1,6 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
-import { HTTP_STATUS, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { HTTP_STATUS, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS, capRetryAttemptsByAccountCount } from "../config/runtimeConfig.js";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager.js";
 import os from "os";
 import { randomUUID } from "node:crypto";
@@ -168,13 +168,16 @@ export class ZcodeExecutor extends BaseExecutor {
     return injectReasoningContent({ provider: this.provider, model, body: nextBody });
   }
 
-  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+  async execute({ model, body, stream, credentials, signal, log, proxyOptions = null, accountCount = 0 }) {
     const captchaParam = await solveCaptcha(log);
     const url = this.buildUrl(model, stream, 0, credentials);
     const transformedBody = this.transformRequest(model, body, stream, credentials);
     const headers = this.buildHeaders(credentials, stream, captchaParam);
 
-    const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...this.config.retry };
+    const retryConfig = capRetryAttemptsByAccountCount(
+      { ...DEFAULT_RETRY_CONFIG, ...this.config.retry },
+      accountCount
+    );
     const retryAttempts = { count: 0 };
     const maxRetries = retryConfig[403]?.attempts ?? retryConfig[401]?.attempts ?? 1;
 

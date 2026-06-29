@@ -46,7 +46,7 @@ export default {
     preserveAccept: true,
     retry: {
       429: { attempts: 3, delayMs: 500 },
-      502: { attempts: 3, delayMs: 500 },
+      502: { attempts: 1, delayMs: 500 },
       503: { attempts: 3, delayMs: 1000 },
     },
   },

@@ -283,6 +283,16 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     );
   }
 
+  // Count configured accounts for this provider so chatCore can cap per-account
+  // retries: more accounts → fail faster and fall back to the next account.
+  let providerAccountCount = 0;
+  try {
+    const allProviderConnections = await getProviderConnections({ provider });
+    providerAccountCount = allProviderConnections?.length || 0;
+  } catch (e) {
+    log?.warn?.("AUTH", `Failed to count provider connections for ${provider}: ${e.message}`);
+  }
+
   // Try with available accounts (fallback on errors)
   const excludeConnectionIds = new Set();
   let lastError = null;
@@ -400,7 +410,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     try {
       result = await handleChatCore({
       body: { ...body, model: `${provider}/${model}` },
-      modelInfo: { provider, model },
+      modelInfo: { provider, model, accountCount: providerAccountCount },
       credentials: refreshedCredentials,
       log,
       clientRawRequest,
