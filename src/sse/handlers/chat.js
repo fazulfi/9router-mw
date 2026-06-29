@@ -270,12 +270,13 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   if (isProviderFullyBlocked(provider)) {
     const cooldownMs = getProviderShortestCooldownMs(provider);
     const retryAfterSec = Math.ceil(cooldownMs / 1000) || 30;
+    const retryAfterTimestamp = new Date(Date.now() + cooldownMs).toISOString();
     log.warn("GATE", `${provider} circuit breaker OPEN on all proxy buckets — short-circuiting before credential lookup`);
     return withSelectedConnectionHeader(
       unavailableResponse(
         HTTP_STATUS.SERVICE_UNAVAILABLE,
         `[${provider}/${model}] Provider temporarily unavailable (circuit breaker open)`,
-        retryAfterSec,
+        retryAfterTimestamp,
         `${retryAfterSec}s`
       ),
       null
