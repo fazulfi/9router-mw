@@ -1,3 +1,23 @@
+# v0.7.8 (2026-06-30)
+
+Hotfix for GHCR Docker installs. Users who ran `ghcr.io/vanszs/vansrouter:0.7.7` (or tried to create an API key in the dashboard) saw repeated `Error: API_KEY_SECRET environment variable is required` errors thrown from `src/shared/utils/apiKey.js:6`.
+
+## Fixed
+- `Dockerfile`: set `ENV API_KEY_SECRET=vansrouter-dev-default-change-me-in-production` so GHCR installs work out-of-the-box. Operators running production deployments should override with `-e API_KEY_SECRET="$(openssl rand -hex 32)"` at `docker run` time to invalidate any API keys minted with the default secret. Without this env var, the key generation path (`generateCrc` uses HMAC-SHA256 with the secret) throws and the keys POST handler returns 500.
+- **Not a code bug** — the JS code is correct in throwing; the issue was a missing Dockerfile default. No new runtime features; pure configuration fix.
+
+## Verified
+- `pnpm test` (full) → 1879 pass + 1 pre-existing flaky timing failure (`tests/unit/mark-account-unavailable-429.test.js` off-by-1ms in 90s cooldown — confirmed intermittent).
+- `pnpm run build` → build complete (no-undef lint: clean).
+- `pnpm lint:undef` → clean.
+
+## Install
+```bash
+npm install -g vansrouter
+# or pull the patched image
+docker pull ghcr.io/vanszs/vansrouter:0.7.8
+```
+
 # v0.7.7 (2026-06-30)
 
 Sync of upstream `decolua/9router` bug-fix batch onto the VansRouter fork, plus two repo-maintenance chores. No source-code regressions vs. v0.7.6.

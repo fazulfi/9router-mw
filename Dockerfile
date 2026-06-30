@@ -25,6 +25,12 @@ ENV PORT=20128
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
+# API_KEY_SECRET is required by src/shared/utils/apiKey.js (generateCrc uses it
+# as the HMAC secret for API keys). Provide a sensible default so GHCR installs
+# work out-of-the-box; override at runtime with
+#   -e API_KEY_SECRET="$(openssl rand -hex 32)"
+# for production deployments to invalidate keys minted by the default.
+ENV API_KEY_SECRET=vansrouter-dev-default-change-me-in-production
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
