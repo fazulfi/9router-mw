@@ -1,8 +1,14 @@
 import https from "https";
 import pkg from "../../../../package.json" with { type: "json" };
+import { detectRuntime, updateAndRestartCommand } from "@/shared/utils/runtime";
 
 const NPM_PACKAGE_NAME = "vansrouter";
-const GITHUB_RAW_PKG = "https://raw.githubusercontent.com/Vanszs/VansRouter/main/package.json";
+// Fetch package.json from the default branch of the user's fork (dev until
+// merged to main). Using 'main' here is wrong while we push releases to dev —
+// it always reads the stale upstream-fork default and trips the
+// githubStatus = "github_behind_npm" message in the Sidebar. The auto-update
+// flow expects the live branch we actually release from.
+const GITHUB_RAW_PKG = "https://raw.githubusercontent.com/Vanszs/VansRouter/dev/package.json";
 
 function fetchJson(url) {
   return new Promise((resolve) => {
@@ -56,6 +62,11 @@ export async function GET() {
   const currentVersion = pkg.version;
   const hasUpdate = latestVersion ? compareVersions(latestVersion, currentVersion) > 0 : false;
 
+  // Detect runtime so the Sidebar can adapt its update UI.
+  const runtime = detectRuntime();
+  const updateCommand = updateAndRestartCommand(runtime, NPM_PACKAGE_NAME);
+  const canAutoRestart = updateCommand !== null;
+
   // githubStatus tells the user whether the GitHub repo already contains the
   // newer npm version or is still behind it.
   let githubStatus = null;
@@ -73,5 +84,19 @@ export async function GET() {
     }
   }
 
-  return Response.json({ currentVersion, latestVersion, githubVersion, hasUpdate, githubStatus });
+  return Response.json({
+    currentVersion,
+    latestVersion,
+    githubVersion,
+    hasUpdate,
+    githubStatus,
+    // Auto-update capability so the Sidebar can show the right UI:
+    //   - runtime:    "pm2" | "systemd" | "screen" | "tmux" | "docker" | "direct"
+    //   - canAutoRestart: true if shutting down will spawn a detached child
+    //     that installs the new version AND brings the server back up
+    //   - installCommand: always populated (for manual copy as a fallback)
+    runtime,
+    canAutoRestart,
+    installCommand: updateCommand || `npm i -g ${NPM_PACKAGE_NAME}@latest`,
+  });
 }

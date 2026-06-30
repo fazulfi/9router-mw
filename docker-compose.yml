@@ -1,7 +1,7 @@
 services:
-  9router:
-    image: decolua/9router:latest
-    container_name: 9router
+  vansrouter:
+    image: ghcr.io/Vanszs/VansRouter:latest
+    container_name: vansrouter
     restart: always
     ports:
       - "20128:20128"

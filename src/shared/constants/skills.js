@@ -1,8 +1,8 @@
 // Agent Skills metadata — single source of truth for /dashboard/skills page.
 // Each skill = 1 raw GitHub URL the user copies and pastes to any AI agent.
 
-const REPO = "decolua/9router";
-const BRANCH = "master";
+const REPO = "Vanszs/VansRouter";
+const BRANCH = "main";
 const SKILL_PATH = "skills";
 
 export const SKILLS_REPO_URL = `https://github.com/${REPO}`;
@@ -12,7 +12,7 @@ const SKILLS_BLOB_BASE = `https://github.com/${REPO}/blob/${BRANCH}/${SKILL_PATH
 export const SKILLS = [
   {
     id: "9router",
-    name: "9Router (Entry)",
+    name: "VansRouter (Entry)",
     description: "Setup + index of all capabilities. Start here — covers base URL, auth, model discovery, and links to every capability skill.",
     endpoint: null,
     icon: "hub",

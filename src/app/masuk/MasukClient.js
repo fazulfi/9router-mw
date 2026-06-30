@@ -140,7 +140,7 @@ export default function MasukClient({ initialAuth }) {
                   )}
                   {resetHint && (
                     <p className="text-xs text-text-muted">
-                      Lupa password? Buka <code className="bg-sidebar px-1 rounded">9router</code> CLI di host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                      Lupa password? Buka <code className="bg-sidebar px-1 rounded">vansrouter</code> CLI di host → <b>Settings</b> → <b>Reset Password to Default</b>.
                     </p>
                   )}
                 </div>

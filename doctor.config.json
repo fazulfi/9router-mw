@@ -1,7 +1,7 @@
 {
   "$schema": "https://react.doctor/schema/config.json",
 
-  "projects": ["9router-app"],
+  "projects": ["vansrouter-app"],
 
   "ignore": {
     "rules": [

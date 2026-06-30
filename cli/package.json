@@ -1,6 +1,6 @@
 {
   "name": "vansrouter",
-  "version": "0.5.12",
+  "version": "0.7.5",
   "description": "VansRouter CLI - Start and manage VansRouter server",
   "bin": {
     "vansrouter": "./cli.js"
@@ -34,6 +34,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
+    "vansrouter",
     "9router",
     "cli",
     "proxy",

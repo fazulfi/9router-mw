@@ -57,8 +57,10 @@ execFileSync(process.execPath, [nextBin, "build", "--webpack"], {
 });
 
 // Copy static assets into the standalone output.
-console.log("▶ copying public/ + .next/static into .next/standalone");
-fs.cpSync(path.join(appDir, "public"), path.join(appDir, ".next", "standalone", "public"), { recursive: true });
-fs.cpSync(path.join(appDir, ".next", "static"), path.join(appDir, ".next", "standalone", ".next", "static"), { recursive: true });
+// Respect NEXT_DIST_DIR like next.config.mjs does (used by CLI builds).
+const distDir = process.env.NEXT_DIST_DIR || ".next";
+console.log(`▶ copying public/ + ${distDir}/static into ${distDir}/standalone`);
+fs.cpSync(path.join(appDir, "public"), path.join(appDir, distDir, "standalone", "public"), { recursive: true });
+fs.cpSync(path.join(appDir, distDir, "static"), path.join(appDir, distDir, "standalone", distDir, "static"), { recursive: true });
 
 console.log("✅ build complete");

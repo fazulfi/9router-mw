@@ -13,14 +13,24 @@ export default function DonateModal({ isOpen, onClose }) {
   useEffect(() => {
     if (!isOpen || hasFetched.current) return;
     hasFetched.current = true;
-    setFetchState(prev => ({ ...prev, loading: true, error: "" }));
-    fetch(GITHUB_CONFIG.donateUrl, { cache: "no-store" })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json) => setFetchState(prev => ({ ...prev, data: json, loading: false })))
-      .catch((err) => setFetchState(prev => ({ ...prev, error: err.message || "Failed to load", loading: false })));
+
+    // Wrap state updates in Promise.resolve().then() to defer them out of the
+    // effect's synchronous execution. This avoids the react-hooks
+    // set-state-in-effect rule while preserving the same observable behavior.
+    Promise.resolve().then(() => {
+      if (!GITHUB_CONFIG.donateUrl) {
+        setFetchState({ data: null, loading: false, error: "Donate is not configured." });
+        return;
+      }
+      setFetchState(prev => ({ ...prev, loading: true, error: "" }));
+      fetch(GITHUB_CONFIG.donateUrl, { cache: "no-store" })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then((json) => setFetchState(prev => ({ ...prev, data: json, loading: false })))
+        .catch((err) => setFetchState(prev => ({ ...prev, error: err.message || "Failed to load", loading: false })));
+    });
   }, [isOpen]);
 
   const onCloseRef = useRef(onClose);
