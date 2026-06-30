@@ -25,7 +25,7 @@ function getProviderConfig(providerId) {
 
 // Use local provider images from /public/providers/
 function getProviderImageUrl(providerId) {
-  return `/providers/${providerId}.png`;
+  return `/providers/${providerId}.webp`;
 }
 
 // Custom provider node - rectangle with image + name

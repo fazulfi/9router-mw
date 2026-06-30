@@ -708,7 +708,7 @@ export default function ProviderLimits() {
                   </span>
                 ) : (
                   <ProviderIcon
-                    src={`/providers/${providerFilter}.png`}
+                    src={`/providers/${providerFilter}.webp`}
                     alt={providerFilter}
                     size={18}
                     className="size-[18px] rounded object-contain"
@@ -770,7 +770,7 @@ export default function ProviderLimits() {
                         className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${providerFilter === provider ? "bg-primary/10 text-primary" : "text-text-primary hover:bg-black/5 dark:hover:bg-white/10"}`}
                       >
                         <ProviderIcon
-                          src={`/providers/${provider}.png`}
+                          src={`/providers/${provider}.webp`}
                           alt={provider}
                           size={18}
                           className="size-[18px] rounded object-contain"
@@ -953,7 +953,7 @@ export default function ProviderLimits() {
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-8 h-8 shrink-0 rounded-md flex items-center justify-center overflow-hidden">
                       <ProviderIcon
-                        src={`/providers/${conn.provider}.png`}
+                        src={`/providers/${conn.provider}.webp`}
                         alt={conn.provider}
                         size={32}
                         className="object-contain"

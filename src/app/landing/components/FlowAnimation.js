@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 
 const CLI_TOOLS = [
-  { id: "claude", name: "Claude Code", image: "/providers/claude.png" },
-  { id: "codex", name: "OpenAI Codex", image: "/providers/codex.png" },
-  { id: "cline", name: "Cline", image: "/providers/cline.png" },
-  { id: "cursor", name: "Cursor", image: "/providers/cursor.png" },
+  { id: "claude", name: "Claude Code", image: "/providers/claude.webp" },
+  { id: "codex", name: "OpenAI Codex", image: "/providers/codex.webp" },
+  { id: "cline", name: "Cline", image: "/providers/cline.webp" },
+  { id: "cursor", name: "Cursor", image: "/providers/cursor.webp" },
 ];
 
 const PROVIDERS = [

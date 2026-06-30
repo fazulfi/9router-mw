@@ -53,7 +53,7 @@ export const KIND_EXAMPLE_CONFIG = {
   },
   imageToText: {
     inputLabel: "Image URL",
-    inputPlaceholder: "https://example.com/image.png",
+    inputPlaceholder: "https://example.com/image.webp",
     defaultInput: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1200px-Cat03.jpg",
     bodyKey: "url",
     extraBody: { prompt: "Describe this image in detail" },

@@ -7,8 +7,8 @@ import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row, KIND_EXAMPLE_CONFIG } from "./exampleShared";
 
-const CLOUDFLARE_TEST_IMAGE_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog.png";
-const CLOUDFLARE_TEST_MASK_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog-mask.png";
+const CLOUDFLARE_TEST_IMAGE_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog.webp";
+const CLOUDFLARE_TEST_MASK_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog-mask.webp";
 
 function getImageEditDefaults(providerId, modelId) {
   if (providerId !== "cloudflare-ai") return {};
@@ -129,7 +129,7 @@ export function GenericExampleCard({ providerId, kind }) {
   const headersPreview = `-H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${apiKey || "YOUR_KEY"}"${pinnedConnectionId ? ` \\\n  -H "x-connection-id: ${pinnedConnectionId}"` : ""}${useStreaming ? ` \\\n  -H "Accept: text/event-stream"` : ""}`;
   const curlSnippet = `curl -X ${kindConfig.endpoint.method} ${endpoint}${apiPathWithQuery} \\
   ${headersPreview.replace(/\\\n  /g, "\\\n  ")} \\
-  -d '${JSON.stringify(requestBody)}'${wantBinary ? " \\\n  --output image.png" : ""}`;
+  -d '${JSON.stringify(requestBody)}'${wantBinary ? " \\\n  --output image.webp" : ""}`;
 
   const handleRun = async () => {
     if (!input.trim() || !modelFull) return;
@@ -332,7 +332,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 <input
                   value={refImage}
                   onChange={(e) => setRefImage(e.target.value)}
-                  placeholder={imageEditDefaults.image || "https://example.com/source.png"}
+                  placeholder={imageEditDefaults.image || "https://example.com/source.webp"}
                   className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
                 />
                 {refImage && (
@@ -365,7 +365,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 <input
                   value={maskImage}
                   onChange={(e) => setMaskImage(e.target.value)}
-                  placeholder={imageEditDefaults.mask_image || "https://example.com/mask.png"}
+                  placeholder={imageEditDefaults.mask_image || "https://example.com/mask.webp"}
                   className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
                 />
                 {maskImage && (
@@ -520,7 +520,7 @@ export function GenericExampleCard({ providerId, kind }) {
               <div className="flex items-center justify-end mb-1.5">
                 <a
                   href={binaryImageUrl || (result?.data?.data?.[0]?.b64_json ? `data:image/png;base64,${result.data.data[0].b64_json}` : result?.data?.data?.[0]?.url || "")}
-                  download="image.png"
+                  download="image.webp"
                   className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
                 >
                   <span className="material-symbols-outlined text-[14px]">download</span>

@@ -27,7 +27,7 @@ function ToolIcon({ tool, toolId }) {
   }
   return (
     <Image
-      src={`/providers/${toolId}.png`}
+      src={`/providers/${toolId}.webp`}
       alt={tool.name}
       width={32}
       height={32}

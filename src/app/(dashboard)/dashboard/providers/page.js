@@ -651,7 +651,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
               }}
             >
               <ProviderIcon
-                src={`/providers/${provider.id}.png`}
+                src={`/providers/${provider.id}.webp`}
                 alt={provider.name}
                 size={30}
                 className="object-contain rounded-lg max-w-[32px] max-h-[32px]"
@@ -742,10 +742,10 @@ function ApiKeyProviderCard({
   const getIconPath = () => {
     if (isCompatible)
       return provider.apiType === "responses"
-        ? "/providers/oai-r.png"
-        : "/providers/oai-cc.png";
-    if (isAnthropicCompatible) return "/providers/anthropic-m.png";
-    return `/providers/${provider.id}.png`;
+        ? "/providers/oai-r.webp"
+        : "/providers/oai-cc.webp";
+    if (isAnthropicCompatible) return "/providers/anthropic-m.webp";
+    return `/providers/${provider.id}.webp`;
   };
 
   return (
