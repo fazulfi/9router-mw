@@ -1,3 +1,27 @@
+# v0.8.2 (2026-07-01)
+
+Patch release to polish the v0.8.0 provider expansion and UI.
+
+## Added
+- **Provider icons** (`public/providers/`): copied and converted to WebP 7 icon files (`gigachat`, `heroku`, `llamagate`, `nanogpt`, `nscale`, `ovhcloud`, `predibase`) from OmniRoute's public catalog so those providers no longer fall back to text-only badges. The remaining ported providers (`ai21`, `alibaba`, `baseten`, `bytez`, `codestral`, `databricks`, `deepinfra`, `friendliai`, `galadriel`, `publicai`, `sambanova`, `snowflake`, `upstage`, `volcengine`, `wandb`) still fall back to `textIcon` because OmniRoute does not ship icons for them either.
+
+## Changed
+- **Sidebar update banner** (`src/shared/components/Sidebar.js`): removed the verbose `Runtime: <name> — auto-restart supported ✓` and `vansrouter repo hasn't been updated to this version yet` lines so the update notice only shows the version and the action button.
+
+## Verified
+- `pnpm lint` → 0 errors.
+- `pnpm lint:undef` → clean.
+- `pnpm test` → 1963 pass / 18 expected fail / 75 skip.
+- `pnpm run build` → build complete.
+- All 22 newly ported providers confirmed to use the default executor (`executor=default format=openai authType=apikey`), so they share the same lightweight fetch path as the rest of 9router.
+
+## Install
+```bash
+npm install -g vansrouter
+# or pull the image
+docker pull ghcr.io/vanszs/vansrouter:0.8.2
+```
+
 # v0.8.1 (2026-07-01)
 
 Hotfix release to fix the failed v0.8.0 npm publish and include the WebP icon optimization.

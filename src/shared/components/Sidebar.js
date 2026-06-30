@@ -133,19 +133,6 @@ export default function Sidebar({ onClose }) {
               <span className="text-xs font-semibold text-green-600 dark:text-amber-500">
                 ↑ New version available: v{updateInfo.latestVersion}
               </span>
-              {updateInfo.githubStatus && (
-                <span className="text-[10px] text-text-muted">
-                  {updateInfo.githubStatus === "github_ahead" && "vansrouter already has this version — pull to update"}
-                  {updateInfo.githubStatus === "github_behind_npm" && "vansrouter repo hasn't been updated to this version yet"}
-                </span>
-              )}
-              {updateInfo.runtime && (
-                <span className="text-[10px] text-text-muted">
-                  Runtime: <span className="font-mono">{updateInfo.runtime}</span>
-                  {updateInfo.canAutoRestart && " — auto-restart supported ✓"}
-                  {!updateInfo.canAutoRestart && " — manual restart required"}
-                </span>
-              )}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowUpdateModal(true)}
