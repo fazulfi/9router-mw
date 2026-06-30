@@ -56,7 +56,7 @@ export const GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS = envMs("GEMINI_NATIVE_TTS_FETCH
 // headers within this duration and fall back to the next member.
 // For streaming this bounds time-to-first-headers only, not token generation.
 // Env: COMBO_TARGET_TIMEOUT_MS.
-export const DEFAULT_COMBO_TARGET_TIMEOUT_MS = envMs("COMBO_TARGET_TIMEOUT_MS", 120 * 1000);
+export const DEFAULT_COMBO_TARGET_TIMEOUT_MS = envMs("COMBO_TARGET_TIMEOUT_MS", 30 * 1000);
 
 // Default token limits
 export const DEFAULT_MAX_TOKENS = 64000;
