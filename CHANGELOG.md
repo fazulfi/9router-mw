@@ -4,12 +4,15 @@ Hotfix for GHCR Docker installs. Users who ran `ghcr.io/vanszs/vansrouter:0.7.7`
 
 ## Fixed
 - `Dockerfile`: set `ENV API_KEY_SECRET=vansrouter-dev-default-change-me-in-production` so GHCR installs work out-of-the-box. Operators running production deployments should override with `-e API_KEY_SECRET="$(openssl rand -hex 32)"` at `docker run` time to invalidate any API keys minted with the default secret. Without this env var, the key generation path (`generateCrc` uses HMAC-SHA256 with the secret) throws and the keys POST handler returns 500.
-- **Not a code bug** — the JS code is correct in throwing; the issue was a missing Dockerfile default. No new runtime features; pure configuration fix.
+- **Not a code bug** — the JS code is correct in throwing; the issue was a missing Dockerfile default. Pure configuration fix.
+- **Client-abort loop bug** (`src/sse/handlers/chat.js`, `open-sse/handlers/chatCore.js`): when a client disconnected mid-request (or a coding-agent aborted), the account fallback loop in `handleSingleModelChat` kept cycling through accounts and re-hitting a dead upstream (e.g. CastAI returning HTTP 500), feeding the provider circuit breaker with probe requests that never recovered. The loop never checked `request.signal.aborted`, and `handleChatCore`'s `streamController` was not linked to the client's abort signal, so in-flight upstream fetches survived the disconnect. Now the fallback loop short-circuits with HTTP 499 as soon as the client aborts, and the client abort signal is forwarded to `streamController.abort()` to cancel pending upstream fetches.
 
 ## Verified
 - `pnpm test` (full) → 1879 pass + 1 pre-existing flaky timing failure (`tests/unit/mark-account-unavailable-429.test.js` off-by-1ms in 90s cooldown — confirmed intermittent).
 - `pnpm run build` → build complete (no-undef lint: clean).
 - `pnpm lint:undef` → clean.
+- `pnpm test tests/unit/circuit-breaker.test.js` → 15/15 pass.
+- `pnpm test tests/unit/mark-account-unavailable-429.test.js` → 6/6 pass.
 
 ## Install
 ```bash

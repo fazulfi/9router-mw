@@ -308,6 +308,14 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   let cooldownRetries = 0;
 
   while (true) {
+    // Abort check: stop trying accounts if the client already disconnected.
+    // Prevents wasted upstream calls and circuit-breaker probe hits on a dead
+    // connection.
+    if (request?.signal?.aborted) {
+      log.info("CHAT", `[${provider}/${model}] client disconnected — aborting fallback loop`);
+      return withSelectedConnectionHeader(new Response(null, { status: 499 }), lastExcludedConnectionId);
+    }
+
     const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
 
     // All accounts unavailable
@@ -428,6 +436,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       ponytailEnabled: !!chatSettings.ponytailEnabled,
       ponytailLevel: chatSettings.ponytailLevel || "full",
       providerThinking,
+      clientSignal: request?.signal,
       // Detect source format by endpoint + body
       sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
       onCredentialsRefreshed: async (newCreds) => {
