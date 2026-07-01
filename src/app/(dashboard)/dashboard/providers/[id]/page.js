@@ -812,7 +812,6 @@ export default function ProviderDetailPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- cleanup derived state: prune selection when underlying connections change.
     setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
   }, [connections]);
 
