@@ -20,8 +20,10 @@ import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
+import Pagination from "@/shared/components/Pagination";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
+const CONNECTIONS_PER_PAGE = 10;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -71,6 +73,7 @@ export default function ProviderDetailPage() {
   const [oneByOneSummary, setOneByOneSummary] = useState(null);
   const stopOneByOneRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
+  const [connectionPage, setConnectionPage] = useState(1);
   const { copied, copy } = useCopyToClipboard();
 
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
@@ -773,6 +776,20 @@ export default function ProviderDetailPage() {
   const selectedConnections = connections.filter((conn) => selectedConnectionIds.includes(conn.id));
   const allSelected = connections.length > 0 && selectedConnectionIds.length === connections.length;
 
+  const connectionTotalPages = Math.max(1, Math.ceil(connections.length / CONNECTIONS_PER_PAGE));
+  const connectionPageClamped = Math.min(Math.max(1, connectionPage), connectionTotalPages);
+  const pagedStart = (connectionPageClamped - 1) * CONNECTIONS_PER_PAGE;
+  const pagedConnections = connections.slice(pagedStart, pagedStart + CONNECTIONS_PER_PAGE);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(connections.length / CONNECTIONS_PER_PAGE));
+    setConnectionPage((p) => (p > maxPage ? maxPage : p < 1 ? 1 : p));
+  }, [connections.length]);
+
+  useEffect(() => {
+    setConnectionPage(1);
+  }, [providerId]);
+
   const toggleSelectConnection = (connectionId) => {
     setSelectedConnectionIds((prev) => (
       prev.includes(connectionId)
@@ -882,8 +899,9 @@ export default function ProviderDetailPage() {
           <span>{selectedConnectionIds.length > 0 ? `${selectedConnectionIds.length} selected` : "Select all"}</span>
         </div>
       )}
-      {connections
-        .map((conn, index) => (
+      {pagedConnections.map((conn, pageIndex) => {
+        const index = pagedStart + pageIndex;
+        return (
           <div key={conn.id} className="flex min-w-0 items-stretch">
             <div className="flex shrink-0 items-center pl-1 sm:pl-2">
               <input
@@ -934,7 +952,8 @@ export default function ProviderDetailPage() {
               />
             </div>
           </div>
-        ))}
+        );
+      })}
     </div>
   );
 
@@ -1530,6 +1549,14 @@ export default function ProviderDetailPage() {
                 </div>
               )}
               {connectionsList}
+              {connections.length > CONNECTIONS_PER_PAGE && (
+                <Pagination
+                  currentPage={connectionPageClamped}
+                  pageSize={CONNECTIONS_PER_PAGE}
+                  totalItems={connections.length}
+                  onPageChange={setConnectionPage}
+                />
+              )}
               {!isCompatible && (
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
                   {providerId === "iflow" && (
