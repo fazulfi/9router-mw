@@ -1,3 +1,45 @@
+# v0.8.3 (2026-07-02)
+
+Maintenance release that fixes the `npm run dev` startup error, hardens legacy database upgrades, and cleans up bundling/standalone edge cases.
+
+## Added
+- **Database migration 003** (`src/lib/db/migrations/003-add-allowed-lists-columns.js`): idempotently adds `allowedProviders`, `allowedCombos`, and `allowedKinds` columns to the settings table for databases created before these ACL fields were introduced. Fixes the `no such column: allowedProviders` login error on legacy installs.
+- **Long-lived cache headers** (`next.config.mjs`): provider icons and `/_next/static` assets are now served with `public, max-age=31536000, immutable`.
+
+## Fixed
+- **`npm run dev` better-sqlite3 `fs` error** (`src/instrumentation.js`, `src/sse/services/kimchiQuotaReactivation.js`):
+  - Force `runtime = "nodejs"` and skip instrumentation work in development so webpack does not bundle server-only code.
+  - Inline `buildKimchiQuotaReactivatedUpdate` to cut the import chain into the provider registry (which pulls in Node built-ins like `os`).
+  - Use `/* webpackIgnore: true */` with a relative path for the `localDb` dynamic import so `better-sqlite3` stays out of the dev webpack bundle.
+- **SearXNG test timeouts** (`tests/unit/all-endpoints-robust.test.js`): skip the SearXNG reachability test when no local instance is running at `127.0.0.1:8888`, preventing 5-second hangs on most dev machines.
+- **Version snapshot** (`tests/translator/__snapshots__/golden-url-header.test.js.snap`): regenerated for `VansRouter/0.8.3`.
+- **Build / standalone edge cases** (`6220e12d`):
+  - `@swc/helpers` bundling fix.
+  - Windows standalone EPERM symlink handling (`scripts/fix-standalone-symlinks.cjs`).
+  - DB safety backup before builds.
+  - Provider pagination fix.
+- **Provider page lint** (`06ba55e2`): removed an unused `eslint-disable` directive.
+
+## Changed
+- **Version bump**: `package.json` and CLI `package.json` moved to `0.8.3`.
+
+## Tests
+- Full suite: **1979 passed, 18 expected fail, 77 skipped** (run on `dev` before merge).
+- Note: `tests/unit/mark-account-unavailable-429.test.js` is intermittently flaky when the whole suite runs (1 ms timing drift on a 90 s cooldown); it passes in isolation and is unrelated to this release.
+
+## Verified
+- `pnpm lint:undef` → clean.
+- `pnpm lint` → 0 errors (474 pre-existing warnings).
+- `pnpm run build` → build complete.
+- `npm run dev` → starts without the `Can't resolve 'fs'` error.
+
+## Install
+```bash
+npm install -g vansrouter
+# or pull the image
+docker pull ghcr.io/vanszs/vansrouter:0.8.3
+```
+
 # v0.8.0 (2026-07-01)
 
 Major provider expansion + resilience improvements. This release syncs AgentRouter and Kimchi catalogs with OmniRoute, ports 22 additional OpenAI-compatible API-key providers, hardens combo/account-fallback abort handling, and adds per-provider resilience profiles.
