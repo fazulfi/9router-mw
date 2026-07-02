@@ -1,19 +1,41 @@
-import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
-import { buildKimchiQuotaReactivatedUpdate } from "open-sse/services/accountFallback.js";
 import * as log from "../utils/logger.js";
+
+/**
+ * Build update payload to reactivate a quota-exhausted Kimchi account whose
+ * rateLimitedUntil has passed (start of new month).
+ * Inlined from open-sse/services/accountFallback.js so this instrumentation
+ * path does not pull in the provider registry (which imports Node built-ins).
+ */
+function buildKimchiQuotaReactivatedUpdate() {
+  return {
+    isActive: true,
+    rateLimitedUntil: null,
+    testStatus: "active",
+    quotaExhaustedAt: null,
+    quotaResetsAt: null,
+  };
+}
 
 /**
  * Reactivate Kimchi provider connections whose monthly quota was exhausted and
  * whose `rateLimitedUntil` has now passed (i.e. a new month has started).
  *
  * Queries all deactivated ("quota_exhausted") kimchi connections and, for each
- * whose cooldown timestamp is in the past, restores it to an active state via
- * `buildKimchiQuotaReactivatedUpdate()`. Errors per-account are caught and
- * logged so a single failure does not abort the whole sweep.
+ * whose cooldown timestamp is in the past, restores it to an active state.
+ * Errors per-account are caught and logged so a single failure does not abort
+ * the whole sweep.
  *
  * @returns {Promise<number>} count of accounts reactivated this run
  */
 export async function reactivateExpiredKimchiAccounts() {
+  // webpackIgnore prevents Next.js dev from bundling better-sqlite3 (and its
+  // Node built-in deps) into the instrumentation compilation. The relative path
+  // is required because webpackIgnore also disables @ alias resolution.
+  const { getProviderConnections, updateProviderConnection } = await import(
+    /* webpackIgnore: true */
+    "../../lib/localDb.js"
+  );
+
   let connections;
   try {
     connections = await getProviderConnections({ provider: "kimchi", isActive: false });

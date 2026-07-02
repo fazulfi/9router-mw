@@ -2,9 +2,19 @@
 // Reactivates Kimchi provider connections whose monthly quota was exhausted
 // once the cooldown (start of new month) has passed, and schedules an hourly
 // re-check so reactivation happens even if the process runs across month boundaries.
+
+// Force Node.js runtime so webpack does not try to bundle better-sqlite3 for
+// an environment without Node built-ins (fs/path) during `next dev`.
+export const runtime = "nodejs";
+
 const REACTIVATION_INTERVAL_MS = 3600_000; // 1 hour
 
 export async function register() {
+  // Skip in development: `next dev` bundles instrumentation with webpack and
+  // cannot resolve Node built-ins (fs/os) pulled in by better-sqlite3 and some
+  // provider registries. Production/standalone builds use the Node runtime and
+  // keep those packages external.
+  if (process.env.NODE_ENV === "development") return;
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   const { reactivateExpiredKimchiAccounts } = await import(

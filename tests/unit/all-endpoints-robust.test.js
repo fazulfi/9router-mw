@@ -7,6 +7,20 @@ import { ensureTestServer, stopTestServer, TEST_API_KEY } from "../helpers/serve
 // Upstream API calls can be slow — 30s per test
 const TIMEOUT = 30000;
 
+async function isSearxngReachable() {
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 1500);
+    await fetch("http://127.0.0.1:8888/search?q=test", { signal: controller.signal });
+    clearTimeout(id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const searxngReachable = await isSearxngReachable();
+
 const API_KEY = TEST_API_KEY;
 const BASE = "http://localhost:3003";
 const HEADERS = { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" };
@@ -202,14 +216,14 @@ describe("STT (/v1/audio/transcriptions)", () => {
 
 // ─── Web Search (/v1/search) ────────────────────────────────────────
 describe("Web Search (/v1/search)", () => {
-  it("searxng web search", async () => {
+  it.skipIf(!searxngReachable)("searxng web search", async () => {
     const { status, body } = await post("/v1/search", {
       model: "searxng", query: "What is artificial intelligence?", max_results: 3,
     });
     assertNotOurError(status, body, "searxng-web");
   });
 
-  it("searxng news search", async () => {
+  it.skipIf(!searxngReachable)("searxng news search", async () => {
     const { status, body } = await post("/v1/search", {
       model: "searxng", query: "latest technology news", search_type: "news", max_results: 3,
     });

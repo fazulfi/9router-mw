@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mocks = vi.hoisted(() => ({
   getProviderConnections: vi.fn(),
   updateProviderConnection: vi.fn(),
-  buildKimchiQuotaReactivatedUpdate: vi.fn(),
   logInfo: vi.fn(),
   logWarn: vi.fn(),
 }));
@@ -12,10 +11,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/localDb", () => ({
   getProviderConnections: mocks.getProviderConnections,
   updateProviderConnection: mocks.updateProviderConnection,
-}));
-
-vi.mock("open-sse/services/accountFallback.js", () => ({
-  buildKimchiQuotaReactivatedUpdate: mocks.buildKimchiQuotaReactivatedUpdate,
 }));
 
 vi.mock("../../src/sse/utils/logger.js", () => ({
@@ -47,11 +42,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getProviderConnections.mockResolvedValue([]);
   mocks.updateProviderConnection.mockResolvedValue({});
-  mocks.buildKimchiQuotaReactivatedUpdate.mockReturnValue({
-    isActive: true,
-    rateLimitedUntil: null,
-    testStatus: "active",
-  });
 });
 
 describe("reactivateExpiredKimchiAccounts", () => {
@@ -65,9 +55,14 @@ describe("reactivateExpiredKimchiAccounts", () => {
 
     expect(count).toBe(2);
     expect(mocks.updateProviderConnection).toHaveBeenCalledTimes(2);
-    expect(mocks.updateProviderConnection).toHaveBeenCalledWith("c1", expect.objectContaining({ isActive: true, testStatus: "active" }));
-    expect(mocks.updateProviderConnection).toHaveBeenCalledWith("c2", expect.any(Object));
-    expect(mocks.buildKimchiQuotaReactivatedUpdate).toHaveBeenCalledTimes(2);
+    expect(mocks.updateProviderConnection).toHaveBeenCalledWith("c1", expect.objectContaining({
+      isActive: true,
+      rateLimitedUntil: null,
+      testStatus: "active",
+      quotaExhaustedAt: null,
+      quotaResetsAt: null,
+    }));
+    expect(mocks.updateProviderConnection).toHaveBeenCalledWith("c2", expect.objectContaining({ isActive: true, testStatus: "active" }));
     expect(mocks.logInfo).toHaveBeenCalledWith("AUTH", expect.stringContaining("Kimchi quota reactivated"));
   });
 

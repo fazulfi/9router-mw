@@ -16,9 +16,47 @@
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
+const { fixStandaloneSymlinks } = require("./fix-standalone-symlinks.cjs");
 
 const appDir = path.resolve(__dirname, "..");
 const fakeHome = path.join(appDir, ".fakehome");
+
+// Safety net: back up the production database BEFORE the build wipes .next/.
+// The DB lives at DATA_DIR (env or ~/.9router) — outside .next/ so `next build`
+// does NOT delete it. But if someone mis-configures DATA_DIR to point inside
+// .next/, or if a future change moves the DB, this backup prevents data loss.
+function loadEnvFile(file) {
+  if (!fs.existsSync(file)) return {};
+  const out = {};
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)\s*$/i);
+    if (!m) continue;
+    let v = m[2];
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    out[m[1]] = v;
+  }
+  return out;
+}
+function backupProductionDb() {
+  const dotenv = loadEnvFile(path.join(appDir, ".env"));
+  const dataDir = process.env.DATA_DIR || dotenv.DATA_DIR || path.join(require("os").homedir(), ".9router");
+  const dbFile = path.join(dataDir, "db", "data.sqlite");
+  if (!fs.existsSync(dbFile)) {
+    console.log(`▶ DB safety backup skipped (no DB at ${dbFile})`);
+    return;
+  }
+  const backupsDir = path.join(dataDir, "db", "backups");
+  fs.mkdirSync(backupsDir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const dest = path.join(backupsDir, `pre-build-${stamp}.sqlite`);
+  try {
+    fs.copyFileSync(dbFile, dest);
+    console.log(`▶ DB safety backup: ${dest}`);
+  } catch (e) {
+    console.warn(`⚠️  DB backup failed (non-fatal): ${e.message}`);
+  }
+}
+backupProductionDb();
 
 // Run focused no-undef lint before building so "X is not defined" runtime
 // crashes are caught early (e.g., GitHub Issue #1, OpenCode CLI setup).
@@ -62,5 +100,7 @@ const distDir = process.env.NEXT_DIST_DIR || ".next";
 console.log(`▶ copying public/ + ${distDir}/static into ${distDir}/standalone`);
 fs.cpSync(path.join(appDir, "public"), path.join(appDir, distDir, "standalone", "public"), { recursive: true });
 fs.cpSync(path.join(appDir, distDir, "static"), path.join(appDir, distDir, "standalone", distDir, "static"), { recursive: true });
+
+fixStandaloneSymlinks(path.resolve(__dirname, "..", ".next", "standalone"));
 
 console.log("✅ build complete");
