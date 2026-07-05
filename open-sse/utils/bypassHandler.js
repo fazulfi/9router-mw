@@ -16,7 +16,7 @@ export function handleBypassRequest(body, model, userAgent = "", ccFilterNaming 
   const getText = (content) => {
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {
-      return content.reduce((acc, c) => c.type === "text" ? acc + (acc ? " " : "") + c.text : acc, "");
+      return content.filter(c => c.type === "text").map(c => c.text).join(" ");
     }
     return "";
   };
@@ -61,7 +61,7 @@ export function handleBypassRequest(body, model, userAgent = "", ccFilterNaming 
     const systemMsg = messages.find(m => m.role === "system");
     const systemFromMessages = getText(systemMsg?.content);
     const systemFromBody = Array.isArray(body.system)
-      ? body.system.reduce((acc, s) => s.type === "text" ? acc + (acc ? " " : "") + s.text : acc, "")
+      ? body.system.filter(s => s.type === "text").map(s => s.text).join(" ")
       : (typeof body.system === "string" ? body.system : "");
     const systemText = systemFromMessages || systemFromBody;
     if (systemText.includes("isNewTopic")) {
@@ -247,9 +247,24 @@ function mergeChunksToResponse(chunks, sourceFormat) {
 
       if (messageStart?.message) {
         finalChunk = messageStart.message;
-        // Merge usage if available
-        if (messageDelta?.usage) {
-          finalChunk.usage = messageDelta.usage;
+        // message_start.usage has input + cache; message_delta.usage has the
+        // final output_tokens. Merge so cache survives (delta omits it).
+        const startUsage = messageStart.message.usage;
+        const deltaUsage = messageDelta?.usage;
+        if (startUsage || deltaUsage) {
+          finalChunk.usage = {
+            ...(startUsage || {}),
+            ...(deltaUsage || {}),
+            ...(startUsage?.cache_read_input_tokens !== undefined
+              ? { cache_read_input_tokens: startUsage.cache_read_input_tokens }
+              : {}),
+            ...(startUsage?.cache_creation_input_tokens !== undefined
+              ? { cache_creation_input_tokens: startUsage.cache_creation_input_tokens }
+              : {}),
+            ...(startUsage?.input_tokens !== undefined
+              ? { input_tokens: startUsage.input_tokens }
+              : {})
+          };
         }
       }
     }

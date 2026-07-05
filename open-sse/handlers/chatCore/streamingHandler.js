@@ -103,7 +103,7 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
  * Includes a readiness gate: if upstream closes before any byte arrives,
  * return STREAM_EARLY_EOF so the caller can retry once on the same connection.
  */
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, streamController, onStreamComplete }) {
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, streamController, onStreamComplete, streamDetailId }) {
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
@@ -157,7 +157,6 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   });
   const transformedBody = pipeWithDisconnect(reconstructedResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs);
 
-  const streamDetailId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   saveRequestDetail(buildRequestDetail({
     provider, model, connectionId, apiKey, apiKeyName,
     latency: { ttft: 0, total: Date.now() - requestStartTime },

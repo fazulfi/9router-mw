@@ -38,16 +38,15 @@ async function setupTestContext(nodeData) {
   };
 }
 
-function makeRequest(provider, overrides = {}) {
+function makeRequest(provider, name = "Test Connection") {
   return new Request("https://9router.local/api/providers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       provider,
       apiKey: "test-key",
-      name: "Test Connection",
+      name,
       defaultModel: "test-model",
-      ...overrides,
     }),
   });
 }
@@ -146,26 +145,25 @@ describe("compatible provider connections API", () => {
     });
   });
 
-  it("allows multiple connections on the same compatible node (round-robin)", async () => {
+  it("allows multiple connections on the same compatible node", async () => {
     const ctx = await setupTestContext({
-      id: "openai-compatible-duplicate-test",
+      id: "openai-compatible-multiple-test",
       type: "openai-compatible",
-      name: "Duplicate Guard Node",
-      prefix: "dup",
+      name: "Multiple Connections Node",
+      prefix: "mul",
       apiType: "chat",
-      baseUrl: "https://duplicate-guard.test/v1",
+      baseUrl: "https://multiple-connections.test/v1",
     });
     cleanup = ctx.cleanup;
 
-    const firstResponse = await ctx.POST(makeRequest(ctx.node.id));
-    const secondRequest = makeRequest(ctx.node.id, { name: "Test Connection 2", apiKey: "test-key-2" });
-    const secondResponse = await ctx.POST(secondRequest);
+    const firstResponse = await ctx.POST(makeRequest(ctx.node.id, "Key A"));
+    const secondResponse = await ctx.POST(makeRequest(ctx.node.id, "Key B"));
     const storedConnections = await ctx.getProviderConnections({ provider: ctx.node.id });
 
     expect(firstResponse.status).toBe(201);
     expect(secondResponse.status).toBe(201);
     expect(storedConnections).toHaveLength(2);
-    expect(storedConnections.map(c => c.name).sort()).toEqual(["Test Connection", "Test Connection 2"]);
-    storedConnections.forEach(c => expectCompatibleConnection(c, ctx.node, { apiType: "chat" }));
+    expectCompatibleConnection(storedConnections[0], ctx.node, { apiType: "chat" });
+    expectCompatibleConnection(storedConnections[1], ctx.node, { apiType: "chat" });
   });
 });

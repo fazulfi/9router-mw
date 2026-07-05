@@ -13,6 +13,7 @@ import { isValidApiKey, extractApiKey, isProviderAllowed, isComboAllowed } from 
 import { getSettings } from "@/lib/localDb";
 import { stripComboPrefix } from "open-sse/services/combo.js";
 import { resolveCopilotModels } from "open-sse/services/copilotModels.js";
+import { resolveClinepassModels } from "open-sse/services/clinepassModels.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { capabilitiesFromServiceKind } from "open-sse/providers/capabilities.js";
 
@@ -55,6 +56,13 @@ const LIVE_MODEL_RESOLVERS = {
           existingProviderSpecificData: conn.providerSpecificData || {},
         });
       },
+    });
+    return result?.models?.length ? { models: result.models } : null;
+  },
+  clinepass: async (conn) => {
+    const result = await resolveClinepassModels({
+      accessToken: conn.accessToken,
+      apiKey: conn.apiKey,
     });
     return result?.models?.length ? { models: result.models } : null;
   }

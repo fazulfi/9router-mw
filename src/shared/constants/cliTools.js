@@ -61,6 +61,7 @@ export const MITM_TOOLS = {
     configType: "mitm",
     mitmDomain: "q.us-east-1.amazonaws.com",
     defaultModels: [
+      { id: "claude-sonnet-5", name: "Claude Sonnet 5", alias: "claude-sonnet-5" },
       // Kiro's agent/"vibe" mode sends modelId "auto" for the main turn (and "simple-task"
       // for background sub-tasks). Without a mappable slot, getMappedModel returns null and the
       // /generateAssistantResponse call is passed through to AWS instead of being routed to the
@@ -401,4 +402,3 @@ const getProviderModelsForMapping = (providers) => {
   });
   return result;
 };
-

@@ -5,7 +5,8 @@ import Modal from "@/shared/components/Modal";
 import Input from "@/shared/components/Input";
 import Button from "@/shared/components/Button";
 import Badge from "@/shared/components/Badge";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import Select from "@/shared/components/Select";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 
 function asyncReducer(state, action) {
   switch (action.type) {
@@ -33,6 +34,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
     organization: "",
   });
   const cloudflareData = { accountId: connection?.provider === "cloudflare-ai" && connection.providerSpecificData ? connection.providerSpecificData.accountId || "" : "" };
+  const [region, setRegion] = useState("");
   const [async_, dispatch] = useReducer(asyncReducer, { testing: false, testResult: null, validating: false, validationResult: null, saving: false });
   const { testing, testResult, validating, validationResult, saving } = async_;
 
@@ -53,6 +55,12 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           organization: connection.providerSpecificData.organization || "",
         });
       }
+      // Load region for providers that support it (e.g. xiaomi-tokenplan)
+      const providerCfg = AI_PROVIDERS?.[connection.provider];
+      if (providerCfg?.regions) {
+        const savedRegion = connection.providerSpecificData?.region || providerCfg.defaultRegion || providerCfg.regions[0]?.id || "";
+        setRegion(savedRegion);
+      }
       dispatch({ type: "RESET" });
     }
   }
@@ -63,6 +71,14 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   const isCompatible = connection
     ? (isOpenAICompatibleProvider(connection.provider) || isAnthropicCompatibleProvider(connection.provider))
     : false;
+
+  const providerRegions = connection ? (AI_PROVIDERS?.[connection.provider]?.regions || null) : null;
+
+  // Build providerSpecificData for region-aware providers
+  const buildRegionSpecificData = () => {
+    if (providerRegions && region) return { ...((connection?.providerSpecificData) || {}), region };
+    return undefined;
+  };
 
   const handleTest = async () => {
     if (!connection?.provider) return;
@@ -88,6 +104,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           apiKey: formData.apiKey,
           ...(isAzure ? { providerSpecificData: azureData } : {}),
           ...(isCloudflareAi ? { providerSpecificData: cloudflareData } : {}),
+          ...(providerRegions ? { providerSpecificData: buildRegionSpecificData() } : {}),
         }),
       });
       const data = await res.json();
@@ -119,6 +136,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
                 apiKey: formData.apiKey,
                 ...(isAzure ? { providerSpecificData: azureData } : {}),
                 ...(isCloudflareAi ? { providerSpecificData: cloudflareData } : {}),
+                ...(providerRegions ? { providerSpecificData: buildRegionSpecificData() } : {}),
               }),
             });
             const data = await res.json();
@@ -134,7 +152,12 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           updates.lastErrorAt = null;
         }
       }
-      
+
+      // Persist updated region for region-aware providers
+      if (providerRegions && region) {
+        updates.providerSpecificData = buildRegionSpecificData();
+      }
+
       // Add Azure-specific data if this is an Azure connection
       if (isAzure) {
         updates.providerSpecificData = {
@@ -147,7 +170,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
       if (isCloudflareAi) {
         updates.providerSpecificData = { accountId: cloudflareData.accountId };
       }
-      
+
       await onSave(updates);
     } finally {
       dispatch({ type: "SAVE_DONE" });
@@ -240,6 +263,15 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           </div>
         )}
 
+        {providerRegions && (
+          <Select
+            label="Region"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            options={providerRegions.map((r) => ({ value: r.id, label: r.label }))}
+          />
+        )}
+
         {!isCompatible && !isAzure && !isCloudflareAi && (
           <div className="flex items-center gap-3">
             <Button onClick={handleTest} variant="secondary" disabled={testing}>
@@ -261,4 +293,3 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
     </Modal>
   );
 }
-

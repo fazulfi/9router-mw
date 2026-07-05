@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import PropTypes from "prop-types";
 import { getStatusVariant as getConnectionStatusVariant } from "@/shared/utils/connectionStatus";
 import { Badge, Toggle, Tooltip } from "@/shared/components";
 import CooldownTimer from "./CooldownTimer";
@@ -22,6 +23,9 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
       : hasLegacyProxy
         ? `Legacy: ${connection.providerSpecificData?.connectionProxyUrl}`
         : "";
+  const autoPingTooltip = autoPing?.provider === "codex"
+    ? "Auto-starts the next 5h Codex window after reset by sending a tiny gpt-5.5 request. Consumes a small amount of quota."
+    : "When your 5h quota runs out, auto-sends a request the moment it resets so a new window starts right away.";
 
   let maskedProxyUrl = "";
   if (boundProxyPool?.proxyUrl || connection.providerSpecificData?.connectionProxyUrl) {
@@ -243,7 +247,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             </div>
           )}
           {autoPing && (
-            <Tooltip text="When your 5h quota runs out, auto-sends a request the moment it resets so a new window starts right away.">
+            <Tooltip text={autoPingTooltip}>
               <button
                 onClick={() => autoPing.onToggle(!autoPing.on)}
                 className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${autoPing.on ? "text-primary" : "text-text-muted hover:text-primary"}`}
@@ -273,3 +277,42 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
   );
 }
 
+ConnectionRow.propTypes = {
+  connection: PropTypes.shape({
+    id: PropTypes.string,
+    name: PropTypes.string,
+    email: PropTypes.string,
+    displayName: PropTypes.string,
+    modelLockUntil: PropTypes.string,
+    testStatus: PropTypes.string,
+    isActive: PropTypes.bool,
+    lastError: PropTypes.string,
+    priority: PropTypes.number,
+    globalPriority: PropTypes.number,
+  }).isRequired,
+  proxyPools: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.string,
+    name: PropTypes.string,
+    proxyUrl: PropTypes.string,
+    noProxy: PropTypes.string,
+    isActive: PropTypes.bool,
+  })),
+  isOAuth: PropTypes.bool.isRequired,
+  isFirst: PropTypes.bool.isRequired,
+  isLast: PropTypes.bool.isRequired,
+  onMoveUp: PropTypes.func.isRequired,
+  onMoveDown: PropTypes.func.isRequired,
+  onToggleActive: PropTypes.func.isRequired,
+  onUpdateProxy: PropTypes.func,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  oneByOneStatus: PropTypes.shape({
+    state: PropTypes.string,
+    error: PropTypes.string,
+  }),
+  autoPing: PropTypes.shape({
+    on: PropTypes.bool,
+    onToggle: PropTypes.func,
+    provider: PropTypes.string,
+  }),
+};
