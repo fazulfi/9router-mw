@@ -449,4 +449,94 @@ SKIP
 
 ---
 
+## 11. Update: Upstream commits after v0.5.15 (v0.5.16 – v0.5.18)
+
+> Audit tanggal 2026-06-29 hanya sampai upstream `v0.5.15`. Setelah fetch ulang `upstream/master`, ditemukan **17 commit tambahan** yang belum masuk audit. Berikut klasifikasinya supaya tidak dobel dengan yang sudah kita cherry-pick.
+
+| # | Upstream Hash | Type | Summary | Status vs `dev` | Classification |
+|---|---|---|---|---|---|
+| 51 | `7f436e27` | version | `# v0.5.18` (CHANGELOG + package bumps) | Not merged | **SKIP** — version/rebrand conflict |
+| 52 | `54e3245a` | feat | Track cached tokens + correct input/output/cache cost (#2209) | Not merged | **ADOPT** |
+| 53 | `960f8a03` | fix | Dedupe streaming request-details log entries | Not merged | **ADOPT** |
+| 54 | `5cc4f222` | feat | Show reset credit expiry details for Codex (#2290) | Not merged | **ADOPT** |
+| 55 | `cd557a25` | fix | Drop foreign thinking signatures in Claude passthrough | Not merged | **ADOPT** (bisa bantu issue #6) |
+| 56 | `ced51ed6` | feat | Add new models and capabilities for NVIDIA provider | Not merged | **ADOPT** |
+| 57 | `cb0135b6` | fix | Prevent non-SSE stream pipe crash and cross-IdP account overwrites (#2244) | Not merged | **ADOPT** (stability + security) |
+| 58 | `abc0add0` | fix | Route Kiro IdC auth to regional CodeWhisperer surface (#2297) | Not merged | **ADOPT** |
+| 59 | `9102c4c6` | fix | Xiaomi TokenPlan region selector, key validation, multi-connection (#2251) | Not merged | **ADOPT** |
+| 60 | `ce6120ce` | fix | Strict Anthropic content block compliance (#2225) | Already ported as `d5e43be9` | **Already merged (verify)** |
+| 61 | `7afaecd6` | fix | Strip `reasoning_content` echo to bound multi-turn input tokens (Kimchi) | Not merged | **ADOPT** |
+| 62 | `a5363b83` | fix | Add Claude Sonnet 5 model support for Kiro (#2264) | Not merged | **ADOPT** |
+| 63 | `b08751c4` | feat | Add ClinePass provider support | Not merged | **ADOPT** |
+| 64 | `76752a43` | fix | Bump User-Agent to kimchi/0.1.40 (#2256) | Not merged | **ADOPT** |
+| 65 | `602ee405` | fix | Strip empty `tool_calls` arrays to preserve reasoning (CodeBuddy-CN) | Not merged | **ADOPT** |
+| 66 | `8f81f17b` | fix | Preserve Claude tool delta index for Antigravity (#2223) | Not merged | **HYBRID/VERIFY** — kita sudah punya fix tool delta di v0.8.4, bandingkan dulu |
+| 67 | `182c8499` | fix | Generate MITM root CA on server startup (#2228) | Not merged | **ADOPT** |
+
+### 11.1 Rekomendasi apply order untuk 17 commit baru
+
+```text
+# 1. Security / stability
+  cb0135b6 182c8499
+
+# 2. Translator / model correctness
+  cd557a25 ce6120ce 8f81f17b 7afaecd6
+
+# 3. Provider features
+  ced51ed6 a5363b83 b08751c4 76752a43
+  abc0add0 9102c4c6 602ee405
+
+# 4. Usage / Codex
+  54e3245a 960f8a03 5cc4f222
+
+# 5. Skip
+  7f436e27
+```
+
+---
+
+## 12. Recent non-Vanszs commits in our fork (likely upstream cherry-picks)
+
+> Untuk menghindari double-merge, berikut commit terakhir di `main`/`dev` yang author-nya bukan `Vanszs`. Mayoritas adalah cherry-pick dari upstream 9router atau PR eksternal.
+
+### 12.1 `main`
+
+| Hash | Author | Summary | Upstream origin / note |
+|---|---|---|---|
+| `31321e57` | decolua | fix(token-saver): full width card layout | Upstream `2deacf69` — **HYBRID/VERIFY** |
+| `96411bb4` | Ankit | fix(headroom): translate openai-responses input through OpenAI for compression | Upstream `d4d11357` — **HYBRID/ADOPT** |
+| `e0512cf1` | Sutarto Jordan Chrisfivo | fix(headroom): skip unsafe responses tool history (#2132) | Upstream `373850ee` — **HYBRID/ADOPT** |
+| `71329cc0` | Emirhan | fix(tray): make Windows context menu DPI-aware | Upstream `fc8722e8` — **ADOPT** |
+| `26fd991b` | iletai | fix(antigravity): strip deprecated/readOnly/writeOnly from tool schemas | Upstream `3d20a4cc` — **ADOPT** |
+| `30a69fa7` | jellylarper | fix(kilocode): expose full gateway catalog in combo model picker | Upstream `7135637` — **ADOPT** |
+| `e985f1e0` | hamsa0x7 | fix(kiro): strip leaked `<thinking>` tags from content stream (#2158) | Upstream `eff81b12` — **ADOPT** |
+| `4a80c16e` | Yudhistira-Official | fix(antigravity): strip 'deprecated' from tool schemas before Gemini | Upstream `319caa2d` — **ADOPT** |
+| `2d9294c2` | WARELIK | fix(gemini): backfill thoughtSignature and suppress stream done sentinel | Upstream `2d94fffe` — **HYBRID** kita sudah ganti ke sentinel `skip_thought_signature_validator` |
+| `199e3f67` | Rex | fix(alicode): preserve cache_control for DashScope providers (#2069) | Upstream `9e386665` — **ADOPT** |
+| `04c3e4a6` | decolua | feat(capabilities): refine Qwen vision/video and thinking model patterns | Upstream `7fa2e7f0` — **ADOPT** |
+| `a6a7bdbe` | decolua | Fix OpenCode Go GLM | Upstream `52623587` — **ADOPT** |
+| `bdaf57f1` | warelik | fix(gemini): normalize contents to prevent 400 invalid_argument (#2192) | Upstream `8d1db46b` — **ADOPT** |
+| `5f6f0b95` | decolua | fix(translator): map mid-conversation system message to user in claude-to-openai | Upstream `749c2e3f` — **ADOPT** |
+| `b970c143` | rifuki | fix(responses): handle response.done terminal events (#2142) | Upstream `a9785a5f` — **ADOPT** |
+
+### 12.2 `dev` (tambahan dari PR eksternal)
+
+| Hash | Author | Summary | Note |
+|---|---|---|---|
+| `81ceafc4` | 29nls | fix(gitbook-pages): add permissions for content write access | PR #10 — VansRouter-specific docs deployment |
+| `81ca1ff0` | 29nls | fix(gitbook-pages): update deployment configuration for GitHub Pages | PR #10 — VansRouter-specific docs deployment |
+| `c5171b47` | 29nls | feat(apiKey): enhance secret management and directory handling | PR #10 — fix CLI startup + dashboard |
+| `31321e57` | decolua | fix(token-saver): full width card layout | Sama seperti di `main` |
+
+### 12.3 Yang sudah jelas double / perlu dicek
+
+| Commit kita | Upstream | Status |
+|---|---|---|
+| `4825acdf` feat: add token-saver dashboard page | `cb65a45e` | **Sudah ada — jangan pull lagi** ✅ |
+| `31321e57` / `e7f631d0` fix(token-saver): full width card layout | `2deacf69` | Muncul 2× di log; **verify** apakah sudah sama persis |
+| `2d9294c2` backfill thoughtSignature | `2d94fffe` | Kita sudah replace dengan sentinel — **jangan overwrite dengan upstream placeholder** |
+| `d5e43be9` port upstream #2225 dan #2191 | `ce6120ce` #2225 | Sudah cover; perlu bandingkan dengan upstream untuk detail tambahan |
+
+---
+
 *End of audit.*
