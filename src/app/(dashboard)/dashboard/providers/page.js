@@ -682,17 +682,14 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle, circuit
                       Disabled
                     </span>
                   </Badge>
+                ) : isNoAuth ? (
+                  <Badge variant="success" size="sm" dot>Ready</Badge>
                 ) : (
                   <>
                     {getStatusDisplay(connected, error, errorCode)}
                     {circuitBreaker && (
                       <CircuitBreakerBadge status={circuitBreaker} onReset={() => onResetCircuit(providerId)} />
                     )}
-                    {errorTime && (
-                      <span className="text-text-muted">{errorTime}</span>
-                    )}
-                  </>
-                )}
                     {errorTime && (
                       <span className="text-text-muted">{errorTime}</span>
                     )}
