@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
@@ -56,37 +56,18 @@ function upsert(db, c) {
   );
 }
 
-// In-memory cache — eliminates sync DB read on every credential selection.
-// Keyed by provider ID, invalidated on any write operation, expires after TTL.
-const _connCache = new Map(); // providerKey → { list, ts }
-const _connTTL = 2_000; // 2s
-
-function _connCacheKey(filter = {}) {
-  return `${filter.provider || ""}:${filter.isActive ?? ""}`;
-}
-
-function _invalidateConnCache(providerId) {
-  if (providerId) {
-    // Invalidate specific provider key and the "all" key
-    for (const key of _connCache.keys()) {
-      if (key.startsWith(`${providerId}:`) || key.startsWith(`:${providerId}`)) _connCache.delete(key);
-    }
-    // Also invalidate the "all providers" query (empty provider filter)
-    _connCache.delete(`:`);
-    _connCache.delete(`:true`);
-    _connCache.delete(`:false`);
-  } else {
-    _connCache.clear();
+function deriveConnectionName(data, fallbackName) {
+  if (data.provider === "github") {
+    return data.providerSpecificData?.githubLogin
+      || data.providerSpecificData?.githubEmail
+      || data.email
+      || data.providerSpecificData?.githubName
+      || fallbackName;
   }
+  return fallbackName;
 }
 
 export async function getProviderConnections(filter = {}) {
-  const cacheKey = _connCacheKey(filter);
-  const now = Date.now();
-  const cached = _connCache.get(cacheKey);
-  if (cached && now - cached.ts < _connTTL) {
-    return cached.list;
-  }
   const db = await getAdapter();
   const where = [];
   const params = [];
@@ -96,7 +77,6 @@ export async function getProviderConnections(filter = {}) {
   const rows = db.all(sql, params);
   const list = rows.map(rowToConn);
   list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
-  _connCache.set(cacheKey, { list, ts: now });
   return list;
 }
 
@@ -129,13 +109,26 @@ export async function createProviderConnection(data) {
 
     let existing = null;
     if (data.authType === "oauth" && data.email) {
+      const incomingUsername = data.providerSpecificData?.username;
       const incomingWs = data.providerSpecificData?.chatgptAccountId;
       existing = all.find(c => {
         if (c.authType !== "oauth" || c.email !== data.email) return false;
-        // If both sides have a workspace ID, they must match for dedup
+        // Workspace providers (Codex) use workspace ID when both sides have it
         const existingWs = c.providerSpecificData?.chatgptAccountId;
         if (incomingWs && existingWs) return incomingWs === existingWs;
-        return true; // fallback: email-only match for non-workspace providers
+        if (incomingWs && !existingWs) return false;
+        if (!incomingWs && existingWs) return false;
+        // Non-workspace providers: match on (email + username) so cross-IdP
+        // accounts don't overwrite each other. Require username on both sides
+        // — if only one side has it, treat as a distinct identity rather than
+        // collapsing onto the bare-email fallback (which would re-introduce
+        // the cross-IdP overwrite).
+        const existingUsername = c.providerSpecificData?.username;
+        if (incomingUsername && existingUsername) {
+          return incomingUsername === existingUsername;
+        }
+        if (incomingUsername || existingUsername) return false;
+        return true;
       });
     } else if (data.authType === "apikey" && data.name) {
       existing = all.find(c => c.authType === "apikey" && c.name === data.name);
@@ -151,7 +144,7 @@ export async function createProviderConnection(data) {
 
     let connectionName = data.name || null;
     if (!connectionName && (data.authType === "oauth" || data.authType === "access_token")) {
-      connectionName = data.email || `Account ${all.length + 1}`;
+      connectionName = deriveConnectionName(data, data.email || `Account ${all.length + 1}`);
     }
     let connectionPriority = data.priority;
     if (!connectionPriority) {
@@ -159,7 +152,7 @@ export async function createProviderConnection(data) {
     }
 
     const conn = {
-      id: randomUUID(),
+      id: uuidv4(),
       provider: data.provider,
       authType: data.authType || "oauth",
       name: connectionName,
@@ -180,7 +173,7 @@ export async function createProviderConnection(data) {
     reorderInTx(db, data.provider);
     result = conn;
   });
-  _invalidateConnCache(data.provider);
+
   return result;
 }
 
@@ -188,7 +181,6 @@ export async function createProviderConnection(data) {
 export async function updateProviderConnection(id, data) {
   const db = await getAdapter();
   let result;
-  let cacheProvider;
   db.transaction(() => {
     const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
     if (!row) { result = null; return; }
@@ -197,25 +189,20 @@ export async function updateProviderConnection(id, data) {
     upsert(db, merged);
     if (data.priority !== undefined) reorderInTx(db, existing.provider);
     result = merged;
-    cacheProvider = existing.provider;
   });
-  _invalidateConnCache(cacheProvider);
   return result;
 }
 
 export async function deleteProviderConnection(id) {
   const db = await getAdapter();
   let ok = false;
-  let cacheProvider;
   db.transaction(() => {
     const row = db.get(`SELECT provider FROM providerConnections WHERE id = ?`, [id]);
     if (!row) return;
     db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
     reorderInTx(db, row.provider);
     ok = true;
-    cacheProvider = row.provider;
   });
-  _invalidateConnCache(cacheProvider);
   return ok;
 }
 
