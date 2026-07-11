@@ -127,10 +127,15 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 
     if (responseBody.usage) {
       result.usage = {
-        prompt_tokens: responseBody.usage.input_tokens || 0,
-        completion_tokens: responseBody.usage.output_tokens || 0,
-        total_tokens: (responseBody.usage.input_tokens || 0) + (responseBody.usage.output_tokens || 0)
+        prompt_tokens: responseBody.usage.prompt_tokens || responseBody.usage.input_tokens || 0,
+        completion_tokens: responseBody.usage.completion_tokens || responseBody.usage.output_tokens || 0,
+        total_tokens: responseBody.usage.total_tokens || 
+          ((responseBody.usage.prompt_tokens || responseBody.usage.input_tokens || 0) + 
+           (responseBody.usage.completion_tokens || responseBody.usage.output_tokens || 0))
       };
+      if (responseBody.usage.completion_tokens_details) {
+        result.usage.completion_tokens_details = responseBody.usage.completion_tokens_details;
+      }
     }
     return result;
   }
