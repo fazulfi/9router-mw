@@ -1,41 +1,6 @@
 import { platform, arch } from "os";
 import { PROVIDERS, PROVIDER_OAUTH } from "./providers.js";
-import { proxyAwareFetch } from "../utils/proxyFetch.js";
-
-// === Kimchi CLI version (dynamic, cached from GitHub releases) ===
-const KIMCHI_FALLBACK_VERSION = "0.1.39";
-let _kimchiVersionCache = null;
-let _kimchiVersionFetching = null;
-const KIMCHI_VERSION_TTL_MS = 3600_000; // 1h
-
-async function fetchKimchiVersion() {
-  try {
-    const res = await proxyAwareFetch("https://api.github.com/repos/getkimchi/kimchi/releases/latest", {
-      headers: { Accept: "application/vnd.github+json" },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return KIMCHI_FALLBACK_VERSION;
-    const body = await res.json();
-    const tag = body?.tag_name || "";
-    const ver = tag.replace(/^v/, "");
-    return ver || KIMCHI_FALLBACK_VERSION;
-  } catch {
-    return KIMCHI_FALLBACK_VERSION;
-  }
-}
-
-export async function getKimchiVersion() {
-  if (_kimchiVersionCache && Date.now() - _kimchiVersionCache.ts < KIMCHI_VERSION_TTL_MS) return _kimchiVersionCache.ver;
-  if (_kimchiVersionFetching) return _kimchiVersionFetching;
-  _kimchiVersionFetching = fetchKimchiVersion().finally(() => { _kimchiVersionFetching = null; });
-  const ver = await _kimchiVersionFetching;
-  _kimchiVersionCache = { ver, ts: Date.now() };
-  return ver;
-}
-
-export function getKimchiVersionSync() {
-  return _kimchiVersionCache?.ver || KIMCHI_FALLBACK_VERSION;
-}
+import { ANTIGRAVITY_IDE_USER_AGENT } from "../providers/shared.js";
 
 // === Gemini CLI === derive từ registry gemini-cli.transport
 export const GEMINI_CLI_VERSION = PROVIDERS["gemini-cli"]?.cliVersion;
@@ -95,7 +60,7 @@ export function getPlatformEnum() {
 }
 
 export function getPlatformUserAgent() {
-  return `antigravity/1.104.0 ${platform()}/${arch()}`;
+  return ANTIGRAVITY_IDE_USER_AGENT;
 }
 
 export const CLIENT_METADATA = {
@@ -165,7 +130,7 @@ export const AG_DEFAULT_TOOLS = new Set([
 
 // Antigravity chat/stream headers
 export const ANTIGRAVITY_HEADERS = {
-  "User-Agent": `antigravity/1.107.0 ${platform()}/${arch()}`
+  "User-Agent": ANTIGRAVITY_IDE_USER_AGENT
 };
 
 // Cloud Code Assist API

@@ -1,3 +1,4 @@
+/* source() sets scan base to src/ for both webpack + Turbopack; auto-detection still skips binaries + gitignore */
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));

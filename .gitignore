@@ -122,3 +122,4 @@ next-env.d.ts
 # Refactor backup reference / graphify output (do not bundle/lint)
 .graphifyignore
 graphify-out/*
+.next-analyze/*

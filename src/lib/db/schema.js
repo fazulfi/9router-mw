@@ -1,5 +1,9 @@
-// Latest schema version — bumped when a migration is added in ./migrations/
-const SCHEMA_VERSION = 1;
+// ⚠️ AGENT/DEV: Bump this by +1 EVERY TIME you change the schema below
+// (add/remove/alter a table, column, or index in TABLES). It drives the
+// pre-change safety backup in migrate.js: when the stored version is lower,
+// one lightweight DB backup is taken before applying schema changes. Forgetting
+// to bump only skips that backup — it does NOT break the additive auto-sync.
+export const SCHEMA_VERSION = 1;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -79,9 +83,6 @@ export const TABLES = {
       machineId: "TEXT",
       isActive: "INTEGER DEFAULT 1",
       createdAt: "TEXT NOT NULL",
-      allowedProviders: "TEXT",
-      allowedCombos: "TEXT",
-      allowedKinds: "TEXT",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
   },
@@ -141,10 +142,7 @@ export const TABLES = {
       provider: "TEXT",
       model: "TEXT",
       connectionId: "TEXT",
-      apiKey: "TEXT",
-      apiKeyName: "TEXT",
       status: "TEXT",
-      meta: "TEXT",
       data: "TEXT NOT NULL",
     },
     indexes: [

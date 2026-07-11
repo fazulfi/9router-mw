@@ -5,8 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS, THINKING_CONFIG } from "@/shared/constants/providers";
+import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
+import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { translate } from "@/i18n/runtime";
@@ -20,10 +21,8 @@ import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
 import BulkImportCodexModal from "./BulkImportCodexModal";
-import Pagination from "@/shared/components/Pagination";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
-const CONNECTIONS_PER_PAGE = 10;
 
 const AUTO_PING_SETTINGS_KEYS = {
   claude: "claudeAutoPing",
@@ -78,7 +77,6 @@ export default function ProviderDetailPage() {
   const [oneByOneSummary, setOneByOneSummary] = useState(null);
   const stopOneByOneRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
-  const [connectionPage, setConnectionPage] = useState(1);
   const { copied, copy } = useCopyToClipboard();
 
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
@@ -150,11 +148,38 @@ export default function ProviderDetailPage() {
   const isAnthropicCompatible = isAnthropicCompatibleProvider(providerId);
   const isCompatible = isOpenAICompatible || isAnthropicCompatible;
   const hasDualAuthModes = !isCompatible && isOAuth && supportsApiKeyAuth;
-  const oauthConnectionLabel = providerId === "xai" ? "Grok Build OAuth" : "OAuth";
+  const oauthConnectionLabel =
+    providerId === "xai" ? "Grok Build OAuth"
+    : providerId === "grok-cli" ? "Grok CLI Device Login"
+    : "OAuth";
   const apiKeyConnectionLabel = providerId === "xai" ? "xAI API Key" : "API Key";
-  const thinkingConfig = AI_PROVIDERS[providerId]?.thinkingConfig || THINKING_CONFIG.extended;
-  
+  // Resolve suffix "(level)" for a model when a thinking level is picked and the model supports it.
+  const resolveThinkingSuffix = (modelId) => {
+    if (!thinkingMode || thinkingMode === "auto") return null;
+    const levels = getThinkingLevels(providerId, modelId);
+    return levels && levels.includes(thinkingMode) ? thinkingMode : null;
+  };
   const providerStorageAlias = isCompatible ? providerId : providerAlias;
+  // Union of levels across this provider's reasoning models — drives the level picker options.
+  // Include custom models too (e.g. manually added gpt-5.6-sol → max).
+  const providerThinkingLevels = (() => {
+    const set = new Set();
+    const seen = new Set();
+    const addLevels = (modelId) => {
+      if (!modelId || seen.has(modelId)) return;
+      seen.add(modelId);
+      const lv = getThinkingLevels(providerId, modelId);
+      if (lv) lv.forEach((l) => { if (l !== "none") set.add(l); });
+    };
+    for (const m of models) addLevels(m.id);
+    for (const m of kiloFreeModels) addLevels(m.id);
+    for (const entry of customModels) {
+      if (entry.providerAlias !== providerStorageAlias) continue;
+      if ((entry.kind || entry.type || "llm") !== "llm") continue;
+      addLevels(entry.id);
+    }
+    return set.size ? ["auto", ...[...set]] : null;
+  })();
   const providerDisplayAlias = isCompatible
     ? (providerNode?.prefix || providerId)
     : providerAlias;
@@ -416,9 +441,6 @@ export default function ProviderDetailPage() {
     saveAutoPing({ ...autoPing, connections: { ...autoPing.connections, [connectionId]: on } });
   };
 
-  /* eslint-disable react-hooks/set-state-in-effect --
-     Initial bootstrap fetch on mount; the fetch* functions set state after
-     fetch resolves. Pattern is intentional. */
   useEffect(() => {
     fetchConnections();
     fetchAliases();
@@ -785,20 +807,6 @@ export default function ProviderDetailPage() {
   const selectedConnections = connections.filter((conn) => selectedConnectionIds.includes(conn.id));
   const allSelected = connections.length > 0 && selectedConnectionIds.length === connections.length;
 
-  const connectionTotalPages = Math.max(1, Math.ceil(connections.length / CONNECTIONS_PER_PAGE));
-  const connectionPageClamped = Math.min(Math.max(1, connectionPage), connectionTotalPages);
-  const pagedStart = (connectionPageClamped - 1) * CONNECTIONS_PER_PAGE;
-  const pagedConnections = connections.slice(pagedStart, pagedStart + CONNECTIONS_PER_PAGE);
-
-  useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(connections.length / CONNECTIONS_PER_PAGE));
-    setConnectionPage((p) => (p > maxPage ? maxPage : p < 1 ? 1 : p));
-  }, [connections.length]);
-
-  useEffect(() => {
-    setConnectionPage(1);
-  }, [providerId]);
-
   const toggleSelectConnection = (connectionId) => {
     setSelectedConnectionIds((prev) => (
       prev.includes(connectionId)
@@ -896,20 +904,8 @@ export default function ProviderDetailPage() {
 
   const connectionsList = (
     <div className="flex min-w-0 flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03]">
-      {connections.length > 1 && (
-        <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-text-muted">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            onChange={toggleSelectAllConnections}
-            className="h-3.5 w-3.5 rounded border-border accent-primary"
-          />
-          <span>{selectedConnectionIds.length > 0 ? `${selectedConnectionIds.length} selected` : "Select all"}</span>
-        </div>
-      )}
-      {pagedConnections.map((conn, pageIndex) => {
-        const index = pagedStart + pageIndex;
-        return (
+      {connections
+        .map((conn, index) => (
           <div key={conn.id} className="flex min-w-0 items-stretch">
             <div className="flex shrink-0 items-center pl-1 sm:pl-2">
               <input
@@ -961,8 +957,7 @@ export default function ProviderDetailPage() {
               />
             </div>
           </div>
-        );
-      })}
+        ))}
     </div>
   );
 
@@ -1098,6 +1093,7 @@ export default function ProviderDetailPage() {
             isCustom
             isFree={false}
             caps={getCaps(`${providerId}/${model.id}`)}
+            thinkingSuffix={resolveThinkingSuffix(model.id)}
           />
         ))}
 
@@ -1123,6 +1119,7 @@ export default function ProviderDetailPage() {
               isFree={model.isFree}
               onDisable={() => handleDisableModel(model.id)}
               caps={getCaps(`${providerId}/${model.id}`)}
+              thinkingSuffix={resolveThinkingSuffix(model.id)}
             />
           );
         })}
@@ -1229,12 +1226,12 @@ export default function ProviderDetailPage() {
   // Determine icon path: OpenAI Compatible providers use specialized icons
   const getHeaderIconPath = () => {
     if (isOpenAICompatible && providerInfo.apiType) {
-      return providerInfo.apiType === "responses" ? "/providers/oai-r.webp" : "/providers/oai-cc.webp";
+      return providerInfo.apiType === "responses" ? "/providers/oai-r.png" : "/providers/oai-cc.png";
     }
     if (isAnthropicCompatible) {
-      return "/providers/anthropic-m.webp";
+      return "/providers/anthropic-m.png";
     }
-    return `/providers/${providerInfo.id}.webp`;
+    return `/providers/${providerInfo.id}.png`;
   };
 
   return (
@@ -1394,17 +1391,6 @@ export default function ProviderDetailPage() {
                   Apply Proxy
                 </Button>
               )}
-              {connections.length > 1 && (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  icon="delete_sweep"
-                  onClick={handleBulkDelete}
-                  disabled={selectedConnectionIds.length === 0}
-                >
-                  Delete{selectedConnectionIds.length > 0 ? ` (${selectedConnectionIds.length})` : ""}
-                </Button>
-              )}
               {connections.length > 0 && (
                 <>
                   {selectedConnectionIds.length > 0 && (
@@ -1439,21 +1425,6 @@ export default function ProviderDetailPage() {
                   )}
                 </>
               )}
-              {/* Thinking config */}
-              {/* {thinkingConfig && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-muted font-medium">Thinking</span>
-                  <select
-                    value={thinkingMode}
-                    onChange={(e) => handleThinkingModeChange(e.target.value)}
-                    className="text-xs px-2 py-1 border border-border rounded-md bg-background focus:outline-none focus:border-primary"
-                  >
-                    {thinkingConfig.options.map((opt) => (
-                      <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
-                    ))}
-                  </select>
-                </div>
-              )} */}
               {/* Round Robin toggle */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-text-muted font-medium">Round Robin</span>
@@ -1558,14 +1529,6 @@ export default function ProviderDetailPage() {
                 </div>
               )}
               {connectionsList}
-              {connections.length > CONNECTIONS_PER_PAGE && (
-                <Pagination
-                  currentPage={connectionPageClamped}
-                  pageSize={CONNECTIONS_PER_PAGE}
-                  totalItems={connections.length}
-                  onPageChange={setConnectionPage}
-                />
-              )}
               {!isCompatible && (
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
                   {providerId === "iflow" && (
@@ -1632,9 +1595,23 @@ export default function ProviderDetailPage() {
       {/* Models */}
       <Card>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold">
-            {"Available Models"}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">
+              {"Available Models"}
+            </h2>
+            {providerThinkingLevels && (
+              <select
+                value={thinkingMode}
+                onChange={(e) => handleThinkingModeChange(e.target.value)}
+                title="Appends (level) suffix to copied model names"
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:border-primary focus:outline-none"
+              >
+                {providerThinkingLevels.map((opt) => (
+                  <option key={opt} value={opt}>{`Thinking: ${opt.charAt(0).toUpperCase() + opt.slice(1)}`}</option>
+                ))}
+              </select>
+            )}
+          </div>
           {!isCompatible && (() => {
             const allIds = [
               ...models,

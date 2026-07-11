@@ -14,7 +14,7 @@ const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
-  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite"],
+  serverExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "dompurify", "chalk"],
   turbopack: {
     root: tracingRoot
   },
@@ -22,6 +22,10 @@ const nextConfig = {
   outputFileTracingExcludes: {
     "*": ["./gitbook/**/*", "./.git/**/*", "./tests/**/*", "./docs/**/*", "./.fakehome/**/*"]
   },
+  // Disable Next.js built-in gzip/br compression so SSE chunks are flushed
+  // immediately to the client instead of being batched by the compressor.
+  // Express/nginx handles compression at the edge if needed.
+  compress: false,
   images: {
     unoptimized: true
   },
@@ -31,6 +35,8 @@ const nextConfig = {
     proxyClientMaxBodySize,
     // Cache fetch responses across HMR refreshes for faster dev reloads.
     serverComponentsHmrCache: true,
+    // Tree-shake heavy barrel imports to cut compile + bundle size
+    optimizePackageImports: ["@xyflow/react", "@dnd-kit/core", "@dnd-kit/sortable", "material-symbols", "marked"],
   },
   webpack: (config, { isServer }) => {
     // Ignore fs/path modules in browser bundle

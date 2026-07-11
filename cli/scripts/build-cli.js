@@ -218,6 +218,7 @@ if (require.main === module) {
   console.log("3️⃣ b Configuring SQLite drivers...");
   ensureModuleInBundle("sql.js", { cliAppDir, appDir, rootDir, copyRecursive });
   ensureModuleInBundle("@swc/helpers", { cliAppDir, appDir, rootDir, copyRecursive });
+  ensureModuleInBundle("@next/env", { cliAppDir, appDir, rootDir, copyRecursive });
   const betterDir = path.join(cliAppDir, "node_modules", "better-sqlite3");
   if (fs.existsSync(betterDir)) {
     fs.rmSync(betterDir, { recursive: true, force: true });
@@ -290,6 +291,16 @@ if (require.main === module) {
   } catch (error) {
     console.error("❌ MITM build failed");
     process.exit(1);
+  }
+
+  // Rename app/node_modules → app/_nm so npm publish doesn't strip it.
+  // cli.js sets NODE_PATH=app/_nm when spawning the server so Next.js resolves correctly.
+  const nmDir = path.join(cliAppDir, "node_modules");
+  const nmDest = path.join(cliAppDir, "_nm");
+  if (fs.existsSync(nmDir)) {
+    if (fs.existsSync(nmDest)) fs.rmSync(nmDest, { recursive: true, force: true });
+    fs.renameSync(nmDir, nmDest);
+    console.log("✅ Renamed app/node_modules → app/_nm (npm-publish-safe)\n");
   }
 
   console.log("✨ CLI package build completed!");
