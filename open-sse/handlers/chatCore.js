@@ -1,3 +1,4 @@
+import { compressWithPxpipe, formatPxpipeLog } from "../rtk/pxpipe.js";
 import { detectFormat, getTargetFormat, resolveTransport } from "../services/provider.js";
 import { translateRequest } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
@@ -98,7 +99,7 @@ export function applyLoopGuard(translatedBody, finalFormat, provider, model, log
  * @param {object} options.credentials - Provider credentials
  * @param {string} options.sourceFormatOverride - Override detected source format (e.g. "openai-responses")
  */
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, apiKeyName = null, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, sourceFormatOverride, providerThinking, clientSignal }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, apiKeyName = null, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled = false, pxpipeMinChars = 1000, pxpipeTimeoutMs = 10000, pxpipeTransform = "png", onPxpipeEvent = null, sourceFormatOverride, providerThinking, clientSignal }) {
   const { provider, model, accountCount = 0 } = modelInfo;
   const requestStartTime = Date.now();
 
@@ -300,6 +301,21 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
   }
 
+  // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch
+  let pxpipeSummary = null;
+  if (pxpipeEnabled) {
+    const pxpipeResult = await compressWithPxpipe(translatedBody, {
+      enabled: true, format: finalFormat, model: upstreamModel,
+      minChars: pxpipeMinChars, timeoutMs: pxpipeTimeoutMs, transform: pxpipeTransform,
+    });
+    pxpipeSummary = pxpipeResult.summary;
+    if (pxpipeResult.body) translatedBody = pxpipeResult.body;
+    const pxpipeLine = formatPxpipeLog(pxpipeSummary);
+    if (pxpipeLine) log?.info?.("PXPIPE", pxpipeLine);
+    else log?.debug?.("PXPIPE", `skipped: ${pxpipeSummary.reason}${pxpipeSummary.detail ? ` (${pxpipeSummary.detail})` : ""}`);
+    try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
+  }
+
   const executor = getExecutor(provider);
   trackPendingRequest(model, provider, connectionId, true);
   appendRequestLog({ model, provider, connectionId, status: "PENDING" }).catch(() => { });
@@ -380,6 +396,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       request: extractRequestConfig(body, upstreamStream),
       providerRequest: translatedBody || null,
       response: { error: error.message || String(error), status: error.name === "AbortError" ? 499 : 502, thinking: null },
+      pxpipe: pxpipeSummary,
       status: "error"
     })).catch(() => { });
 
@@ -426,6 +443,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       request: extractRequestConfig(body, upstreamStream),
       providerRequest: finalBody || translatedBody || null,
       response: { error: message, status: statusCode, thinking: null },
+      pxpipe: pxpipeSummary,
       status: "error"
     })).catch(() => { });
 
@@ -435,7 +453,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     return createErrorResult(statusCode, errMsg, resetsAtMs);
   }
 
-  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess };
+  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
@@ -480,7 +498,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   // Streaming response
   const { onStreamComplete, streamDetailId } = buildOnStreamComplete({ ...sharedCtx });
-  return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, streamController, onStreamComplete, streamDetailId });
+  return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, streamController, onStreamComplete, streamDetailId, pxpipe: pxpipeSummary });
 }
 
 export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
