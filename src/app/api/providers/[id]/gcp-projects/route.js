@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProviderConnectionById } from "@/models";
-import { refreshOAuthToken, resolveConnectionProxyConfig } from "../test/testUtils.js";
+import { refreshOAuthToken } from "../test/testUtils.js";
+import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 
 export async function GET(request, { params }) {
