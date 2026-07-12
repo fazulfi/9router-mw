@@ -26,6 +26,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
     name: "",
     priority: 1,
     apiKey: "",
+    projectId: "",
   });
   const [azureData, setAzureData] = useState({
     azureEndpoint: "",
@@ -46,6 +47,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         name: connection.name || "",
         priority: connection.priority || 1,
         apiKey: "",
+        projectId: connection.projectId || "",
       });
       if (connection.provider === "azure" && connection.providerSpecificData) {
         setAzureData({
@@ -122,6 +124,10 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         name: formData.name,
         priority: formData.priority,
       };
+      if (connection.provider === "gemini-cli" || connection.provider === "antigravity") {
+        updates.projectId = formData.projectId;
+        updates.isProjectIdManual = !!formData.projectId.trim();
+      }
       if (!isOAuth && formData.apiKey) {
         updates.apiKey = formData.apiKey;
         let isValid = validationResult === "success";
@@ -200,6 +206,16 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
           value={formData.priority}
           onChange={(e) => setFormData({ ...formData, priority: Number.parseInt(e.target.value, 10) || 1 })}
         />
+
+        {(connection.provider === "gemini-cli" || connection.provider === "antigravity") && (
+          <Input
+            label="Project ID"
+            value={formData.projectId}
+            onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+            placeholder="Google GCP Project ID"
+            hint="Override the automatically resolved GCP project ID used for API requests."
+          />
+        )}
 
         {!isOAuth && (
           <>

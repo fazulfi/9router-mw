@@ -125,9 +125,11 @@ function needsProjectId(provider) {
  * @param {string} connectionId
  * @param {string} accessToken
  */
-function _refreshProjectId(provider, connectionId, accessToken) {
-  if (!needsProjectId(provider) || !connectionId || !accessToken) return;
+function _refreshProjectId(provider, creds, accessToken) {
+  if (!needsProjectId(provider) || !creds || !creds.connectionId || !accessToken) return;
+  if (creds.isProjectIdManual) return; // Skip if project ID is manually configured
 
+  const connectionId = creds.connectionId;
   // Evict the stale cached entry so getProjectIdForConnection does a real fetch
   invalidateProjectId(connectionId);
 
@@ -259,7 +261,7 @@ export async function checkAndRefreshToken(provider, credentials) {
       };
 
       // Non-blocking: refresh projectId with the new access token
-      _refreshProjectId(provider, creds.connectionId, creds.accessToken);
+      _refreshProjectId(provider, creds, creds.accessToken);
     }
   }
 
