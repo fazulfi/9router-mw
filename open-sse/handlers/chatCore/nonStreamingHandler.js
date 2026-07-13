@@ -13,6 +13,72 @@ import { decloakToolNames } from "../../utils/claudeCloaking.js";
 import { extractToolNames } from "../../translator/concerns/toolCall.js";
 
 /**
+ * Convert OpenAI chat.completion response to Claude message format.
+ * Used when client sent Claude-format request but upstream returned OpenAI format
+ * (e.g. relayn provider where request was translated CLAUDE→OPENAI upstream).
+ */
+export function openaiToClaudeNonStreaming(openaiBody, model) {
+  if (!openaiBody?.choices?.[0]) return openaiBody;
+
+  const choice = openaiBody.choices[0];
+  const message = choice.message || {};
+  const text = message.content || "";
+  const reasoning = message.reasoning_content || "";
+  const toolCalls = message.tool_calls || [];
+
+  // Build Claude content array
+  const content = [];
+  if (reasoning) {
+    content.push({ type: "thinking", thinking: reasoning });
+  }
+  if (text) {
+    content.push({ type: "text", text });
+  }
+  for (const tc of toolCalls) {
+    let args = {};
+    try {
+      args = JSON.parse(tc.function?.arguments || "{}");
+    } catch {}
+    content.push({
+      type: "tool_use",
+      id: tc.id,
+      name: tc.function?.name || "",
+      input: args
+    });
+  }
+
+  // Map finish reason
+  let stopReason = choice.finish_reason;
+  if (stopReason === "stop") stopReason = "end_turn";
+  else if (stopReason === "tool_calls") stopReason = "tool_use";
+
+  // Map usage
+  const usage = openaiBody.usage || {};
+  const claudeUsage = {};
+  if (usage.prompt_tokens != null) {
+    claudeUsage.input_tokens = usage.prompt_tokens;
+    claudeUsage.output_tokens = usage.completion_tokens || 0;
+    if (usage.prompt_tokens_details?.cached_tokens) {
+      claudeUsage.cache_read_input_tokens = usage.prompt_tokens_details.cached_tokens;
+    }
+    if (usage.completion_tokens_details?.reasoning_tokens) {
+      claudeUsage.output_tokens = (usage.completion_tokens || 0) + usage.completion_tokens_details.reasoning_tokens;
+    }
+  }
+
+  return {
+    id: `msg_${(openaiBody.id || "").replace("chatcmpl-", "") || Date.now()}`,
+    type: "message",
+    role: "assistant",
+    content,
+    model: model || openaiBody.model || "claude",
+    stop_reason: stopReason,
+    stop_sequence: null,
+    usage: claudeUsage
+  };
+}
+
+/**
  * Translate non-streaming response body from provider format → OpenAI format.
  */
 export function translateNonStreamingResponse(responseBody, targetFormat, sourceFormat) {
@@ -129,8 +195,8 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
       result.usage = {
         prompt_tokens: responseBody.usage.prompt_tokens || responseBody.usage.input_tokens || 0,
         completion_tokens: responseBody.usage.completion_tokens || responseBody.usage.output_tokens || 0,
-        total_tokens: responseBody.usage.total_tokens || 
-          ((responseBody.usage.prompt_tokens || responseBody.usage.input_tokens || 0) + 
+        total_tokens: responseBody.usage.total_tokens ||
+          ((responseBody.usage.prompt_tokens || responseBody.usage.input_tokens || 0) +
            (responseBody.usage.completion_tokens || responseBody.usage.output_tokens || 0))
       };
       if (responseBody.usage.completion_tokens_details) {
@@ -145,80 +211,13 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
     return ollamaBodyToOpenAI(responseBody);
   }
 
-  // Final conversion: if client requested Responses API format, convert OpenAI → Responses
-  if (sourceFormat === FORMATS.OPENAI_RESPONSES) {
-    return translateOpenAIToOpenAIResponses(responseBody);
-  }
-
   return responseBody;
-}
-
-/**
- * Translate OpenAI chat.completion format → OpenAI Responses API format.
- * Required by @ai-sdk/openai and Firecrawl AI SDK which validate against strict Zod schema.
- */
-function translateOpenAIToOpenAIResponses(openaiResponse) {
-  if (!openaiResponse) return openaiResponse;
-
-  const choices = openaiResponse.choices || [];
-  const output = [];
-
-  if (choices.length > 0) {
-    const choice = choices[0];
-    const message = choice.message || {};
-    const responseId = openaiResponse.id ? `resp_${openaiResponse.id.replace(/^chatcmpl-/, "")}` : `resp_${Date.now()}`;
-
-    const reasoningText = message.reasoning_content || message.reasoning || (message.provider_specific_fields?.reasoning_content) || "";
-    if (reasoningText) {
-      output.push({
-        id: `rs_${responseId}_0`,
-        type: "reasoning",
-        summary: [{ type: "summary_text", text: reasoningText }]
-      });
-    }
-
-    if (message.content !== undefined && message.content !== null) {
-      output.push({
-        id: `msg_${responseId}_0`,
-        type: "message",
-        role: "assistant",
-        content: [{ type: "output_text", text: message.content, annotations: [], logprobs: [] }]
-      });
-    }
-
-    if (Array.isArray(message.tool_calls)) {
-      for (const tc of message.tool_calls) {
-        output.push({
-          id: `fc_${tc.id}`,
-          type: "function_call",
-          call_id: tc.id,
-          name: tc.function?.name || "",
-          arguments: tc.function?.arguments || "{}"
-        });
-      }
-    }
-  }
-
-  const openaiUsage = openaiResponse.usage || {};
-  return {
-    id: openaiResponse.id ? `resp_${openaiResponse.id.replace(/^chatcmpl-/, "")}` : `resp_${Date.now()}`,
-    object: "response",
-    created_at: openaiResponse.created || Math.floor(Date.now() / 1000),
-    status: "completed",
-    model: openaiResponse.model || "",
-    output,
-    usage: {
-      input_tokens: openaiUsage.prompt_tokens || 0,
-      output_tokens: openaiUsage.completion_tokens || 0,
-      total_tokens: openaiUsage.total_tokens || 0
-    }
-  };
 }
 
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog, pxpipe }) {
+export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog, pxpipe, comboName }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
@@ -265,74 +264,102 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
-  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint });
+  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, comboName });
 
   const translatedResponse = needsTranslation(targetFormat, sourceFormat)
     ? translateNonStreamingResponse(responseBody, targetFormat, sourceFormat)
     : responseBody;
 
-  // Native Kimi tool-call markup sometimes leaks into `content` instead of being
-  // returned as a structured `tool_calls` array (see .docs/audit/KIMI-WEIRD-OUTPUTS.md).
-  // Convert it for Kimi-family models before the finish_reason fixup.
-  const isKimiModel = /kimi-k2\./i.test(model || "");
-  if (isKimiModel && Array.isArray(translatedResponse?.choices)) {
-    for (const choice of translatedResponse.choices) {
-      const msg = choice?.message;
-      if (!msg || msg.role !== "assistant") continue;
-      const { message: normalized, hasTools } = normalizeKimiToolCalls(msg);
-      if (hasTools) {
-        choice.message = normalized;
+  // Reverse translation: provider format → Claude when client sent Claude format.
+  // After translateNonStreamingResponse the body is always in OpenAI shape,
+  // so openaiToClaudeNonStreaming works for any non-Claude target provider.
+  let didReverse = false;
+  let finalResponse = translatedResponse;
+  if (sourceFormat === FORMATS.CLAUDE && targetFormat !== FORMATS.CLAUDE) {
+    finalResponse = openaiToClaudeNonStreaming(translatedResponse, model);
+    didReverse = true;
+  }
+
+  // Only apply OpenAI-specific post-processing when response is still in OpenAI format
+  if (!didReverse) {
+    // Native Kimi tool-call markup sometimes leaks into `content` instead of being
+    // returned as a structured `tool_calls` array (see .docs/audit/KIMI-WEIRD-OUTPUTS.md).
+    // Convert it for Kimi-family models before the finish_reason fixup.
+    const isKimiModel = /kimi-k2\./i.test(model || "");
+    if (isKimiModel && Array.isArray(translatedResponse?.choices)) {
+      for (const choice of translatedResponse.choices) {
+        const msg = choice?.message;
+        if (!msg || msg.role !== "assistant") continue;
+        const { message: normalized, hasTools } = normalizeKimiToolCalls(msg);
+        if (hasTools) {
+          choice.message = normalized;
+        }
+      }
+    }
+
+    // Fix finish_reason for tool_calls: some providers return non-standard values (e.g. "other")
+    if (translatedResponse?.choices?.[0]) {
+      const choice = translatedResponse.choices[0];
+      const msg = choice.message;
+      const hasToolCalls = Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0;
+      if (hasToolCalls && choice.finish_reason !== "tool_calls") {
+        choice.finish_reason = "tool_calls";
+      }
+    }
+
+    // Ensure OpenAI-required fields
+    if (!translatedResponse.object) translatedResponse.object = "chat.completion";
+    if (!translatedResponse.created) translatedResponse.created = Math.floor(Date.now() / 1000);
+
+    // Strip Azure-specific fields
+    delete translatedResponse.prompt_filter_results;
+    if (translatedResponse?.choices) {
+      for (const choice of translatedResponse.choices) delete choice.content_filter_results;
+    }
+
+    if (translatedResponse?.usage) {
+      translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
+    }
+
+    // Strip reasoning_content when content is non-empty.
+    // When content is empty (e.g. thinking models that used all tokens for reasoning),
+    // reasoning_content is the only useful output and must be preserved.
+    // Also strip provider_specific_fields.reasoning_content (Kimchi puts it there).
+    if (translatedResponse?.choices) {
+      for (const choice of translatedResponse.choices) {
+        const msg = choice?.message;
+        if (!msg) continue;
+        if (msg.reasoning_content && msg.content) {
+          delete msg.reasoning_content;
+        }
+        if (msg.provider_specific_fields?.reasoning_content && msg.content) {
+          delete msg.provider_specific_fields.reasoning_content;
+        }
+        if (msg.provider_specific_fields?.reasoning && msg.content) {
+          delete msg.provider_specific_fields.reasoning;
+        }
       }
     }
   }
 
-  // Fix finish_reason for tool_calls: some providers return non-standard values (e.g. "other")
-  if (translatedResponse?.choices?.[0]) {
-    const choice = translatedResponse.choices[0];
-    const msg = choice.message;
-    const hasToolCalls = Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0;
-    if (hasToolCalls && choice.finish_reason !== "tool_calls") {
-      choice.finish_reason = "tool_calls";
-    }
-  }
-
-  // Ensure OpenAI-required fields
-  if (!translatedResponse.object) translatedResponse.object = "chat.completion";
-  if (!translatedResponse.created) translatedResponse.created = Math.floor(Date.now() / 1000);
-
-  // Strip Azure-specific fields
-  delete translatedResponse.prompt_filter_results;
-  if (translatedResponse?.choices) {
-    for (const choice of translatedResponse.choices) delete choice.content_filter_results;
-  }
-
-  if (translatedResponse?.usage) {
-    translatedResponse.usage = filterUsageForFormat(addBufferToUsage(translatedResponse.usage), sourceFormat);
-  }
-
-  // Strip reasoning_content when content is non-empty.
-  // When content is empty (e.g. thinking models that used all tokens for reasoning),
-  // reasoning_content is the only useful output and must be preserved.
-  // Also strip provider_specific_fields.reasoning_content (Kimchi puts it there).
-  if (translatedResponse?.choices) {
-    for (const choice of translatedResponse.choices) {
-      const msg = choice?.message;
-      if (!msg) continue;
-      if (msg.reasoning_content && msg.content) {
-        delete msg.reasoning_content;
-      }
-      if (msg.provider_specific_fields?.reasoning_content && msg.content) {
-        delete msg.provider_specific_fields.reasoning_content;
-      }
-      if (msg.provider_specific_fields?.reasoning && msg.content) {
-        delete msg.provider_specific_fields.reasoning;
-      }
-    }
-  }
-
-  reqLogger.logConvertedResponse(translatedResponse);
+  reqLogger.logConvertedResponse(finalResponse);
 
   const totalLatency = Date.now() - requestStartTime;
+  // Extract response fields compatible with both OpenAI and Claude formats
+  const respContent = finalResponse?.choices?.[0]?.message?.content
+    || (Array.isArray(finalResponse?.content)
+      ? (finalResponse.content.find(b => b.type === "text")?.text || "")
+      : null)
+    || "";
+  const respThinking = finalResponse?.choices?.[0]?.message?.reasoning_content
+    || (Array.isArray(finalResponse?.content)
+      ? finalResponse.content.find(b => b.type === "thinking")?.thinking
+      : null)
+    || null;
+  const respFinish = finalResponse?.choices?.[0]?.finish_reason
+    || finalResponse?.stop_reason
+    || "unknown";
+
   saveRequestDetail(buildRequestDetail({
     provider, model, connectionId, apiKey, apiKeyName,
     latency: { ttft: totalLatency, total: totalLatency },
@@ -341,9 +368,9 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     providerRequest: finalBody || translatedBody || null,
     providerResponse: responseBody || null,
     response: {
-      content: translatedResponse?.choices?.[0]?.message?.content || translatedResponse?.content || null,
-      thinking: translatedResponse?.choices?.[0]?.message?.reasoning_content || translatedResponse?.reasoning_content || null,
-      finish_reason: translatedResponse?.choices?.[0]?.finish_reason || "unknown"
+      content: respContent,
+      thinking: respThinking,
+      finish_reason: respFinish
     },
     pxpipe,
     status: "success"
@@ -353,7 +380,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   return {
     success: true,
-    response: new Response(JSON.stringify(translatedResponse), {
+    response: new Response(JSON.stringify(finalResponse), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     })
   };
