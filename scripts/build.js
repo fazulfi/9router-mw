@@ -115,10 +115,17 @@ const srcLibDir = path.join(appDir, "src", "lib");
 const standaloneSrcLibDir = path.join(standaloneDir, "src", "lib");
 const standaloneNextLibDir = path.join(standaloneDir, distDir, "lib");
 
-if (fs.existsSync(srcLibDir)) {
-  console.log(`▶ copying src/lib/ into ${distDir}/standalone/src/lib/ for instrumentation runtime`);
-  fs.cpSync(srcLibDir, standaloneSrcLibDir, { recursive: true });
+// Copy ALL of src/ into standalone (needed for instrumentation + MITM server runtime).
+// MITM server.js lives at src/mitm/ and requires relative imports like ./logger,
+// plus cross-references like ../../shared/constants/mitmToolHosts.js.
+const srcAppDir = path.join(appDir, "src");
+const standaloneSrcDir = path.join(standaloneDir, "src");
+if (fs.existsSync(srcAppDir)) {
+  console.log(`▶ copying src/ into ${distDir}/standalone/src/ (instrumentation + MITM runtime)`);
+  fs.cpSync(srcAppDir, standaloneSrcDir, { recursive: true });
+}
 
+if (fs.existsSync(srcLibDir)) {
   // Create .next/lib/localDb.js shim — resolves the webpackIgnore dynamic import
   // that webpack rewrites as `../../lib/localDb.js` relative to .next/server/chunks/.
   fs.mkdirSync(standaloneNextLibDir, { recursive: true });
