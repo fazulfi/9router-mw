@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { log, err } = require("../logger");
-const { TOOL_HOSTS } = require("../../shared/constants/mitmToolHosts.js");
+const { TOOL_HOSTS } = require("../../shared/constants/mitmToolHosts.cjs");
 const { runElevatedPowerShell, isAdmin } = require("../winElevated.js");
 
 /**
