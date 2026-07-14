@@ -13,6 +13,7 @@ export { default as Avatar } from "./Avatar";
 export { default as Badge } from "./Badge";
 export { default as Toggle } from "./Toggle";
 export { default as ThemeToggle } from "./ThemeToggle";
+export { default as Pagination } from "./Pagination";
 export { ThemeProvider } from "./ThemeProvider";
 export { default as Sidebar } from "./Sidebar";
 export { default as Header } from "./Header";
