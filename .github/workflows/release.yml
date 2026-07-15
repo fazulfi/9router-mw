@@ -77,6 +77,9 @@ jobs:
     needs: check-branch
     if: needs.check-branch.outputs.is-main == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -106,13 +109,5 @@ jobs:
         # build script (which requires esbuild) can run.
         run: npm install --prefix cli --no-audit --no-fund
 
-      - name: Configure npm authentication
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Build and publish CLI package
-        run: npm publish ./cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish ./cli --provenance
