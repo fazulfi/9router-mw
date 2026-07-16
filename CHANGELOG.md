@@ -7,6 +7,7 @@ VansRouter 0.9.3 replaces placeholder logos with official icons, aligns multi-na
 - **Provider Icon Aliasing** — Copies and maps Grok CLI (`grok-cli.webp`) to Grok Web, ClinePass (`clinepass.webp`) to Cline, MiMo Free (`mmf.webp`) to MiMo, and Perplexity Agent (`perplexity-agent.webp`) to Perplexity.
 
 ## Fixed
+- **Docker SQLite Volume Persistence** — preserves the `9router-data` volume name; renaming it creates a new empty database volume without a Docker or application error.
 - **Custom Endpoint API Key Form** — Removes the redundant and confusing `Default Model` field when adding API keys for custom OpenAI/Anthropic compatible endpoints.
 - **Next.js Local Image Cache** — Clears dynamic image optimizer cache to force reload of updated provider icons.
 
