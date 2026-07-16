@@ -14,6 +14,7 @@ import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
 import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { getExecutor } from "../executors/index.js";
+import { supportsGrokCliReasoningEffort } from "../config/grokCli.js";
 import { buildRequestDetail, extractRequestConfig } from "./chatCore/requestDetail.js";
 import { handleForcedSSEToJson } from "./chatCore/sseToJsonHandler.js";
 import { handleNonStreamingResponse } from "./chatCore/nonStreamingHandler.js";
@@ -230,6 +231,27 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Token savers: applied at the final body just before dispatch
   // Covers both passthrough (source shape) and translated (target shape) flows
   const finalFormat = passthrough ? sourceFormat : targetFormat;
+
+  // Request line: one correlated summary (fmt + thinking + counts + account)
+  if (log?.line) {
+    const clientModel = clientRawRequest?.body?.model || `${provider}/${model}`;
+    const msgN = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || body.messages?.length || body.input?.length || 0;
+    const toolN = translatedBody.tools?.length || body.tools?.length || 0;
+    const fmtStr = passthrough ? `FMT: ${sourceFormat} (passthrough)` : `FMT: ${sourceFormat}→${targetFormat}`;
+    const showThinking = provider !== "grok-cli" || supportsGrokCliReasoningEffort(model);
+    const think = showThinking ? log.fmtThink?.(extractThinking(translatedBody)) : null;
+    const acc = credentials?.connectionName || credentials?.connectionId?.slice(0, 8) || "-";
+    const parts = [
+      `POST ${clientModel} → ${provider}/${model}`,
+      fmtStr,
+      stream ? "STREAM" : "JSON",
+      `${msgN} MSG`,
+    ];
+    if (toolN) parts.push(`${toolN} TOOL`);
+    if (think) parts.push(`THINK:${think}`);
+    parts.push(`ACC:${acc}`);
+    log.line(reqTag, "▶", parts.join(" · "));
+  }
 
   // TTS models don't support tool messages/function calling
   if (getModelType(alias, model) === "tts" && translatedBody.messages) {
