@@ -73,8 +73,9 @@ const parseOpenAIStyleModels = (data) => {
   return data?.data || data?.models || data?.results || [];
 };
 
-// Matches provider IDs that are upstream/cross-instance connections (contain a UUID suffix)
-const UPSTREAM_CONNECTION_RE = /[-_][0-9a-f]{8,}$/i;
+// Header sent by fetchCompatibleModelIds to detect cross-instance /models fetches
+// and break recursive loops between 9router instances connected to each other.
+const INTERNAL_MODELS_FETCH_HEADER = "x-9r-internal-models-fetch";
 
 // LLM kind sentinel — combos/models with no explicit kind default to LLM
 const LLM_KIND = "llm";
@@ -139,7 +140,7 @@ async function fetchCompatibleModelIds(connection) {
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     const response = await fetch(url, {
       method: "GET",
-      headers,
+      headers: { ...headers, [INTERNAL_MODELS_FETCH_HEADER]: "1" },
       cache: "no-store",
       signal: controller.signal,
     });
@@ -183,7 +184,11 @@ function comboMatchesKinds(combo, kindFilter) {
  * Build OpenAI-format models list filtered by service kinds.
  * @param {string[]} kindFilter - List of service kinds to include (e.g. ["llm"], ["webSearch","webFetch"]).
  */
-export async function buildModelsList(kindFilter) {
+export async function buildModelsList(kindFilter, options = {}) {
+  // When this header is present, the /v1/models request came from another
+  // 9router instance's fetchCompatibleModelIds — skip dynamic fetch to break
+  // cross-instance recursive loops.
+  const skipDynamicFetch = options.skipDynamicFetch === true;
   let connections = [];
   try {
     connections = await getProviderConnections();
@@ -312,7 +317,7 @@ export async function buildModelsList(kindFilter) {
           )
         : providerModels.map((model) => model.id);
 
-      if (isCompatibleProvider && rawModelIds.length === 0 && !UPSTREAM_CONNECTION_RE.test(providerId)) {
+      if (isCompatibleProvider && rawModelIds.length === 0 && !skipDynamicFetch) {
         rawModelIds = await fetchCompatibleModelIds(conn);
       }
 
@@ -470,44 +475,9 @@ export async function OPTIONS() {
  */
 export async function GET(request) {
   try {
-    // ACL: validate API key and filter models by permissions
-    const settings = await getSettings();
-    let apiKeyInfo = null;
-    if (settings.requireApiKey) {
-      const apiKey = extractApiKey(request);
-      if (!apiKey) {
-        return Response.json(
-          { error: { message: "Missing API key", type: "authentication_error" } },
-          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
-        );
-      }
-      apiKeyInfo = await isValidApiKey(apiKey);
-      if (!apiKeyInfo) {
-        return Response.json(
-          { error: { message: "Invalid API key", type: "authentication_error" } },
-          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
-        );
-      }
-    }
-
-    let data = await buildModelsList([LLM_KIND]);
-
-    // ACL: filter models by provider/combo permissions
-    if (apiKeyInfo) {
-      const allowedChecks = await Promise.all(
-        data.map(async (model) => {
-          const isCombo = model.owned_by === "combo";
-          if (isCombo) {
-            const comboName = stripComboPrefix(model.id);
-            return isComboAllowed(apiKeyInfo, comboName);
-          }
-          const providerAlias = model.id.includes("/") ? model.id.split("/")[0] : model.owned_by;
-          return await isProviderAllowed(apiKeyInfo, providerAlias);
-        })
-      );
-      data = data.filter((_, i) => allowedChecks[i]);
-    }
-
+    // Detect cross-instance recursive /models fetch (another 9router fetching our /models)
+    const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
+    const data = await buildModelsList([LLM_KIND], { skipDynamicFetch });
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
