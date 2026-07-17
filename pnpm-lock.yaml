@@ -41,6 +41,9 @@ importers:
       confbox:
         specifier: ^0.2.4
         version: 0.2.4
+      dompurify:
+        specifier: ^3.2.7
+        version: 3.2.7
       express:
         specifier: ^5.2.1
         version: 5.2.1
