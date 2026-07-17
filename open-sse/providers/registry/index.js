@@ -63,7 +63,6 @@ import p61 from "./jina-ai.js";
 import p62 from "./jina-reader.js";
 import p63 from "./kilocode.js";
 import p64 from "./kimchi.js";
-import p65 from "./kimi-coding.js";
 import p66 from "./kimi.js";
 import p67 from "./kiro.js";
 import p68 from "./linkup.js";
@@ -190,7 +189,6 @@ export default [
   p62,
   p63,
   p64,
-  p65,
   p66,
   p67,
   p68,
