@@ -32,6 +32,8 @@ import {
   snapshotRequestTiming,
 } from "open-sse/utils/requestTiming.js";
 import { annotateDirectResponse } from "open-sse/services/routeAttribution.js";
+import { parseJsonBody } from "@/shared/utils/parseJsonBody.js";
+>>>>>>> f9756255e (fix(api): decompress Content-Encoding on request JSON bodies)
 
 /**
  * Handle chat completion request
@@ -43,9 +45,10 @@ export async function handleChat(request, clientRawRequest = null) {
   const correlationId = globalThis.crypto.randomUUID();
   let body;
   try {
-    body = await measureRequestPhase(requestTiming.phases, "ingress_ms", () => request.json());
-  } catch {
-    log.warn("CHAT", "Invalid JSON body");
+    // Codex OpenAI/ChatGPT mode may send zstd-compressed bodies (Content-Encoding: zstd)
+    body = await measureRequestPhase(requestTiming.phases, "ingress_ms", () => parseJsonBody(request));
+  } catch (err) {
+    log.warn("CHAT", "Invalid JSON body", { encoding: request.headers.get("content-encoding"), error: err?.message });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
 
