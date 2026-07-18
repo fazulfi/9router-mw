@@ -51,7 +51,23 @@ export class AzureExecutor extends DefaultExecutor {
     return headers;
   }
 
+  requiresMaxCompletionTokens(model) {
+    return /gpt-5|o[134]-/i.test(model);
+  }
+
   transformRequest(model, body, stream, credentials) {
-    return body;
+    if (!this.requiresMaxCompletionTokens(model) || !body || typeof body !== "object" || body.max_tokens === undefined) {
+      return body;
+    }
+
+    const transformed = { ...body };
+    // An explicit max_completion_tokens from the caller wins; max_tokens is
+    // only used as a fallback. Either way max_tokens must be stripped, or
+    // Azure 400s on it regardless of max_completion_tokens being present.
+    if (transformed.max_completion_tokens === undefined) {
+      transformed.max_completion_tokens = transformed.max_tokens;
+    }
+    delete transformed.max_tokens;
+    return transformed;
   }
 }
