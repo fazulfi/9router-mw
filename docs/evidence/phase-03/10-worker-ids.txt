@@ -1,0 +1,7 @@
+samples 20
+unique_workerIds ['1', '2', '3', '4']
+counts {'2': 5, '1': 5, '4': 5, '3': 5}
+unique_pids [477402, 477403, 477404, 477410]
+workers_field {4}
+PASS_MULTI
+PASS_FOUR
