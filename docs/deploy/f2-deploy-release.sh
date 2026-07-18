@@ -85,8 +85,9 @@ chmod 0640 "$ENV_FILE"
 chown root:router "$ENV_FILE"
 
 # --- npm install + build (as router) ---
-echo "=== npm ci ===" | tee "$EVIDENCE_DIR/03-npm-ci.txt"
-sudo -u router bash -lc "cd '$RELEASE_DIR' && npm ci --include=optional" 2>&1 | tee -a "$EVIDENCE_DIR/03-npm-ci.txt"
+# Repo has no package-lock.json (upstream pattern); use npm install
+echo "=== npm install ===" | tee "$EVIDENCE_DIR/03-npm-install.txt"
+sudo -u router bash -lc "cd '$RELEASE_DIR' && npm install --include=optional --no-fund --no-audit" 2>&1 | tee -a "$EVIDENCE_DIR/03-npm-install.txt"
 
 echo "=== next build ===" | tee "$EVIDENCE_DIR/04-build.txt"
 sudo -u router bash -lc "cd '$RELEASE_DIR' && NEXT_TELEMETRY_DISABLED=1 npm run build" 2>&1 | tee -a "$EVIDENCE_DIR/04-build.txt"
