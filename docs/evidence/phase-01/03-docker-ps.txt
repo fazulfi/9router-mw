@@ -1,0 +1,14 @@
+﻿NAMES                   IMAGE                                           PORTS                      STATUS
+ggl-grafana             grafana/grafana:11.3.1                          127.0.0.1:3000->3000/tcp   Up 3 days (healthy)
+ggl-prometheus          prom/prometheus:v2.55.1                         127.0.0.1:9090->9090/tcp   Up 3 days (healthy)
+ggl-redis-exporter      oliver006/redis_exporter:v1.66.0                9121/tcp                   Up 3 days
+ggl-pgbouncer           edoburu/pgbouncer:v1.24.1-p1                    127.0.0.1:6432->5432/tcp   Up 3 days (healthy)
+ggl-postgres-exporter   prometheuscommunity/postgres-exporter:v0.15.0   9187/tcp                   Up 3 days
+ggl-promtail            grafana/promtail:3.2.1                                                     Up 3 days
+ggl-redis               redis:7.4-alpine                                127.0.0.1:6379->6379/tcp   Up 3 days (healthy)
+ggl-postgres            pgvector/pgvector:0.8.5-pg16                    127.0.0.1:5440->5432/tcp   Up 3 days (healthy)
+ggl-loki                grafana/loki:3.2.1                              127.0.0.1:3100->3100/tcp   Up 3 days (healthy)
+ggl-alertmanager        prom/alertmanager:v0.27.0                       127.0.0.1:9093->9093/tcp   Up 3 days (healthy)
+ggl-node-exporter       prom/node-exporter:v1.8.2                       9100/tcp                   Up 3 days
+app-postgres-1          postgres:16-alpine                              127.0.0.1:5433->5432/tcp   Up 3 days (healthy)
+app-redis-1             redis:7-alpine                                  127.0.0.1:6380->6379/tcp   Up 3 days (healthy)
