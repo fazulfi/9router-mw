@@ -1,0 +1,21 @@
+﻿# phase-00 evidence: push origin master + base/0.5.35
+# captured: 2026-07-19 06:05:03 +07:00
+
+=== git log origin/master -7 --oneline ===
+d1af475f docs: add AGENTS skill catalog for OpenCode workspace
+cbe23a6b docs(evidence): capture phase-00 bootstrap proofs
+e3937cf4 docs: scaffold MW execution evidence runbooks deploy bench
+c51c4b94 docs: add locked 9router-mw production plan SSOT
+cc89607b chore: set version 0.5.35-mw.0
+836ae17a chore: track 9router-mw docs tree under docs/
+bc252ea8 # v0.5.35 (2026-07-16)
+
+=== git ls-remote --tags origin base/0.5.35 ===
+ae2bec2c441243f154d368227a88244f319e435e	refs/tags/base/0.5.35
+
+=== git status ===
+## master...origin/master
+?? docs/evidence/phase-00/07-push.txt
+
+PUSH_MASTER: bc252ea8..d1af475f master -> master (EXIT 0)
+PUSH_TAG: base/0.5.35 -> base/0.5.35 (EXIT 0)

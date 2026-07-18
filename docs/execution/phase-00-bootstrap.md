@@ -1,4 +1,4 @@
-# Phase 0 — Bootstrap
+﻿# Phase 0 — Bootstrap
 
 **Date:** 2026-07-19 (Asia/Bangkok)  
 **Operator:** Sisyphus (Implementation Owner)  
@@ -32,4 +32,4 @@
 - [x] Tag `base/0.5.35`
 - [x] Version `0.5.35-mw.0`
 - [x] Plan + docs skeleton trackable in git
-- [ ] Pushed to origin (pending commit/push)
+- [x] Pushed to origin (master + base/0.5.35)
