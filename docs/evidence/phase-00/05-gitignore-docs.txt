@@ -1,0 +1,7 @@
+﻿# phase-00 evidence: docs paths trackable
+# captured: 2026-07-19 06:01:44 +07:00
+
+=== git check-ignore -v (should NOT ignore plans/execution) ===
+.gitignore:56:!docs/plans/**	docs/plans/9router-mw-production-plan.md
+.gitignore:58:!docs/execution/**	docs/execution/README.md
+.gitignore:60:!docs/evidence/**	docs/evidence/README.md

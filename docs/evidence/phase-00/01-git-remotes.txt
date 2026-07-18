@@ -1,0 +1,11 @@
+﻿# phase-00 evidence: git remotes
+# captured: 2026-07-19 06:01:44 +07:00
+# cwd: C:\Users\faizz\9router
+
+origin	https://github.com/fazulfi/9router-mw.git (fetch)
+origin	https://github.com/fazulfi/9router-mw.git (push)
+upstream	https://github.com/decolua/9router.git (fetch)
+upstream	https://github.com/decolua/9router.git (push)
+vans	https://github.com/Vanszs/VansRouter.git (fetch)
+vans	https://github.com/Vanszs/VansRouter.git (push)
+EXIT=0

@@ -1,0 +1,5 @@
+﻿# phase-00 evidence: gh repo view fazulfi/9router-mw
+# captured: 2026-07-19 06:01:44 +07:00
+
+{"createdAt":"2026-07-18T22:58:16Z","defaultBranchRef":{"name":"master"},"description":"Unlimited FREE AI coding. Connect Claude Code, Codex, Cursor, Cline, Copilot, Antigravity to FREE Claude/GPT/Gemini via 40+ providers. Auto-fallback, RTK -40% tokens, never hit limits.","isPrivate":false,"name":"9router-mw","owner":{"id":"U_kgDOBa8M4g","login":"fazulfi"},"parent":{"id":"R_kgDOQzxPKw","name":"9router","owner":{"id":"MDQ6VXNlcjgyODI1OTM=","login":"decolua"}},"url":"https://github.com/fazulfi/9router-mw"}
+EXIT=0

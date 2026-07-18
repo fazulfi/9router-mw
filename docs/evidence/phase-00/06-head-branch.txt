@@ -1,0 +1,16 @@
+﻿# phase-00 evidence: HEAD and branch
+# captured: 2026-07-19 06:01:44 +07:00
+
+bc252ea80298d4879dc6b3c69585af1610d2c76f
+* master bc252ea8 [origin/master] # v0.5.35 (2026-07-16)
+ M .gitignore
+ M cli/package.json
+ M package.json
+?? AGENTS.md
+?? VERSION
+?? docs/bench/
+?? docs/deploy/
+?? docs/evidence/
+?? docs/execution/
+?? docs/plans/
+?? docs/runbooks/

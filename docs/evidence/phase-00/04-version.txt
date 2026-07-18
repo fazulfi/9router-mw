@@ -1,0 +1,9 @@
+﻿# phase-00 evidence: version strategy 0.5.35-mw.0
+# captured: 2026-07-19 06:01:44 +07:00
+
+=== VERSION ===
+0.5.35-mw.0
+=== package.json ===
+"version": "0.5.35-mw.0",
+=== cli/package.json ===
+"version": "0.5.35-mw.0",
