@@ -39,20 +39,23 @@ if grep -q 'REDIS_PASSWORD=' "$ENV_FILE" 2>/dev/null; then
   fi
 fi
 
-# --- clone / update release ---
+# --- clone / update release (always as router; avoid root safe.directory) ---
 if [[ -d "$RELEASE_DIR/.git" ]]; then
   echo "Release dir exists, fetch+reset"
+  chown -R router:router "$RELEASE_DIR"
   sudo -u router git -C "$RELEASE_DIR" fetch --depth 1 origin "$BRANCH"
   sudo -u router git -C "$RELEASE_DIR" reset --hard "origin/${BRANCH}"
 else
   rm -rf "$RELEASE_DIR"
-  sudo -u router mkdir -p "$RELEASE_DIR"
+  mkdir -p "$(dirname "$RELEASE_DIR")"
+  chown router:router "$(dirname "$RELEASE_DIR")"
   sudo -u router git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$RELEASE_DIR"
 fi
 
+chown -R router:router "$RELEASE_DIR"
 cd "$RELEASE_DIR"
-echo "HEAD=$(git rev-parse HEAD)" | tee "$EVIDENCE_DIR/02-git-head.txt"
-git log -1 --oneline | tee -a "$EVIDENCE_DIR/02-git-head.txt"
+echo "HEAD=$(sudo -u router git -C "$RELEASE_DIR" rev-parse HEAD)" | tee "$EVIDENCE_DIR/02-git-head.txt"
+sudo -u router git -C "$RELEASE_DIR" log -1 --oneline | tee -a "$EVIDENCE_DIR/02-git-head.txt"
 
 # --- ensure secrets in env ---
 if ! grep -q '^JWT_SECRET=' "$ENV_FILE" || grep -q 'change-me' "$ENV_FILE" 2>/dev/null; then
