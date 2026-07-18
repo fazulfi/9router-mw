@@ -1,0 +1,53 @@
+﻿uid=987(router) gid=980(router) groups=980(router)
+---
+/etc/9router-mw:
+total 20
+drwxr-x---   2 root router  4096 Jul 18 23:08 .
+drwxr-xr-x 123 root root   12288 Jul 18 23:08 ..
+-rw-r-----   1 root router   364 Jul 18 23:08 env
+
+/opt/9router-mw:
+total 16
+drwxr-xr-x 4 router router 4096 Jul 18 23:08 .
+drwxr-xr-x 9 root   root   4096 Jul 18 23:08 ..
+drwxr-xr-x 2 router router 4096 Jul 18 23:08 releases
+drwxr-xr-x 2 router router 4096 Jul 18 23:08 shared
+
+/var/lib/9router-mw:
+total 28
+drwx------  7 router  router 4096 Jul 18 23:08 .
+drwxr-xr-x 55 root    root   4096 Jul 18 23:08 ..
+drwxr-xr-x  2 router  router 4096 Jul 18 23:08 backups
+drwxr-xr-x  2 router  router 4096 Jul 18 23:08 db
+drwxr-xr-x  2 router  router 4096 Jul 18 23:08 logs
+drwxr-xr-x  2 gomerch router 4096 Jul 18 23:08 redis
+drwxr-xr-x  2 router  router 4096 Jul 18 23:08 tokens
+---
+# 9router-mw limited nopasswd for user router
+router ALL=(root) NOPASSWD: /bin/systemctl start 9router-mw, /bin/systemctl stop 9router-mw, /bin/systemctl restart 9router-mw, /bin/systemctl status 9router-mw, /bin/systemctl reload nginx, /bin/systemctl is-active 9router-mw, /bin/systemctl is-enabled 9router-mw, /bin/journalctl -u 9router-mw *
+---
+9router-mw-redis Up 44 seconds 127.0.0.1:6381->6379/tcp
+LISTEN 0      4096                     127.0.0.1:6381       0.0.0.0:*    users:(("docker-proxy",pid=441207,fd=8))                                                                                                 
+LISTEN 0      4096                     127.0.0.1:6380       0.0.0.0:*    users:(("docker-proxy",pid=44769,fd=8))                                                                                                  
+LISTEN 0      4096                     127.0.0.1:6379       0.0.0.0:*    users:(("docker-proxy",pid=113554,fd=8))                                                                                                 
+---
+NAME      TYPE SIZE USED PRIO
+/swapfile file   2G   0B   -2
+               total        used        free      shared  buff/cache   available
+Mem:            15Gi       2.3Gi       3.1Gi        79Mi        10Gi        12Gi
+Swap:          2.0Gi          0B       2.0Gi
+---
+ggl-redis-exporter Up 3 days
+ggl-redis Up 3 days (healthy)
+app-redis-1 Up 3 days (healthy)
+PORT
+HOST
+WORKERS
+DATA_DIR
+REDIS_URL
+REDIS_HOST
+REDIS_PORT
+REDIS_PASSWORD
+LOG_LEVEL
+ENABLE_REQUEST_LOGS
+NODE_OPTIONS
