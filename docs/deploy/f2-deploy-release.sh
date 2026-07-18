@@ -29,12 +29,13 @@ test -f "$ENV_FILE"
 ss -tlnp | grep -E '20128|6381' | tee "$EVIDENCE_DIR/01-preflight-ports.txt" || true
 docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | tee "$EVIDENCE_DIR/01-preflight-docker.txt"
 
-# redis ping if password present
+# redis ping via docker (host may lack redis-cli)
 if grep -q 'REDIS_PASSWORD=' "$ENV_FILE" 2>/dev/null; then
   # shellcheck disable=SC1090
   set -a; source <(grep -E '^[A-Z_]+=.' "$ENV_FILE" | sed 's/\r$//'); set +a
   if [[ -n "${REDIS_PASSWORD:-}" ]]; then
-    redis-cli -h 127.0.0.1 -p 6381 -a "$REDIS_PASSWORD" --no-auth-warning PING | tee "$EVIDENCE_DIR/01-redis-ping.txt"
+    docker exec 9router-mw-redis redis-cli -a "$REDIS_PASSWORD" --no-auth-warning PING \
+      | tee "$EVIDENCE_DIR/01-redis-ping.txt" || echo "REDIS_PING_FAILED" | tee "$EVIDENCE_DIR/01-redis-ping.txt"
   fi
 fi
 
