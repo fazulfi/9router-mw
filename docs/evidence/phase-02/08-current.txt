@@ -1,0 +1,3 @@
+/opt/9router-mw/releases/0.5.35-mw.0/.next/standalone
+-rw-rw-r-- 1 router router 1505 Jul 18 23:20 /opt/9router-mw/current/custom-server.js
+-rw-rw-r-- 1 router router 7518 Jul 18 23:26 /opt/9router-mw/current/server.js

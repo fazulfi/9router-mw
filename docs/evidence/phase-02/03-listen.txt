@@ -1,0 +1,2 @@
+LISTEN 0      511                      127.0.0.1:20128      0.0.0.0:*    users:(("next-server (v1",pid=459581,fd=18))                                                                                             
+LISTEN 0      4096                     127.0.0.1:6381       0.0.0.0:*    users:(("docker-proxy",pid=441207,fd=8))                                                                                                 

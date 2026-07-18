@@ -1,0 +1,7 @@
+Jul 18 23:26:19 faiz-prod-01 systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: ▲ Next.js 16.2.10
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: - Local:         http://127.0.0.1:20128
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: - Network:       http://127.0.0.1:20128
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: ✓ Ready in 0ms
+Jul 18 23:26:42 faiz-prod-01 9router-mw[459581]: [DB] Driver: better-sqlite3 | file: /var/lib/9router-mw/db/data.sqlite
+Jul 18 23:26:42 faiz-prod-01 9router-mw[459581]: [DB][migrate] applied #1 initial
