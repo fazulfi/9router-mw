@@ -4,6 +4,14 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
 
+/** F5: per-worker settings memory cache (Vans-style 5s TTL) */
+const SETTINGS_CACHE_TTL_MS = Math.max(
+  0,
+  Number(process.env.MW_SETTINGS_CACHE_MS || 5000) || 5000,
+);
+/** @type {{ value: object, at: number } | null} */
+let _settingsCache = null;
+
 const DEFAULT_SETTINGS = {
   cloudEnabled: false,
   tunnelEnabled: false,
@@ -74,9 +82,26 @@ function mergeWithDefaults(raw) {
   return merged;
 }
 
+/**
+ * Invalidate per-worker settings cache (call after write or importDb).
+ */
+export function invalidateSettingsCache() {
+  _settingsCache = null;
+}
+
 export async function getSettings() {
+  if (SETTINGS_CACHE_TTL_MS > 0 && _settingsCache) {
+    const age = Date.now() - _settingsCache.at;
+    if (age < SETTINGS_CACHE_TTL_MS) {
+      return _settingsCache.value;
+    }
+  }
   const raw = await readRaw();
-  return mergeWithDefaults(raw);
+  const merged = mergeWithDefaults(raw);
+  if (SETTINGS_CACHE_TTL_MS > 0) {
+    _settingsCache = { value: merged, at: Date.now() };
+  }
+  return merged;
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -92,6 +117,7 @@ export async function updateSettings(updates) {
       [stringifyJson(next)]
     );
   });
+  invalidateSettingsCache();
   return mergeWithDefaults(next);
 }
 

@@ -5,6 +5,7 @@ import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 // Settings
 export {
   getSettings, updateSettings, isCloudEnabled, getCloudUrl, exportSettings,
+  invalidateSettingsCache,
 } from "./repos/settingsRepo.js";
 
 // Provider connections
@@ -161,6 +162,10 @@ export async function importDb(payload) {
       db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('pricing', ?, ?)`, [provider, stringifyJson(models || {})]);
     }
   });
+
+  // F5: drop settings cache after bulk import (other workers expire via TTL)
+  const { invalidateSettingsCache } = await import("./repos/settingsRepo.js");
+  invalidateSettingsCache();
 
   return await exportDb();
 }
