@@ -1,5 +1,5 @@
 {
-  "name": "9router",
+  "name": "vansrouter",
   "version": "0.9.51",
   "description": "9Router CLI - Start and manage 9Router server",
   "bin": {
@@ -10,7 +10,8 @@
     "README.md",
     "LICENSE",
     "hooks",
-    "src"
+    "src",
+    "app"
   ],
   "dependencies": {
     "chalk": "^4.1.2",

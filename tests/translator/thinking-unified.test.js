@@ -126,10 +126,10 @@ describe("applyThinking per provider format", () => {
     const out = apply("openai", "kimi-k2.6", { reasoning_effort: "high" }, "kimi");
     expect(out.reasoning_effort).toBe("high");
   });
-  it("Kimi off → reasoning_effort none", () => {
+  it("Kimi off → thinking disabled", () => {
     const out = apply("openai", "kimi-k2.7", { reasoning_effort: "none" }, "kimi");
-    expect(out.reasoning_effort).toBe("none");
-    expect(out.thinking).toBeUndefined();
+    expect(out.thinking).toEqual({ type: "disabled" });
+    expect(out.reasoning_effort).toBeUndefined();
   });
   it("Kimi auto → supported reasoning_effort", () => {
     const out = apply("openai", "kimi-k2.7", { reasoning_effort: "auto" }, "kimi");

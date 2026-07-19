@@ -175,6 +175,10 @@ exports[`GOLDEN request: OpenAI → Gemini > full body (system/image/tool/tool_r
   ],
   "generationConfig": {
     "temperature": 0.7,
+    "thinkingConfig": {
+      "includeThoughts": true,
+      "thinkingBudget": -1,
+    },
   },
   "model": "gemini-3-pro",
   "safetySettings": [
@@ -233,7 +237,9 @@ exports[`GOLDEN request: OpenAI → Gemini > full body (system/image/tool/tool_r
 
 exports[`GOLDEN request: OpenAI → Kiro > full body (image base64 + tool_result) 1`] = `
 {
+  "agentMode": "vibe",
   "conversationState": {
+    "agentTaskType": "vibe",
     "chatTriggerType": "MANUAL",
     "currentMessage": {
       "userInputMessage": {
@@ -281,7 +287,9 @@ continue",
     "history": [
       {
         "userInputMessage": {
-          "content": "<instructions>
+          "content": "[Context: Current time is <TS>
+
+<instructions>
 You are helpful.
 </instructions>
 

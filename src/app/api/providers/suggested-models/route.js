@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { FILTERS } from "./filters.js";
-import { PROVIDERS } from "open-sse/config/providers.js";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +27,7 @@ export async function GET(request) {
     // Resolve registry entry by provider name so filters can use the registry as source of truth.
     // Convention: <provider>-free key → strip suffix to find registry id (e.g. "nvidia-free" → "nvidia").
     const providerId = type.endsWith("-free") ? type.slice(0, -"-free".length) : type;
-    const registry = PROVIDERS?.[providerId];
-    const data = filter(Array.isArray(raw) ? raw : [], registry);
+    const data = filter(Array.isArray(raw) ? raw : []);
     return NextResponse.json({ data });
   } catch {
     return NextResponse.json({ data: [] });

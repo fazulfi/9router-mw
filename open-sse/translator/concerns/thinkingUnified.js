@@ -326,11 +326,19 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
     stripAll(body);
     return body;
   }
+  const fmt = resolveFormat(targetFormat, cleanModel, provider);
+  // AgentRouter proxies GLM-5.x through a Claude-format transport, but the
+  // upstream GLM-5.x defaults thinking ON when no reasoning config is sent.
+  // If the client did not explicitly request reasoning, force-disable it so
+  // reasoning content does not leak into the OpenAI-format response.
+  // Scoped to agentrouter only — native glm/Z.ai should not be affected.
+  const effectiveCfg = cfg || (provider === "agentrouter" && /^glm-5/i.test(cleanModel) && caps.thinkingCanDisable !== false ? { mode: "none" } : null);
+
   // No explicit thinking intent from client — but reasoning-capable Gemini/Antigravity
   // models auto-think server-side (tokens still billed in usage). Force includeThoughts:true
   // on gemini formats so the thought parts stream back to the client instead of being
   // hidden behind only the reasoning_tokens usage counter.
-  if (!cfg) {
+  if (!effectiveCfg) {
     const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
     const resolvedFmt = providerFmt || (caps.thinkingFormat) || (fmt);
     if (resolvedFmt === "gemini-budget" || resolvedFmt === "gemini-level") {
@@ -339,8 +347,7 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
     return body;
   }
 
-  const fmt = resolveFormat(targetFormat, cleanModel, provider);
   stripAll(body);
-  applyFormat(fmt, body, cfg, caps);
+  applyFormat(fmt, body, effectiveCfg, caps);
   return body;
 }
