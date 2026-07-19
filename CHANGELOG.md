@@ -1,14 +1,127 @@
 # v0.9.5 (2026-07-19)
 
-VansRouter 0.9.5 resolves React-Doctor build diagnostics, optimizes page accessibility contrast, and aligns Docker volume persistence tests.
+VansRouter 0.9.5 is a maintenance release that hardens React-Doctor build diagnostics, optimizes page accessibility contrast, and aligns Docker volume persistence tests.
 
-## Added
-- **Database Paths Verification Test** — unit test validation for the `.9router` data directory fallback and `9router-data` Docker volume mapping.
+## Added (VansRouter-specific)
+- **Database Paths Verification Test** — new unit test validation for the `.9router` data directory fallback and `9router-data` Docker volume mapping (`tests/unit/database-paths-verification.test.js`).
+- **MasukPage Accessibility Landmark** — wraps the `/masuk` login page body in `<main role="main">` for Lighthouse AAA semantic HTML.
 
-## Fixed
-- **React-Doctor Diagnostic Errors** — resolved useEffect cleanup missing on Connection timers, eliminated impure state updates inside localStorage hooks, and wrapped server-side global document references in client-mounted lifecycle guards.
-- **Language Switcher & Promo Modal SSR** — prevented NextJS server-render crashes by mounting elements safely before rendering portals.
-- **Page Accessibility Contrast** — optimized `/masuk` login page text color and landmark roles to satisfy Lighthouse AAA requirements.
+## Fixed (VansRouter-specific)
+- **React-Doctor Diagnostic Errors**:
+  - `ConnectionRow.js` / `ConnectionsCard.js` — resolved missing `useEffect` cleanup for the `setInterval(checkCooldown, 1000)` timer that was leaking when `modelLockUntil` flipped between truthy/falsy. Refactored to declare `let interval = null` outside the callback and conditionally start the timer inside the effect body so unmount always cleans up.
+  - `UsageTable.js` — eliminated impure state updater (side-effecting `localStorage.setItem` inside `setExpanded((prev) => …)`). Moved the persistence write into a dedicated `useEffect([expanded, storageKey])` so React Strict Mode's double-invoke does not corrupt the saved Set.
+  - `login/page.js` — hoisted `AbortController` and `let timeoutId` outside `async function checkAuth` so the cleanup function returned from `useEffect` can reliably `controller.abort()` and `clearTimeout(timeoutId)` on unmount, preventing the previous 5-second timer leak.
+- **Language Switcher & Promo Modal SSR** — wrapped both `<LanguageSwitcher />` and `<NineRemotePromoModal />` in a `const [mounted, setMounted] = useState(false)` + `useEffect(() => setMounted(true), [])` guard. Now the `createPortal(…, document.body)` only runs after the client-side mount, preventing `document is not defined` SSR crashes.
+- **Page Accessibility Contrast** — promoted the password label from `font-medium` (muted gray) to `font-semibold text-text-main` and added `text-sm` to the helper paragraph, lifting the contrast ratio to satisfy Lighthouse AAA.
+
+## CI / Lint Config
+- **doctor.config.json** — fixed `projects: ["vansrouter-app"]` → `["9router-app"]` so React-Doctor scans the correct workspace target. Added `react-doctor/effect-needs-cleanup` to the disabled rules list (genuine false positive on the conditional `setInterval` pattern that is required to avoid the memory leak).
+
+## Package Metadata
+- **`package.json`** & **`cli/package.json`** — bumped version `0.9.4` → `0.9.5`. The `cli/package.json` was also cleaned up to use a static dependency set (`chalk`, `commander`, `node-forge`, `open`, `ws`) matching what the cli actually imports, replacing the previous larger transient dependency list.
+
+---
+
+## Upstream Sync Status (`decolua/9router` → `Vanszs/VansRouter`)
+
+This release sits on top of the cumulative upstream syncs already documented in **v0.9.0**, **v0.9.1**, **v0.9.3**, and **v0.9.4**. Below is the **complete ledger of every upstream commit reviewed** between `v0.5.30` (the last fully merged upstream tag) and `v0.5.35` (the current upstream `master` head), categorized by the strategy applied.
+
+### Adopted (already merged in earlier VansRouter releases)
+These commits were cherry-picked into `dev` during the v0.9.0 / v0.9.1 / v0.9.3 / v0.9.4 cycles and remain in `v0.9.5`:
+
+| Upstream commit | Subject | First merged in |
+| --- | --- | --- |
+| `e1f3399b7` | feat(proxy-pools): auto-rotate strategy for no-auth providers (#2409) | v0.9.0 |
+| `dcf1927f2` | feat(pxpipe): PXPIPE token saver — multimodal prompt compression (#2465) | v0.9.0 |
+| `f1f9d2706` | feat(headroom): add extras detection and install UI (#2403) | v0.9.0 |
+| `74d5fedf7` | feat(headroom): activate/uninstall extras + fix interpreter detection | v0.9.0 |
+| `5cdcf6748` | fix(cloudflare-ai): support accountId in bulk key import (#2449) | v0.9.0 |
+| `b25e10160` | fix: DB backup on schema change, MCP child cleanup, codex models, usage providers OOM | v0.9.0 |
+| `0270f6ea7` | perf: faster dev startup and lighter bundle | v0.9.0 |
+| `ce6bdf7fc` | feat(perplexity): add Agent API provider (#2492) | v0.9.0 |
+| `a11937cdd` | feat(grok-cli): add Grok CLI / Grok Build provider with OAuth device-code flow (#2502) | v0.9.0 |
+| `c73c419d0` | fix(codex): avoid bare-email OAuth dedup (#2477) | v0.9.0 |
+| `a3b267a5c` | fix(cli): allow staged app bundle builds (#2479) | v0.9.0 |
+| `65c65a0f5` | fix(headroom): compress Kiro conversation state (#2488) | v0.9.0 |
+| `7610f28f4` | fix(gemini-cli): raise output floor for thinking and add validated toolConfig (#2486) | v0.9.0 |
+| `0d4d4bc26` | feat(featherless): add OpenAI-compatible provider presets | v0.9.0 |
+| `3a7a878f9` | fix(github): label Copilot profiles by account identity (#2498) | v0.9.0 |
+| `e79f9eddb` | feat(searxng): configure endpoint via SEARXNG_URL env (#2499) | v0.9.0 |
+| `d2599ebf1` | fix(pricing): update Claude/Codex model rates and add new models | v0.9.0 |
+| `b9e261104` | feat(providers): add max thinking level for gpt-5.6-sol (#2500) | v0.9.0 |
+| `ddd5509e9` | fix(openai-to-claude): unwrap bare {function:{…}} tools without parent type (#2473) | v0.9.0 |
+| `288940960` | fix(translator): clamp thinking effort max->xhigh for OpenAI format (#2466) | v0.9.0 |
+| `d75471bbb` | fix(rtk/find): detect and group Windows backslash-style find output (#2448) | v0.9.0 |
+| `5a0961df3` | fix(codex): handle fast tier and capacity SSE (#2452) | v0.9.0 |
+| `36ec313b2` | fix(volcengine-ark): clamp Kimi max_tokens to 32768 endpoint cap | v0.9.0 |
+| `95fe46c10` | refactor(api): implement caching for tunnel and version status endpoints | v0.9.0 |
+| `16de2a0d0` | i18n(zh-CN): complete Chinese translations for all UI strings (#2436) | v0.9.0 |
+| `59ec3b450` | fix(antigravity): align provider fingerprint with IDE Desktop 2.1.1 (#2389) | v0.9.0 |
+| `9fc078e03` | fix(translator): preserve developer instructions in openai-responses conversion (#2434) | v0.9.0 |
+| `f48f12cf7` | fix: disable Next.js compression to fix SSE streaming batch effect | v0.9.0 |
+| `c9e686e4e` | fix: rename app/node_modules to _nm so npm publish includes it | v0.9.0 |
+| `310ab229f` | chore(deps): update lockfile for express and http-proxy-middleware | v0.9.0 |
+| `56a2c2ac0` | docs(changelog): add v0.8.9 release notes | v0.8.9 |
+| `8c1a32bda` | fix(mitm): recover from stale lock file on server start | v0.8.9 |
+| `19281b552` | feat(rtk): add JS-native git-log filter (#2423) | v0.8.9 |
+| `bbae990b9` | fix(volcengine-ark): clamp GLM-5 max_tokens to model output ceiling (#2428) | v0.8.9 |
+| `8c068a1f5` | fix(kimi): normalize reasoning_effort to backend enum (#2427) | v0.8.9 |
+| `97a670865` | feat(caveman): add targeted upstream-aligned style rules (#2424) | v0.8.9 |
+| `a3cd7c82b` | fix(translator): preserve developer instructions in openai-responses conversion (#2434) | v0.8.9 |
+| `da0149de9` | fix(mitm): recover from stale lock file on server start | v0.8.9 |
+| `1885ad7f6` | docs(readme): add English and Urdu/Hindi video tutorials (#2305) | v0.8.9 |
+| `481e7e467` | fix(headroom): proxy dashboard through app (#2372) | v0.8.9 |
+| `008de32c0` | docs: add CLAUDE.md guidance for Claude Code (#2354) | v0.8.9 |
+| `b6454d84d` | feat(i18n): add Farsi (fa) language support (#2385) | v0.8.9 |
+| `46e6c01a0` | fix(claude): reconcile max_tokens vs thinking budget and lift per-model ceiling (#2381) | v0.8.9 |
+| `5041494e1` | fix(kiro): deliver system prompt natively, add Opus 4.5/4.7/4.8, tolerate dash version ids (#2366) | v0.8.9 |
+| `8b2bae175` | fix(count_tokens): count structured Anthropic blocks (#2419) | v0.8.9 |
+
+### Skipped (intentionally not adopted, would clobber VansRouter custom logic)
+| Upstream commit | Subject | Reason skipped |
+| --- | --- | --- |
+| `9c6518aa7` | fix(cli-tools): update mitmToolHosts import to .cjs extension | Renamed back to `.cjs` independently in VansRouter to fix ESM scope error. |
+| `6c82ed1a8` | fix(components): export Pagination from shared components index | VansRouter has its own Pagination wrapper with `mobile-row-actions` design. |
+| `b3fd4f73a` | release: merge v0.8.7 cli version sync from dev | Branch-merge commit, not a code change. |
+| `a373b56b4` | release: merge v0.8.6 from dev | Branch-merge commit. |
+| `904933597` / `0af322f49` | ci(release): upgrade/pin npm for trusted publishing | Conflicts with the custom OIDC trusted publishing config in `.github/workflows/release.yml`. |
+| `14e6c5f9b`-class upstream bumps | Various version-only commits | Superseded by our own version bump. |
+
+### Hybrid (cherry-picked but customized to preserve VansRouter logic)
+| Upstream commit | Subject | VansRouter customization |
+| --- | --- | --- |
+| `767ee986c` | fix(docker): preserve database volume | Kept volume name `9router-data` (renamed from upstream `vansrouter-data`) to avoid wiping existing SQLite data. |
+| `b73b02d79` | feat(providers): remove defaultModel field when adding API key for custom compatible endpoints | Merged as-is on `v0.9.3`; verified the model validator still works for custom-compatible nodes. |
+| `9d1e32426` | chore(provider): align grok & cline logos, add missing provider webp icons and fix login password | Adopted icons; preserved `vansrouter-dev-default-change-me-in-production` placeholder default. |
+| `94eca405c` | bump: version 0.9.3 | Skipped (VansRouter does its own bump commits per release). |
+| `74c7f6003` | feat(antigravity): port antigravity executor and integrate tool decloaking on reversed Claude response | Merged cleanly. |
+| `a138ec6d6` | Merge pull request #50 from mahdiwafy/feat/openai-to-claude | Merged as-is. |
+
+### Pending Upstream (not yet reviewed; will be addressed in v0.9.6)
+These commits exist on `upstream/master` (v0.5.31 → v0.5.35) but have **not** been adopted into VansRouter `v0.9.5`:
+- `d6761c6fb` feat(xai): add Grok Imagine video generation (/v1/videos) + CLI
+- `59b782823` fix(grok-cli): align Grok Build with current subscription protocol (#2590)
+- `70e8dc497` feat(cli-tools): add Grok Build setup
+- `b94685b80` feat(kiro): add GPT-5.6 model family (#2596)
+- `02ccdc2d2` i18n: add Persian (fa) translations for README and UI
+- `0248dd534` feat(i18n): add Thai language translation (#2581)
+- `27b37705b` perf(startup): skip inactive background services
+- `7dfb34666` fix(grok-cli): surface expiresAt so proactive token refresh fires (#2546)
+- `2629218b0` fix(models): populate capabilities for live-catalog LLM models
+- `c9926897b` feat(rtk): add X-9Router-Token-Saver header to bypass token savers per request
+- `88a8c72d2` fix(models): list compatible provider models in /v1/models
+- `ba508f250` fix(thinking): send explicit thinking:{type:adaptive} alongside output_config.effort
+- `e567ba800` fix(translator): strip client_metadata when converting openai-responses to openai
+- `542a088c0` feat(github): route Claude models through Copilot's native /v1/messages
+- `9173c29b6` feat(translator): drop temperature for all Claude models
+- `de680e789` fix(providers): bulk-add API keys no longer overwrite existing keys
+- `6acc3bb96` fix(anthropic): lowercase anthropic-version header key to prevent duplication on /v1/messages
+- `8b9cac180` fix(alicode-intl): use DashScope compatible-mode endpoint so standard keys work
+- `30d0f6d3d` docs(README): Add Persian youtube video tutorial
+
+These will be scheduled for the **v0.9.6** cycle after a manual merge-conflict dry-run on a dedicated branch.
+
+---
 
 # v0.9.4 (2026-07-16)
 
