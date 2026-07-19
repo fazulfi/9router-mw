@@ -1,14 +1,17 @@
-# Phase-07 Evidence — F7 Load Prove
+﻿# Phase-07 Evidence — F7 Load Prove
 
-**Version:** `0.5.35-mw.4`  
-**Goal:** Prove §5 acceptance: 200 VU, ≥1.5× baseline, p95&lt;2s, err&lt;1%, soak, chaos, no double upstream.
+**Version:** live `0.5.35-mw.4` + scripts `0.5.35-mw.5`  
+**Report:** `docs/bench/report-mw-20260719.md`
 
-## Checklist
+## Exit — MET
 
-- [ ] Mock upstream + metrics counter
-- [ ] k6 mock: PASS_NO_DOUBLE
-- [ ] k6 ramp 200: PASS_1_5X / PASS_P95 / PASS_ERR
-- [ ] Soak (default 10m @ 100 VU; note if &lt;30m)
-- [ ] Chaos kill worker respawn &lt;5s; full restart &lt;30s
-- [ ] Report `docs/bench/report-mw-YYYYMMDD.md`
-- [ ] Foreign redis untouched
+| Check | Result |
+|-------|--------|
+| PASS_NO_DOUBLE | mock 24444 = k6 24444 (ratio 1.0) |
+| PASS_1_5X | 905.5 rps vs 358 baseline → **2.529×** |
+| PASS_P95 | 240.6 ms < 2000 |
+| PASS_ERR | 0% fail |
+| Soak | 10m @ 100 VU, 0% fail (waiver vs 30m) |
+| Chaos respawn | 1s |
+| Full restart | 2787 ms |
+| Foreign redis | OK |

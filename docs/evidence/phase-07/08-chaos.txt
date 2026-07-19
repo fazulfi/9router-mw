@@ -1,0 +1,7 @@
+=== chaos kill worker ===
+kill_worker=533409 main=533400 t0=2026-07-19T00:53:07Z
+t=1s workers=4
+RESPAWN_OK_SEC=1
+=== full restart timing ===
+FULL_RESTART_MS=2787
+workers_after=4

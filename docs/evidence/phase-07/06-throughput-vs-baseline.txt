@@ -1,0 +1,8 @@
+http_reqs 208288
+rps 905.5183723849065
+fail_rate 0
+p95_ms 240.555751
+ratio_vs_baseline_358 2.529
+PASS_1_5X
+PASS_P95
+PASS_ERR

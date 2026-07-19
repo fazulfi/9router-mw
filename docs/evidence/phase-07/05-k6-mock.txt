@@ -1,0 +1,130 @@
+=== k6 mock upstream ===
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /opt/9router-mw/shared/f7-scripts/docs/bench/k6-load-mock-upstream.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 50 max VUs, 1m0s max duration (incl. graceful stop):
+              * mock_100: 50 looping VUs for 30s (gracefulStop: 30s)
+
+
+running (0m01.0s), 50/50 VUs, 750 complete and 0 interrupted iterations
+mock_100   [   3% ] 50 VUs  01.0s/30s
+
+running (0m02.0s), 50/50 VUs, 1562 complete and 0 interrupted iterations
+mock_100   [   7% ] 50 VUs  02.0s/30s
+
+running (0m03.0s), 50/50 VUs, 2370 complete and 0 interrupted iterations
+mock_100   [  10% ] 50 VUs  03.0s/30s
+
+running (0m04.0s), 50/50 VUs, 3200 complete and 0 interrupted iterations
+mock_100   [  13% ] 50 VUs  04.0s/30s
+
+running (0m05.0s), 50/50 VUs, 4006 complete and 0 interrupted iterations
+mock_100   [  17% ] 50 VUs  05.0s/30s
+
+running (0m06.0s), 50/50 VUs, 4821 complete and 0 interrupted iterations
+mock_100   [  20% ] 50 VUs  06.0s/30s
+
+running (0m07.0s), 50/50 VUs, 5641 complete and 0 interrupted iterations
+mock_100   [  23% ] 50 VUs  07.0s/30s
+
+running (0m08.0s), 50/50 VUs, 6455 complete and 0 interrupted iterations
+mock_100   [  27% ] 50 VUs  08.0s/30s
+
+running (0m09.0s), 50/50 VUs, 7271 complete and 0 interrupted iterations
+mock_100   [  30% ] 50 VUs  09.0s/30s
+
+running (0m10.0s), 50/50 VUs, 8085 complete and 0 interrupted iterations
+mock_100   [  33% ] 50 VUs  10.0s/30s
+
+running (0m11.0s), 50/50 VUs, 8894 complete and 0 interrupted iterations
+mock_100   [  37% ] 50 VUs  11.0s/30s
+
+running (0m12.0s), 50/50 VUs, 9711 complete and 0 interrupted iterations
+mock_100   [  40% ] 50 VUs  12.0s/30s
+
+running (0m13.0s), 50/50 VUs, 10521 complete and 0 interrupted iterations
+mock_100   [  43% ] 50 VUs  13.0s/30s
+
+running (0m14.0s), 50/50 VUs, 11344 complete and 0 interrupted iterations
+mock_100   [  47% ] 50 VUs  14.0s/30s
+
+running (0m15.0s), 50/50 VUs, 12147 complete and 0 interrupted iterations
+mock_100   [  50% ] 50 VUs  15.0s/30s
+
+running (0m16.0s), 50/50 VUs, 12971 complete and 0 interrupted iterations
+mock_100   [  53% ] 50 VUs  16.0s/30s
+
+running (0m17.0s), 50/50 VUs, 13788 complete and 0 interrupted iterations
+mock_100   [  57% ] 50 VUs  17.0s/30s
+
+running (0m18.0s), 50/50 VUs, 14594 complete and 0 interrupted iterations
+mock_100   [  60% ] 50 VUs  18.0s/30s
+
+running (0m19.0s), 50/50 VUs, 15417 complete and 0 interrupted iterations
+mock_100   [  63% ] 50 VUs  19.0s/30s
+
+running (0m20.0s), 50/50 VUs, 16224 complete and 0 interrupted iterations
+mock_100   [  67% ] 50 VUs  20.0s/30s
+
+running (0m21.0s), 50/50 VUs, 17044 complete and 0 interrupted iterations
+mock_100   [  70% ] 50 VUs  21.0s/30s
+
+running (0m22.0s), 50/50 VUs, 17868 complete and 0 interrupted iterations
+mock_100   [  73% ] 50 VUs  22.0s/30s
+
+running (0m23.0s), 50/50 VUs, 18674 complete and 0 interrupted iterations
+mock_100   [  77% ] 50 VUs  23.0s/30s
+
+running (0m24.0s), 50/50 VUs, 19494 complete and 0 interrupted iterations
+mock_100   [  80% ] 50 VUs  24.0s/30s
+
+running (0m25.0s), 50/50 VUs, 20313 complete and 0 interrupted iterations
+mock_100   [  83% ] 50 VUs  25.0s/30s
+
+running (0m26.0s), 50/50 VUs, 21124 complete and 0 interrupted iterations
+mock_100   [  87% ] 50 VUs  26.0s/30s
+
+running (0m27.0s), 50/50 VUs, 21926 complete and 0 interrupted iterations
+mock_100   [  90% ] 50 VUs  27.0s/30s
+
+running (0m28.0s), 50/50 VUs, 22744 complete and 0 interrupted iterations
+mock_100   [  93% ] 50 VUs  28.0s/30s
+
+running (0m29.0s), 50/50 VUs, 23572 complete and 0 interrupted iterations
+mock_100   [  97% ] 50 VUs  29.0s/30s
+
+running (0m30.0s), 50/50 VUs, 24377 complete and 0 interrupted iterations
+mock_100   [ 100% ] 50 VUs  30.0s/30s
+     ✓ status 200
+     ✓ has choices
+
+     checks.........................: 100.00% ✓ 48888      ✗ 0    
+     data_received..................: 9.6 MB  321 kB/s
+     data_sent......................: 5.0 MB  167 kB/s
+     errors.........................: 0.00%   ✓ 0          ✗ 24444
+     http_req_blocked...............: avg=5.16µs  min=1.75µs  med=3.6µs   max=1.17ms  p(90)=5.1µs   p(95)=6.03µs  
+     http_req_connecting............: avg=809ns   min=0s      med=0s      max=1.13ms  p(90)=0s      p(95)=0s      
+   ✓ http_req_duration..............: avg=50.73ms min=48.56ms med=50.68ms max=74.19ms p(90)=51.53ms p(95)=51.8ms  
+       { expected_response:true }...: avg=50.73ms min=48.56ms med=50.68ms max=74.19ms p(90)=51.53ms p(95)=51.8ms  
+   ✓ http_req_failed................: 0.00%   ✓ 0          ✗ 24444
+     http_req_receiving.............: avg=34.59µs min=13.01µs med=28.26µs max=2.25ms  p(90)=48µs    p(95)=60.72µs 
+     http_req_sending...............: avg=25.69µs min=6.87µs  med=12.16µs max=4.98ms  p(90)=27.22µs p(95)=113.29µs
+     http_req_tls_handshaking.......: avg=0s      min=0s      med=0s      max=0s      p(90)=0s      p(95)=0s      
+     http_req_waiting...............: avg=50.67ms min=48.53ms med=50.62ms max=74.02ms p(90)=51.46ms p(95)=51.72ms 
+     http_reqs......................: 24444   813.196629/s
+     iteration_duration.............: avg=61.4ms  min=58.79ms med=61.32ms max=85.22ms p(90)=62.32ms p(95)=62.67ms 
+     iterations.....................: 24444   813.196629/s
+     mock_posts.....................: 24444   813.196629/s
+     vus............................: 50      min=50       max=50 
+     vus_max........................: 50      min=50       max=50 
+running (0m30.1s), 00/50 VUs, 24444 complete and 0 interrupted iterations
+mock_100 ✓ [ 100% ] 50 VUs  30s
