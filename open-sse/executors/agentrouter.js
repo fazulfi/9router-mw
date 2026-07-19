@@ -1,6 +1,29 @@
 import { DefaultExecutor } from "./default.js";
 import { randomUUID } from "node:crypto";
 
+export function buildAgentRouterHeaders(apiKey, stream = true) {
+  return {
+    "Content-Type": "application/json",
+    "anthropic-version": "2023-06-01",
+    "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24",
+    "anthropic-dangerous-direct-browser-access": "true",
+    "x-app": "cli",
+    "User-Agent": "claude-cli/2.1.195 (external, sdk-cli)",
+    "X-Claude-Code-Session-Id": randomUUID(),
+    "X-Stainless-Retry-Count": "0",
+    "X-Stainless-Timeout": "600",
+    "X-Stainless-Lang": "js",
+    "X-Stainless-Package-Version": "0.94.0",
+    "X-Stainless-OS": "MacOS",
+    "X-Stainless-Arch": "arm64",
+    "X-Stainless-Runtime": "node",
+    "X-Stainless-Runtime-Version": "v24.3.0",
+    "Accept": stream ? "text/event-stream" : "application/json",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    ...(apiKey ? { "x-api-key": apiKey } : {})
+  };
+}
+
 export class AgentRouterExecutor extends DefaultExecutor {
   constructor() {
     super("agentrouter");
@@ -12,56 +35,7 @@ export class AgentRouterExecutor extends DefaultExecutor {
   }
 
   buildHeaders(credentials, stream = true) {
-    const sessionId = randomUUID();
-    const headers = {};
-
-    // We build the keys in the EXACT order defined by OmniRoute's "claude-code-compatible" fingerprint:
-    // headerOrder: [
-    //   "Host",
-    //   "Content-Type",
-    //   "Authorization", (none)
-    //   "anthropic-version",
-    //   "anthropic-beta",
-    //   "anthropic-dangerous-direct-browser-access",
-    //   "x-app",
-    //   "User-Agent",
-    //   "X-Claude-Code-Session-Id",
-    //   "X-Stainless-Retry-Count",
-    //   "X-Stainless-Timeout",
-    //   "X-Stainless-Lang",
-    //   "X-Stainless-Package-Version",
-    //   "X-Stainless-OS",
-    //   "X-Stainless-Arch",
-    //   "X-Stainless-Runtime",
-    //   "X-Stainless-Runtime-Version",
-    //   "Accept",
-    //   "accept-encoding",
-    //   "Connection", (none)
-    // ]
-    
-    headers["Content-Type"] = "application/json";
-    headers["anthropic-version"] = "2023-06-01";
-    headers["anthropic-beta"] = "claude-code-20250219,interleaved-thinking-2025-05-14,effort-2025-11-24";
-    headers["anthropic-dangerous-direct-browser-access"] = "true";
-    headers["x-app"] = "cli";
-    headers["User-Agent"] = "claude-cli/2.1.195 (external, sdk-cli)";
-    headers["X-Claude-Code-Session-Id"] = sessionId;
-    headers["X-Stainless-Retry-Count"] = "0";
-    headers["X-Stainless-Timeout"] = "600";
-    headers["X-Stainless-Lang"] = "js";
-    headers["X-Stainless-Package-Version"] = "0.94.0";
-    headers["X-Stainless-OS"] = "MacOS";
-    headers["X-Stainless-Arch"] = "arm64";
-    headers["X-Stainless-Runtime"] = "node";
-    headers["X-Stainless-Runtime-Version"] = "v24.3.0";
-    headers["Accept"] = stream ? "text/event-stream" : "application/json";
-    headers["accept-encoding"] = "gzip, deflate, br, zstd";
-    
-    if (credentials?.apiKey) {
-      headers["x-api-key"] = credentials.apiKey;
-    }
-
-    return headers;
+    return buildAgentRouterHeaders(credentials?.apiKey, stream);
   }
 
   transformRequest(model, body, stream, credentials) {
@@ -109,6 +83,26 @@ export class AgentRouterExecutor extends DefaultExecutor {
     }
 
     return reordered;
+  }
+}
+
+export async function validateAgentRouterConnection(apiKey, fetchFn = fetch) {
+  const headers = buildAgentRouterHeaders(apiKey, false);
+
+  try {
+    const res = await fetchFn("https://agentrouter.org/v1/messages?beta=true", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: "claude-opus-4-7",
+        max_tokens: 1,
+        messages: [{ role: "user", content: "ping" }],
+        stream: false
+      })
+    });
+    return res.status !== 401 && res.status !== 403;
+  } catch (err) {
+    return false;
   }
 }
 

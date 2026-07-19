@@ -1,3 +1,11 @@
+# v0.9.63 (2026-07-19)
+
+VansRouter 0.9.63 fixes the AgentRouter validation failures by implementing proper Claude CLI header spoofing during credential checks and validation probes.
+
+## Fixed
+- **AgentRouter Validation** — Added support for `agentrouter` validation in route handlers and `testUtils.js` using identical dynamic Claude CLI fingerprint headers.
+- **Header Refactoring** — Unified Claude CLI header generation into a shared `buildAgentRouterHeaders` helper to avoid duplication and drift.
+
 # v0.9.62 (2026-07-19)
 
 VansRouter 0.9.62 restores the `prepublishOnly` lifecycle script to the CLI configuration to guarantee that the Next.js standalone server directory (`app/`) is always built and packaged during npm releases.

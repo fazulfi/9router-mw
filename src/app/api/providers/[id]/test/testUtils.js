@@ -19,6 +19,7 @@ import {
   KIMCHI_CONFIG,
 } from "@/lib/oauth/constants/oauth";
 import { buildClineHeaders } from "@/shared/utils/clineAuth";
+import { validateAgentRouterConnection } from "open-sse/executors/agentrouter.js";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
@@ -802,6 +803,13 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
           headers: { Authorization: `Bearer ${connection.apiKey}` },
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "agentrouter": {
+        const valid = await validateAgentRouterConnection(
+          connection.apiKey,
+          (url, options) => fetchWithConnectionProxy(url, options, effectiveProxy)
+        );
+        return { valid, error: valid ? null : "Invalid API key" };
       }
       default:
         return { valid: false, error: "Provider test not supported" };
