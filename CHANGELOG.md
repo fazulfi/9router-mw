@@ -28,8 +28,8 @@ Full evidence: `docs/RELEASE.md`, `docs/evidence/phase-10/`, `docs/bench/report-
 
 ## Production final (docs + data)
 
-- **Public edge:** `https://router.budgezen.com` LIVE (Cloudflare Proxied + Origin CA, Full strict)
-- **Data migration:** non-mimo `providerConnections` (~13.7k), `providerNodes` (3), `proxyPools` (65), `combos` (8), kv customModels/modelAliases — from legacy VPS `49.12.82.34:39999`
+- **Public edge:** `https://example.com` LIVE (Cloudflare Proxied + Origin CA, Full strict)
+- **Data migration:** non-mimo `providerConnections` (~13.7k), `providerNodes` (3), `proxyPools` (65), `combos` (8), kv customModels/modelAliases — from legacy VPS `[REDACTED-VPS-LEGACY]`
 - **Docs:** `docs/RELEASE.md` final status; phase-09 evidence; execution matrix F0–F9 COMPLETE
 - **Live runtime:** still `0.5.35-mw.4` binary (hot-path); this tag finalizes ops/docs/data
 
@@ -358,7 +358,7 @@ Full evidence: `docs/RELEASE.md`, `docs/evidence/phase-00` … `phase-09`, `docs
 ## Fixes
 - Codex: auto-retry when upstream drops mid-stream (no more hangs)
 - Codex: fix random 400/404 errors, tool-calling failures, and unstable prompt cache
-- MITM: support Antigravity 2.x 
+- MITM: support Antigravity 2.x
 - Sanitize Read tool args to prevent retry loops from non-Anthropic models (#1144)
 - Implement json_schema fallback for OpenAI-compatible providers without native Structured Output (#1343)
 - Strip empty Read pages argument in OpenAI-to-Claude translator (#1354)

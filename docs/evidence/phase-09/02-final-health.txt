@@ -12,7 +12,7 @@ active
 ## curl http://127.0.0.1:20128/api/health
 {"ok":true,"workerId":"4","pid":702107,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":13,"error":null,"connected":true,"status":"ready","lastPingMs":13,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
 
-## curl https://router.budgezen.com/api/health
+## curl https://example.com/api/health
 HTTP 200
 {"ok":true,"workers":4,"redis":{"ok":true,...},"hotpath":{"undici":{"enabled":true,...},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
 

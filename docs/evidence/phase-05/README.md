@@ -1,8 +1,8 @@
-﻿# Phase-05 Evidence — F5 Resilience Wire
+# Phase-05 Evidence — F5 Resilience Wire
 
-**Version:** `0.5.35-mw.3`  
-**Release HEAD:** `2930903c` (evidence commit `edb1c887`)  
-**VPS:** root@82.25.62.204 / `/opt/9router-mw/releases/0.5.35-mw.3`  
+**Version:** `0.5.35-mw.3`
+**Release HEAD:** `2930903c` (evidence commit `edb1c887`)
+**VPS:** user@[REDACTED-VPS] / `/opt/9router-mw/releases/0.5.35-mw.3`
 **Goal:** Wire F4 Redis semaphore + circuit breaker into chat account loop; settings cache 5s TTL.
 
 ## Exit criteria — MET

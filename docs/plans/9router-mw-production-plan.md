@@ -1,13 +1,13 @@
 # 9router-MW — Production Plan (Final)
 
-> **Status:** LOCKED + **EXECUTED** — production final 2026-07-19  
-> **Produk:** `9router-mw`  
-> **Repo target:** `fazulfi/9router-mw`  
-> **Base upstream:** `decolua/9router` (+ cherry-pick resilience dari `Vanszs/VansRouter`)  
-> **Dokumen ini:** single source of truth untuk arsitektur, fase, deploy, success criteria  
-> **Final release status:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.6` · live app `0.5.35-mw.4`  
-> **Public:** https://router.budgezen.com  
-> **Bahasa kerja harian:** Indonesia | **Istilah teknis:** English OK  
+> **Status:** LOCKED + **EXECUTED** — production final 2026-07-19
+> **Produk:** `9router-mw`
+> **Repo target:** `fazulfi/9router-mw`
+> **Base upstream:** `decolua/9router` (+ cherry-pick resilience dari `Vanszs/VansRouter`)
+> **Dokumen ini:** single source of truth untuk arsitektur, fase, deploy, success criteria
+> **Final release status:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.6` · live app `0.5.35-mw.4`
+> **Public:** https://example.com
+> **Bahasa kerja harian:** Indonesia | **Istilah teknis:** English OK
 > **Peran agent:** Owner / CEO / Project Manager 9router-MW (keputusan teknis final, eksekusi, accountability)
 
 ---
@@ -22,12 +22,12 @@
 
 ```
 Internet → Cloudflare (DNS + proxy TLS)
-        → Nginx :443 (VPS)
-        → 127.0.0.1:20128 (Node cluster primary)
-        → 4× worker (cluster.fork)
-             ├─ undici keep-alive → upstream providers
-             ├─ Redis dedicated (127.0.0.1:6381)  — semaphore, breaker, usage buffer
-             └─ SQLite WAL (/var/lib/9router-mw)  — source of truth
+ → Nginx :443 (VPS)
+ → 127.0.0.1:20128 (Node cluster primary)
+ → 4× worker (cluster.fork)
+ ├─ undici keep-alive → upstream providers
+ ├─ Redis dedicated (127.0.0.1:6381) — semaphore, breaker, usage buffer
+ └─ SQLite WAL (/var/lib/9router-mw) — source of truth
 MITM: OFF di production
 ```
 
@@ -51,7 +51,7 @@ MITM: OFF di production
 | D10 | Vans v1 | Account semaphore + circuit breaker + settings cache |
 | D11 | Auth `/v1/*` | **API key only** |
 | D12 | Dashboard | **Public** di internet (login 9router), di belakang Nginx+Cloudflare |
-| D13 | Domain | `router.budgezen.com` (A → VPS, Cloudflare Proxied) — **DNS record baru** |
+| D13 | Domain | `example.com` (A → VPS, Cloudflare Proxied) — **DNS record baru** |
 | D14 | TLS | Cloudflare Full (origin cert self-signed/origin) **atau** LE di Nginx; pattern VPS sudah origin-cert style |
 | D15 | Process manager | **systemd** unit (`9router-mw.service`) + auto-restart |
 | D16 | Deploy model | Bare Node di VPS (bukan Docker app v1); Redis boleh Docker dedicated |
@@ -70,20 +70,20 @@ MITM: OFF di production
 
 ## 2. Inventory VPS (hasil audit live)
 
-**Host:** `faiz-prod-01`  
-**SSH:** `root@82.25.62.204`  
-**Public IP:** `82.25.62.204`  
-**OS:** Ubuntu 24.04 LTS (Noble), kernel 6.8.0-31-generic  
-**CPU:** 4 vCPU  
-**RAM:** 15 GiB (saat audit ~2.3 GiB used, ~12–13 GiB available)  
-**Disk:** 99G ext4, ~11G used, ~83G free (12%)  
+**Host:** `[REDACTED-HOST]`
+**SSH:** `user@[REDACTED-VPS]`
+**Public IP:** `[REDACTED-VPS]`
+**OS:** Ubuntu 24.04 LTS (Noble), kernel 6.8.0-31-generic
+**CPU:** 4 vCPU
+**RAM:** 15 GiB (saat audit ~2.3 GiB used, ~12–13 GiB available)
+**Disk:** 99G ext4, ~11G used, ~83G free (12%)
 **Swap:** **0** (catatan: tambah swap 2–4G di fase harden)
 
 ### 2.1 Stack yang sudah jalan (JANGAN diganggu)
 
 | Komponen | Detail | Isolasi |
 |----------|--------|---------|
-| Nginx | 1.24, :80/:443 public | Shared edge — kita **tambah** server block, tidak rewrite default gomerch |
+| Nginx | 1.24, :80/:443 public | Shared edge — kita **tambah** server block, tidak rewrite default [CO-TENANT-A] |
 | Docker | 29.6.1 | Banyak stack GGL + app |
 | Node | v20.20.2 / npm 10.8.2 | Global OK untuk build 9router-mw |
 | Tailscale | `tailscaled`, IP `100.100.17.99` | Ops access |
@@ -92,14 +92,14 @@ MITM: OFF di production
 
 **Services app lain (coexist):**
 
-- `gomerch` → Nginx default_server → `127.0.0.1:3015`
-- `zstore` / `mypapyr.com` webhooks
-- Guinevere Game Lab stack (gamesim-*, hermes, NATS paper)
+- `[CO-TENANT-A]` → Nginx default_server → `127.0.0.1:3015`
+- `[CO-TENANT-B]` / `[CO-TENANT-WEB]` webhooks
+- Guinevere Game Lab stack ([CO-TENANT-C]-*, [CO-TENANT-D], NATS paper)
 - CSA paper (`csa-api`, `csa-worker`, nats-paper)
 - GGL observability Docker: Grafana `:3000`, Prometheus `:9090`, Loki `:3100`, Alertmanager `:9093`
 - Redis existing:
-  - `ggl-redis` → `127.0.0.1:6379` (**NOAUTH required** — **JANGAN pakai**)
-  - `app-redis-1` → `127.0.0.1:6380` (PONG, milik app lain — **JANGAN pakai**)
+ - `ggl-redis` → `127.0.0.1:6379` (**NOAUTH required** — **JANGAN pakai**)
+ - `app-redis-1` → `127.0.0.1:6380` (PONG, milik app lain — **JANGAN pakai**)
 - Postgres various: host `5432`, docker `5433`, `5440`, pgbouncer `6432`
 
 ### 2.2 Port plan 9router-mw (FREE saat audit)
@@ -112,37 +112,37 @@ MITM: OFF di production
 
 **Rule:** app listen localhost only. Public hanya lewat Nginx + Cloudflare.
 
-### 2.3 DNS (Cloudflare `budgezen.com`)
+### 2.3 DNS (Cloudflare `example.com`)
 
-Sudah ada (screenshot): `api`, `api-staging`, `budgezen.com`, `staging`, `status`, `www`, mail records.  
-**Belum ada:** `router.budgezen.com`.
+Sudah ada (screenshot): `api`, `api-staging`, `example.com`, `staging`, `status`, `www`, mail records.
+**Belum ada:** `example.com`.
 
 **Action required (user, 1× di Cloudflare):**
 
 | Name | Type | Content | Proxy | TTL |
 |------|------|---------|-------|-----|
-| `router` | A | `82.25.62.204` | **Proxied** (orange) | Auto |
+| `router` | A | `[REDACTED-VPS]` | **Proxied** (orange) | Auto |
 
 Opsional later: `router-staging` → same IP, DNS-only untuk smoke internal.
 
 ### 2.4 Path layout production
 
 ```
-/opt/9router-mw/                 # app code (git clone, owned router:router)
-  current -> releases/0.5.35-mw.N
-  releases/
-  shared/                        # optional shared assets
-/var/lib/9router-mw/             # DATA — SQLite, tokens, usage (0700)
-  db/
-  tokens/
-  logs/                          # if file logs enabled
-  backups/
+/opt/9router-mw/ # app code (git clone, owned router:router)
+ current -> releases/0.5.35-mw.N
+ releases/
+ shared/ # optional shared assets
+/var/lib/9router-mw/ # DATA — SQLite, tokens, usage (0700)
+ db/
+ tokens/
+ logs/ # if file logs enabled
+ backups/
 /etc/9router-mw/
-  env                            # secrets + config (0600, root:router)
+ env # secrets + config (0600, root:router)
 /etc/systemd/system/
-  9router-mw.service
-  9router-mw-redis.service       # if not docker; OR docker compose unit
-/var/log/9router-mw/             # optional rotated logs
+ 9router-mw.service
+ 9router-mw-redis.service # if not docker; OR docker compose unit
+/var/log/9router-mw/ # optional rotated logs
 ```
 
 ### 2.5 OS user `router` (independen, nopasswd terbatas)
@@ -154,7 +154,7 @@ useradd -r -m -d /home/router -s /bin/bash router
 router ALL=(root) NOPASSWD: /bin/systemctl start 9router-mw, /bin/systemctl stop 9router-mw, /bin/systemctl restart 9router-mw, /bin/systemctl status 9router-mw, /bin/systemctl reload nginx, /bin/journalctl -u 9router-mw *
 ```
 
-Deploy SSH: key-based ke `router@82.25.62.204` (atau tetap root untuk bootstrap lalu handoff).
+Deploy SSH: key-based ke `router@[REDACTED-VPS]` (atau tetap root untuk bootstrap lalu handoff).
 
 ---
 
@@ -163,38 +163,38 @@ Deploy SSH: key-based ke `router@82.25.62.204` (atau tetap root untuk bootstrap 
 ### 3.1 High-level
 
 ```
-                    ┌──────────────── Cloudflare ────────────────┐
- Clients            │ DNS router.budgezen.com → 82.25.62.204     │
- (API key)          │ TLS edge + DDoS + cache (API cache OFF)     │
-        │           └───────────────────┬────────────────────────┘
-        │ HTTPS                         │
-        ▼                               ▼
-                 ┌────────── Nginx :443 ──────────┐
-                 │ server_name router.budgezen.com│
-                 │ proxy → 127.0.0.1:20128        │
-                 │ SSE headers, timeouts long     │
-                 └───────────────┬────────────────┘
-                                 │
-                 ┌───────────────▼────────────────┐
-                 │  Node primary (cluster master) │
-                 │  listens 127.0.0.1:20128       │
-                 │  fork × 4 workers              │
-                 └─┬──────┬──────┬──────┬─────────┘
-                   │      │      │      │
-                W0     W1     W2     W3
-                 │      │      │      │
-     undici pool │      │      │      │  keep-alive ke providers
-                 │      │      │      │
-                 └──────┴──┬───┴──────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-        Redis :6381   SQLite WAL   Upstream APIs
-        (hot state)   (source of    (OpenAI-compat,
-         semaphore     truth:        Anthropic, dll)
-         breaker       accounts,
-         usage buf     settings,
-                       history)
+ ┌──────────────── Cloudflare ────────────────┐
+ Clients │ DNS example.com → [REDACTED-VPS] │
+ (API key) │ TLS edge + DDoS + cache (API cache OFF) │
+ │ └───────────────────┬────────────────────────┘
+ │ HTTPS │
+ ▼ ▼
+ ┌────────── Nginx :443 ──────────┐
+ │ server_name example.com│
+ │ proxy → 127.0.0.1:20128 │
+ │ SSE headers, timeouts long │
+ └───────────────┬────────────────┘
+ │
+ ┌───────────────▼────────────────┐
+ │ Node primary (cluster master) │
+ │ listens 127.0.0.1:20128 │
+ │ fork × 4 workers │
+ └─┬──────┬──────┬──────┬─────────┘
+ │ │ │ │
+ W0 W1 W2 W3
+ │ │ │ │
+ undici pool │ │ │ │ keep-alive ke providers
+ │ │ │ │
+ └──────┴──┬───┴──────┘
+ │
+ ┌────────────┼────────────┐
+ ▼ ▼ ▼
+ Redis :6381 SQLite WAL Upstream APIs
+ (hot state) (source of (OpenAI-compat,
+ semaphore truth: Anthropic, dll)
+ breaker accounts,
+ usage buf settings,
+ history)
 ```
 
 ### 3.2 Request lifecycle (1 request = 1 worker)
@@ -278,19 +278,19 @@ Cloudflare: untuk path `/v1/*` pastikan **tidak** di-cache; WebSockets/SSE timeo
 **Pilih:** env file + restricted FS (cocok VPS multi-tenant, tidak ganggu stack lain).
 
 ```
-/etc/9router-mw/env          # ROOT:router 0640 or 0600
-  PORT=20128
-  HOST=127.0.0.1
-  WORKERS=4
-  DATA_DIR=/var/lib/9router-mw
-  REDIS_URL=redis://:PASSWORD@127.0.0.1:6381/0
-  LOG_LEVEL=warn
-  ENABLE_REQUEST_LOGS=false
-  NODE_OPTIONS=--dns-result-order=ipv4first
-  # + 9router existing vars
+/etc/9router-mw/env # ROOT:router 0640 or 0600
+ PORT=20128
+ HOST=127.0.0.1
+ WORKERS=4
+ DATA_DIR=/var/lib/9router-mw
+ REDIS_URL=redis://:PASSWORD@127.0.0.1:6381/0
+ LOG_LEVEL=warn
+ ENABLE_REQUEST_LOGS=false
+ NODE_OPTIONS=--dns-result-order=ipv4first
+ # + 9router existing vars
 ```
 
-OAuth tokens provider: tetap di `DATA_DIR` (model 9router), permission 0700 `router:router`.  
+OAuth tokens provider: tetap di `DATA_DIR` (model 9router), permission 0700 `router:router`.
 **Jangan** taruh di repo, **jangan** di world-readable home root.
 
 Backup secrets: copy encrypted off-box (user policy); v1 cukup `tar` data dir harian lokal `/var/lib/9router-mw/backups`.
@@ -333,12 +333,12 @@ Backup secrets: copy encrypted off-box (user policy); v1 cukup `tar` data dir ha
 
 ### 4.3 v1.1+ backlog
 
-1. Parallel `/v1/models` catalog fetch  
-2. Prometheus metrics scrape (reuse ggl-prometheus)  
-3. Docker image optional  
-4. DNS-only mode guide untuk SSE panjang  
-5. Multi-node (sticky + Redis already shared)  
-6. Windows local multi-worker experimental  
+1. Parallel `/v1/models` catalog fetch
+2. Prometheus metrics scrape (reuse ggl-prometheus)
+3. Docker image optional
+4. DNS-only mode guide untuk SSE panjang
+5. Multi-node (sticky + Redis already shared)
+6. Windows local multi-worker experimental
 
 ---
 
@@ -361,7 +361,7 @@ Backup secrets: copy encrypted off-box (user policy); v1 cukup `tar` data dir ha
 
 ## 6. Fase eksekusi long-run
 
-> Prinsip: **evidence before claim**. Setiap fase punya exit criteria.  
+> Prinsip: **evidence before claim**. Setiap fase punya exit criteria.
 > Agent = Owner/PM: urutan boleh digeser jika blocker, scope v1 tidak melar.
 
 ### Fase 0 — Bootstrap repo & workspace (hari 0)
@@ -371,9 +371,9 @@ Backup secrets: copy encrypted off-box (user policy); v1 cukup `tar` data dir ha
 1. GitHub: create `fazulfi/9router-mw` (fork UI atau `gh repo fork decolua/9router --fork-name 9router-mw`).
 2. Local: clone ke `C:\Users\faizz\9router` (replace/merge AGENTS.md carefully).
 3. Remotes:
-   - `origin` → `fazulfi/9router-mw`
-   - `upstream` → `decolua/9router`
-   - `vans` → `Vanszs/VansRouter` (read-only reference)
+ - `origin` → `fazulfi/9router-mw`
+ - `upstream` → `decolua/9router`
+ - `vans` → `Vanszs/VansRouter` (read-only reference)
 4. Branch `main` track origin; tag `base/0.5.35` (atau version upstream saat fork).
 5. Commit dokumen plan ini ke `docs/plans/9router-mw-production-plan.md`.
 6. Catat baseline version di `VERSION` / package.json strategy (`0.5.35-mw.0` pre-feature).
@@ -389,9 +389,9 @@ Backup secrets: copy encrypted off-box (user policy); v1 cukup `tar` data dir ha
 3. SSH key untuk `router` (opsional).
 4. Install build deps better-sqlite3 (`build-essential`, `python3`).
 5. **Dedicated Redis** container `9router-mw-redis` port **6381**, password, restart unless-stopped, volume `/var/lib/9router-mw/redis`.
-6. **Jangan** sentuh ggl-redis / app-redis / gamesim / zstore / gomerch configs kecuali Nginx **add** site.
+6. **Jangan** sentuh ggl-redis / app-redis / [CO-TENANT-C] / [CO-TENANT-B] / [CO-TENANT-A] configs kecuali Nginx **add** site.
 7. Add swap 2G (opsional tapi recommended).
-8. Cloudflare: user buat record `router` A → `82.25.62.204` Proxied.
+8. Cloudflare: user buat record `router` A → `[REDACTED-VPS]` Proxied.
 
 **Exit:** `redis-cli -p 6381 -a ... PING` = PONG; user `router` exists; ports still free for 20128.
 
@@ -400,7 +400,7 @@ Backup secrets: copy encrypted off-box (user policy); v1 cukup `tar` data dir ha
 **Langkah:**
 
 1. Deploy stock 9router (pre-MW) as single process di `/opt/9router-mw` listen 127.0.0.1:20128.
-2. Nginx site `router.budgezen.com` → 20128 (SSE headers).
+2. Nginx site `example.com` → 20128 (SSE headers).
 3. Smoke: health + `/v1/models` + 1 chat.
 4. k6 baseline **single-process** → simpan `docs/bench/baseline-single-YYYYMMDD.json`.
 
@@ -521,11 +521,11 @@ WantedBy=multi-user.target
 
 ### 7.2 Nginx site (sketsa)
 
-- `server_name router.budgezen.com;`
+- `server_name example.com;`
 - SSL: Cloudflare origin cert (pattern existing `/etc/nginx/ssl/`) **atau** LE
 - `proxy_pass http://127.0.0.1:20128;`
 - SSE settings §3.6
-- **Jangan** set `default_server` (gomerch sudah pegang)
+- **Jangan** set `default_server` ([CO-TENANT-A] sudah pegang)
 
 ### 7.3 Rollback
 
@@ -634,7 +634,7 @@ R=Responsible, A=Accountable, C=Consulted, I=Informed
 
 Checklist final:
 
-- [ ] DNS `router.budgezen.com` → hijau Cloudflare
+- [ ] DNS `example.com` → hijau Cloudflare
 - [ ] HTTPS valid di browser
 - [ ] Dashboard login OK public
 - [ ] `/v1/*` API key works
@@ -660,7 +660,7 @@ Checklist final:
 | Chat wire | `open-sse/handlers/chatCore.js`, `src/sse/handlers/chat.js` |
 | DB | `src/lib/db/*` pragma + native require |
 | Health | existing health route + extend |
-| Deploy | `deploy/nginx/router.budgezen.com.conf`, `deploy/systemd/9router-mw.service`, `deploy/redis/docker-compose.yml` |
+| Deploy | `deploy/nginx/example.com.conf`, `deploy/systemd/9router-mw.service`, `deploy/redis/docker-compose.yml` |
 | Bench | `bench/k6/*.js`, `bench/mock-upstream/*` |
 | Docs | `docs/plans/*`, `docs/runbooks/*`, `docs/bench/*` |
 
@@ -679,8 +679,8 @@ Checklist final:
 
 | Q | User | Keputusan di plan |
 |---|------|-------------------|
-| 1 VPS | SSH root@82.25.62.204, audit sendiri, user independen nopasswd | §2 inventory + user `router` |
-| 2 Domain | Screenshot Cloudflare budgezen.com | `router.budgezen.com` baru |
+| 1 VPS | SSH user@[REDACTED-VPS], audit sendiri, user independen nopasswd | §2 inventory + user `router` |
+| 2 Domain | Screenshot Cloudflare example.com | `example.com` baru |
 | 3 Redis | Same VPS | Dedicated :6381 |
 | 4 Path | Cek sendiri | `/var/lib/9router-mw`, `/opt/9router-mw` |
 | 5 Auth | API key only | D11 |
@@ -708,15 +708,15 @@ Checklist final:
 
 Dokumen ini **FINAL untuk eksekusi**. Tidak butuh revisi besar kecuali:
 
-- Domain bukan `router.budgezen.com` (ganti 1 baris DNS)
+- Domain bukan `example.com` (ganti 1 baris DNS)
 - Redis port bentrok (audit ulang saat eksekusi)
 
 **Untuk mulai long-run, balas salah satu:**
 
-1. `mulai fase 0` — fork/clone/remotes + commit plan  
-2. `mulai fase 0–1` — sekalian bootstrap VPS user+redis  
-3. `revisi: <poin>` — hanya jika ada koreksi eksplisit  
+1. `mulai fase 0` — fork/clone/remotes + commit plan
+2. `mulai fase 0–1` — sekalian bootstrap VPS user+redis
+3. `revisi: <poin>` — hanya jika ada koreksi eksplisit
 
 ---
 
-*Dokumen disiapkan sebagai Owner/PM 9router-MW. Evidence VPS: audit SSH 2026-07-19 pada `faiz-prod-01` / `82.25.62.204`.*
+*Dokumen disiapkan sebagai Owner/PM 9router-MW. Evidence VPS: audit SSH 2026-07-19 pada `[REDACTED-HOST]` / `[REDACTED-VPS]`.*

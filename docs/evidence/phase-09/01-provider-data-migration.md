@@ -1,15 +1,15 @@
 # Phase-09 — Provider data migration evidence
 
-**Date:** 2026-07-19  
-**Operator:** agent (SSH)  
+**Date:** 2026-07-19
+**Operator:** agent (SSH)
 **Scope:** provider-related data only; **exclude mimo**
 
 ## Source
 
 | Item | Value |
 |------|--------|
-| SSH | `root@49.12.82.34` port **39999** |
-| Hostname | ninerouter-vps |
+| SSH | `user@[REDACTED-VPS-LEGACY]` port **[REDACTED]** |
+| Hostname | [REDACTED-HOST-LEGACY] |
 | Active service | `9router.service` → `/usr/lib/node_modules/9router/app/custom-server.js` |
 | DATA_DIR | `/var/lib/9router` |
 | Live DB | `/var/lib/9router/db/data.sqlite` (~1.2G + WAL) |
@@ -34,15 +34,15 @@
 
 | id | type | name | baseUrl |
 |----|------|------|---------|
-| anthropic-compatible-ca668c61-… | anthropic-compatible | apikeyfun | https://api.apikey.fun/v1 |
-| openai-compatible-chat-701f9473-… | openai-compatible | inv=ferhub | https://api.inferhub.dev/v1 |
-| openai-compatible-chat-10e8650a-… | openai-compatible | tokenrouter | https://api.tokenrouter.com/v1 |
+| anthropic-compatible-ca668c61-… | anthropic-compatible | [custom-node-1] | https://api.example-provider-1.invalid/v1 |
+| openai-compatible-chat-701f9473-… | openai-compatible | [custom-node-2] | https://api.[custom-node-2].dev/v1 |
+| openai-compatible-chat-10e8650a-… | openai-compatible | [custom-node-3] | https://api.[custom-node-3].com/v1 |
 
 ## Destination
 
 | Item | Value |
 |------|--------|
-| SSH | `root@82.25.62.204` |
+| SSH | `user@[REDACTED-VPS]` |
 | Service | `9router-mw.service` |
 | DB | `/var/lib/9router-mw/db/data.sqlite` |
 | Owner | `router:router` |
@@ -78,20 +78,20 @@ combos 8
 apiKeys 0
 kv [('customModels', 48), ('modelAliases', 56)]
 mimo 0
-nodes: apikeyfun, tokenrouter, inv=ferhub
+nodes: [custom-node-1], [custom-node-3], [custom-node-2]
 ```
 
 ## Explicitly NOT migrated
 
-- `apiKeys` (7 on source) — create new keys on MW if needed  
-- Full `settings` blob (may contain mimo strategies)  
-- `usageHistory` / `usageDaily` / `requestDetails`  
-- Other kv scopes beyond customModels / modelAliases  
+- `apiKeys` (7 on source) — create new keys on MW if needed
+- Full `settings` blob (may contain mimo strategies)
+- `usageHistory` / `usageDaily` / `requestDetails`
+- Other kv scopes beyond customModels / modelAliases
 
 ## Safety
 
-- Foreign stacks on dest VPS (ggl redis 6379, app redis 6380) not modified  
-- Secrets never committed to git  
+- Foreign stacks on dest VPS (ggl redis 6379, app redis 6380) not modified
+- Secrets never committed to git
 - DB backups retained under `/var/lib/9router-mw/db/backups/`
 
 ## Status

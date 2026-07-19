@@ -1,4 +1,4 @@
-﻿               total        used        free      shared  buff/cache   available
+               total        used        free      shared  buff/cache   available
 Mem:            15Gi       2.3Gi       3.1Gi        79Mi        10Gi        12Gi
 Swap:             0B          0B          0B
 ---
@@ -10,6 +10,6 @@ id: ‘router’: no such user
 ---
 nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
 nginx: configuration file /etc/nginx/nginx.conf test is successful
-gomerch
-zstore-ts
-zstore-webhook
+[CO-TENANT-A]
+[CO-TENANT-B-ts]
+[CO-TENANT-B-webhook]

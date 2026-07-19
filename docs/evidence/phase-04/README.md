@@ -36,8 +36,8 @@ Cross-worker shared state on dedicated Redis `127.0.0.1:6381` only:
 
 ```bash
 # as root on VPS after push
-scp docs/deploy/f4-deploy-redis.sh root@82.25.62.204:/tmp/
-ssh root@82.25.62.204 'bash /tmp/f4-deploy-redis.sh'
+scp docs/deploy/f4-deploy-redis.sh user@[REDACTED-VPS]:/tmp/
+ssh user@[REDACTED-VPS] 'bash /tmp/f4-deploy-redis.sh'
 ```
 
 ## Evidence files

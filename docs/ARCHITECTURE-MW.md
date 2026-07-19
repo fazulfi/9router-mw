@@ -1,9 +1,9 @@
 # 9router-MW Architecture (Production)
 
-> **Status:** PRODUCTION FINAL · live **`0.5.35-mw.7`** (2026-07-19)  
-> **Verified against:** `https://router.budgezen.com/api/health` · host `faiz-prod-01` · bind `127.0.0.1:20128` · Redis `127.0.0.1:6381`  
-> **SSOT release:** [`docs/RELEASE.md`](./RELEASE.md)  
-> **Upstream (stock single-process):** [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) — **not** this topology  
+> **Status:** PRODUCTION FINAL · live **`0.5.35-mw.7`** (2026-07-19)
+> **Verified against:** `https://example.com/api/health` · host `[REDACTED-HOST]` · bind `127.0.0.1:20128` · Redis `127.0.0.1:6381`
+> **SSOT release:** [`docs/RELEASE.md`](./RELEASE.md)
+> **Upstream (stock single-process):** [`docs/ARCHITECTURE.md`](./ARCHITECTURE.md) — **not** this topology
 > **Plan:** [`docs/plans/9router-mw-production-plan.md`](./plans/9router-mw-production-plan.md)
 
 ---
@@ -23,60 +23,60 @@ If a diagram shows a single process box, `db.json`, or `usage.json + log.txt` as
 
 ```mermaid
 flowchart TB
-    subgraph Clients["Developer clients"]
-        BROWSER["Browser Dashboard"]
-        CC["Claude Code"]
-        OC["OpenCode / Codex CLI"]
-        AGENTS["Cline / Continue / Roo / custom OpenAI clients"]
-    end
+ subgraph Clients["Developer clients"]
+ BROWSER["Browser Dashboard"]
+ CC["Claude Code"]
+ OC["OpenCode / Codex CLI"]
+ AGENTS["Cline / Continue / Roo / custom OpenAI clients"]
+ end
 
-    subgraph Edge["Public edge"]
-        CF["Cloudflare DNS Proxied\nrouter.budgezen.com"]
-        NGX["Nginx :443\nOrigin CA · Full strict"]
-    end
+ subgraph Edge["Public edge"]
+ CF["Cloudflare DNS Proxied\nexample.com"]
+ NGX["Nginx :443\nOrigin CA · Full strict"]
+ end
 
-    subgraph Host["VPS faiz-prod-01 · Linux baremetal"]
-        subgraph Cluster["Node cluster · custom-server.js"]
-            PRIMARY["Primary process\nfork + respawn only\nno request handling"]
-            W1["Worker 1\nNext standalone + open-sse"]
-            W2["Worker 2\nNext standalone + open-sse"]
-            W3["Worker 3\nNext standalone + open-sse"]
-            W4["Worker 4\nNext standalone + open-sse"]
-            PRIMARY -.->|cluster.fork| W1
-            PRIMARY -.->|cluster.fork| W2
-            PRIMARY -.->|cluster.fork| W3
-            PRIMARY -.->|cluster.fork| W4
-        end
+ subgraph Host["VPS [REDACTED-HOST] · Linux baremetal"]
+ subgraph Cluster["Node cluster · custom-server.js"]
+ PRIMARY["Primary process\nfork + respawn only\nno request handling"]
+ W1["Worker 1\nNext standalone + open-sse"]
+ W2["Worker 2\nNext standalone + open-sse"]
+ W3["Worker 3\nNext standalone + open-sse"]
+ W4["Worker 4\nNext standalone + open-sse"]
+ PRIMARY -.->|cluster.fork| W1
+ PRIMARY -.->|cluster.fork| W2
+ PRIMARY -.->|cluster.fork| W3
+ PRIMARY -.->|cluster.fork| W4
+ end
 
-        REDIS[("Redis 127.0.0.1:6381\nDocker 9router-mw-redis\nsemaphore · breaker\nusage buffer · mw:live:*")]
-        SQLITE[("SQLite WAL\n/var/lib/9router-mw/db/data.sqlite\nbetter-sqlite3 · source of truth")]
-    end
+ REDIS[("Redis 127.0.0.1:6381\nDocker 9router-mw-redis\nsemaphore · breaker\nusage buffer · mw:live:*")]
+ SQLITE[("SQLite WAL\n/var/lib/9router-mw/db/data.sqlite\nbetter-sqlite3 · source of truth")]
+ end
 
-    subgraph Upstreams["Upstream providers"]
-        OAUTH["OAuth providers\nClaude / Codex / Gemini / Qwen / Kiro / …"]
-        APIKEY["API key providers\nOpenAI / Anthropic / OpenRouter / DeepSeek / …"]
-        NODES["Compatible nodes\nOpenAI-compatible / Anthropic-compatible\nproviderNodes + customModels"]
-    end
+ subgraph Upstreams["Upstream providers"]
+ OAUTH["OAuth providers\nClaude / Codex / Gemini / Qwen / Kiro / …"]
+ APIKEY["API key providers\nOpenAI / Anthropic / OpenRouter / DeepSeek / …"]
+ NODES["Compatible nodes\nOpenAI-compatible / Anthropic-compatible\nproviderNodes + customModels"]
+ end
 
-    BROWSER --> CF
-    CC --> CF
-    OC --> CF
-    AGENTS --> CF
-    CF --> NGX
-    NGX -->|"proxy_pass 127.0.0.1:20128"| Cluster
+ BROWSER --> CF
+ CC --> CF
+ OC --> CF
+ AGENTS --> CF
+ CF --> NGX
+ NGX -->|"proxy_pass 127.0.0.1:20128"| Cluster
 
-    W1 & W2 & W3 & W4 --> REDIS
-    W1 & W2 & W3 & W4 --> SQLITE
-    W1 & W2 & W3 & W4 -->|"undici keep-alive Agent"| OAUTH
-    W1 & W2 & W3 & W4 -->|"undici keep-alive Agent"| APIKEY
-    W1 & W2 & W3 & W4 -->|"undici keep-alive Agent"| NODES
+ W1 & W2 & W3 & W4 --> REDIS
+ W1 & W2 & W3 & W4 --> SQLITE
+ W1 & W2 & W3 & W4 -->|"undici keep-alive Agent"| OAUTH
+ W1 & W2 & W3 & W4 -->|"undici keep-alive Agent"| APIKEY
+ W1 & W2 & W3 & W4 -->|"undici keep-alive Agent"| NODES
 ```
 
 ### Edge facts (live)
 
 | Layer | Actual |
 | ----- | ------ |
-| Public hostname | `https://router.budgezen.com` |
+| Public hostname | `https://example.com` |
 | Edge TLS | Cloudflare Proxied + Nginx Origin CA, SSL mode **Full (strict)** |
 | App bind | **`127.0.0.1:20128` only** (not public) |
 | Redis bind | **`127.0.0.1:6381` only** (foreign `:6379` / `:6380` untouched) |
@@ -88,40 +88,40 @@ flowchart TB
 
 ## 3. Inside one worker (request path)
 
-Each worker is a full **Next.js standalone** process (dashboard + `/api/*` + `/v1/*`).  
+Each worker is a full **Next.js standalone** process (dashboard + `/api/*` + `/v1/*`).
 Cluster sharing means **one accepted connection → one worker** (no fan-out).
 
 ```mermaid
 flowchart LR
-    REQ["HTTP request\n/v1/* or /api/*"] --> NEXT["Next.js routes\nsrc/app/api"]
-    NEXT --> SSE["src/sse handlers"]
-    SSE --> CORE["open-sse chatCore\nformat · RTK · translate"]
-    CORE --> EXEC["Executor\nproxyAwareFetch + undici"]
-    EXEC --> UP["Upstream provider"]
-    CORE --> LIVE["liveUsageState\nmw:live:*"]
-    CORE --> UB["usageBuffer → Redis queue"]
-    UB --> FLUSH["async flush"]
-    FLUSH --> SQL[("SQLite usageHistory")]
-    LIVE --> R[("Redis")]
-    CORE --> SEM["accountSemaphore\ncircuitBreaker"]
-    SEM --> R
-    CORE --> SQL2[("SQLite\nproviderConnections\nnodes · proxies · settings")]
+ REQ["HTTP request\n/v1/* or /api/*"] --> NEXT["Next.js routes\nsrc/app/api"]
+ NEXT --> SSE["src/sse handlers"]
+ SSE --> CORE["open-sse chatCore\nformat · RTK · translate"]
+ CORE --> EXEC["Executor\nproxyAwareFetch + undici"]
+ EXEC --> UP["Upstream provider"]
+ CORE --> LIVE["liveUsageState\nmw:live:*"]
+ CORE --> UB["usageBuffer → Redis queue"]
+ UB --> FLUSH["async flush"]
+ FLUSH --> SQL[("SQLite usageHistory")]
+ LIVE --> R[("Redis")]
+ CORE --> SEM["accountSemaphore\ncircuitBreaker"]
+ SEM --> R
+ CORE --> SQL2[("SQLite\nproviderConnections\nnodes · proxies · settings")]
 ```
 
 ### Hot path (chat)
 
 ```text
 Client → CF → Nginx → worker N :20128
-  → /v1/* rewrite → /api/v1/*
-  → src/sse/handlers/chat.js
-  → open-sse/handlers/chatCore.js
-       detect format → translate (or passthrough)
-       RTK / hooks (fail-open)
-       account claim (Redis semaphore) + circuit breaker
-  → open-sse/executors/*  (undici keep-alive)
-  → stream/non-stream response → client
-  → trackPending / pushRecent (Redis mw:live:*)
-  → usage buffer → SQLite history
+ → /v1/* rewrite → /api/v1/*
+ → src/sse/handlers/chat.js
+ → open-sse/handlers/chatCore.js
+ detect format → translate (or passthrough)
+ RTK / hooks (fail-open)
+ account claim (Redis semaphore) + circuit breaker
+ → open-sse/executors/* (undici keep-alive)
+ → stream/non-stream response → client
+ → trackPending / pushRecent (Redis mw:live:*)
+ → usage buffer → SQLite history
 ```
 
 ---
@@ -130,17 +130,17 @@ Client → CF → Nginx → worker N :20128
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant LB as Kernel cluster LB
-    participant W2 as Worker 2
-    participant U as Upstream
+ participant C as Client
+ participant LB as Kernel cluster LB
+ participant W2 as Worker 2
+ participant U as Upstream
 
-    C->>LB: 1× HTTP request
-    LB->>W2: deliver to exactly one worker
-    W2->>U: 1× upstream call
-    U-->>W2: response
-    W2-->>C: response
-    Note over C,U: Workers 1,3,4 do not see this request
+ C->>LB: 1× HTTP request
+ LB->>W2: deliver to exactly one worker
+ W2->>U: 1× upstream call
+ U-->>W2: response
+ W2-->>C: response
+ Note over C,U: Workers 1,3,4 do not see this request
 ```
 
 | Claim | Meaning |
@@ -167,31 +167,31 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    subgraph PerWorker["Per worker process memory"]
-        SETTINGS["settings cache ~5s TTL"]
-        UNDICI["undici Agent pool"]
-    end
+ subgraph PerWorker["Per worker process memory"]
+ SETTINGS["settings cache ~5s TTL"]
+ UNDICI["undici Agent pool"]
+ end
 
-    subgraph Redis6381["Redis :6381 shared"]
-        SEM["account semaphore keys"]
-        BRK["circuit breaker keys"]
-        UQ["usage queue buffer"]
-        LIVE["mw:live:cnt:* · mw:live:active\nmw:live:recent · mw:live:lastErr"]
-    end
+ subgraph Redis6381["Redis :6381 shared"]
+ SEM["account semaphore keys"]
+ BRK["circuit breaker keys"]
+ UQ["usage queue buffer"]
+ LIVE["mw:live:cnt:* · mw:live:active\nmw:live:recent · mw:live:lastErr"]
+ end
 
-    subgraph SQLiteWAL["SQLite WAL source of truth"]
-        PC["providerConnections"]
-        PN["providerNodes"]
-        PP["proxyPools"]
-        CB["combos"]
-        KV["kv customModels / modelAliases"]
-        UH["usageHistory / usageDaily"]
-        ST["settings"]
-    end
+ subgraph SQLiteWAL["SQLite WAL source of truth"]
+ PC["providerConnections"]
+ PN["providerNodes"]
+ PP["proxyPools"]
+ CB["combos"]
+ KV["kv customModels / modelAliases"]
+ UH["usageHistory / usageDaily"]
+ ST["settings"]
+ end
 
-    PerWorker --> Redis6381
-    PerWorker --> SQLiteWAL
-    Redis6381 -->|"async flush"| UH
+ PerWorker --> Redis6381
+ PerWorker --> SQLiteWAL
+ Redis6381 -->|"async flush"| UH
 ```
 
 | Store | Role | Not used in prod |
@@ -226,15 +226,15 @@ Health contract (live shape):
 
 ```json
 {
-  "ok": true,
-  "workerId": "1|2|3|4",
-  "pid": 123456,
-  "workers": 4,
-  "redis": { "ok": true, "mode": "redis", "status": "ready" },
-  "hotpath": {
-    "undici": { "enabled": true, "connections": 32, "keepAliveTimeout": 30000 },
-    "sqlite": { "driver": "better-sqlite3", "journalMode": "wal" }
-  }
+ "ok": true,
+ "workerId": "1|2|3|4",
+ "pid": 123456,
+ "workers": 4,
+ "redis": { "ok": true, "mode": "redis", "status": "ready" },
+ "hotpath": {
+ "undici": { "enabled": true, "connections": 32, "keepAliveTimeout": 30000 },
+ "sqlite": { "driver": "better-sqlite3", "journalMode": "wal" }
+ }
 }
 ```
 
@@ -242,13 +242,13 @@ Health contract (live shape):
 
 ## 7. Production invariants (never violate)
 
-1. **Workers = 4** on this production host (ops lock; code allows 4–16)  
-2. **Redis only port 6381** — never reuse foreign 6379/6380  
-3. **better-sqlite3 + WAL only** — no sql.js in prod multi-worker  
-4. **Bind localhost** — public only via Cloudflare + Nginx  
-5. **No secrets in git**  
-6. **No double-request** semantics (cluster = capacity)  
-7. **MITM OFF** in production  
+1. **Workers = 4** on this production host (ops lock; code allows 4–16)
+2. **Redis only port 6381** — never reuse foreign 6379/6380
+3. **better-sqlite3 + WAL only** — no sql.js in prod multi-worker
+4. **Bind localhost** — public only via Cloudflare + Nginx
+5. **No secrets in git**
+6. **No double-request** semantics (cluster = capacity)
+7. **MITM OFF** in production
 8. **Foreign stacks untouched** (other redis/app units on host)
 
 ---
@@ -285,13 +285,13 @@ Product capabilities (providers, combos, RTK, OpenAI `/v1`) remain; **runtime to
 ## 10. Verify live topology
 
 ```bash
-curl -sS https://router.budgezen.com/api/health | jq .
+curl -sS https://example.com/api/health | jq .
 # expect: ok=true, workers=4, redis.ok=true, undici.enabled, better-sqlite3, wal
 
 # on VPS
 ss -lntp | grep -E '20128|6381'
-# 127.0.0.1:20128  node
-# 127.0.0.1:6381   docker-proxy (9router-mw-redis)
+# 127.0.0.1:20128 node
+# 127.0.0.1:6381 docker-proxy (9router-mw-redis)
 
 readlink -f /opt/9router-mw/current
 cat /opt/9router-mw/current/VERSION

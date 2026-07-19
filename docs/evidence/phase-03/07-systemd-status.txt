@@ -1,25 +1,25 @@
 ● 9router-mw.service - 9router-MW production gateway
-     Loaded: loaded (/etc/systemd/system/9router-mw.service; enabled; preset: enabled)
-     Active: active (running) since Sat 2026-07-18 23:43:02 UTC; 6s ago
-       Docs: https://github.com/fazulfi/9router-mw
-   Main PID: 477394 (node)
-      Tasks: 51 (limit: 18653)
-     Memory: 312.7M (peak: 313.1M)
-        CPU: 6.595s
-     CGroup: /system.slice/9router-mw.service
-             ├─477394 /usr/bin/node --max-old-space-size=4096 custom-server.js
-             ├─477402 "next-server (v16.2.10)"
-             ├─477403 "next-server (v16.2.10)"
-             ├─477404 "next-server (v16.2.10)"
-             └─477410 "next-server (v16.2.10)"
+ Loaded: loaded (/etc/systemd/system/9router-mw.service; enabled; preset: enabled)
+ Active: active (running) since Sat 2026-07-18 23:43:02 UTC; 6s ago
+ Docs: https://github.com/fazulfi/9router-mw
+ Main PID: 477394 (node)
+ Tasks: 51 (limit: 18653)
+ Memory: 312.7M (peak: 313.1M)
+ CPU: 6.595s
+ CGroup: /system.slice/9router-mw.service
+ ├─477394 /usr/bin/node --max-old-space-size=4096 custom-server.js
+ ├─477402 "next-server (v16.2.10)"
+ ├─477403 "next-server (v16.2.10)"
+ ├─477404 "next-server (v16.2.10)"
+ └─477410 "next-server (v16.2.10)"
 
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477410]: - Network:       http://127.0.0.1:20128
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477410]: ✓ Ready in 0ms
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: ▲ Next.js 16.2.10
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: - Local:         http://127.0.0.1:20128
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: - Network:       http://127.0.0.1:20128
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: ✓ Ready in 0ms
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: ▲ Next.js 16.2.10
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: - Local:         http://127.0.0.1:20128
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: - Network:       http://127.0.0.1:20128
-Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: ✓ Ready in 0ms
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477410]: - Network: http://127.0.0.1:20128
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477410]: ✓ Ready in 0ms
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477402]: ▲ Next.js 16.2.10
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477402]: - Local: http://127.0.0.1:20128
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477402]: - Network: http://127.0.0.1:20128
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477402]: ✓ Ready in 0ms
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477404]: ▲ Next.js 16.2.10
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477404]: - Local: http://127.0.0.1:20128
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477404]: - Network: http://127.0.0.1:20128
+Jul 18 23:43:03 [REDACTED-HOST] 9router-mw[477404]: ✓ Ready in 0ms

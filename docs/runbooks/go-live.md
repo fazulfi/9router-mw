@@ -2,12 +2,12 @@
 
 ## Architecture (locked)
 
-CF → Nginx `router.budgezen.com` → `127.0.0.1:20128` → **4** workers (`cluster.fork`)  
+CF → Nginx `example.com` → `127.0.0.1:20128` → **4** workers (`cluster.fork`)
 Redis **only** `127.0.0.1:6381` · SQLite better-sqlite3+WAL · MITM **OFF**
 
 ## Pre-flight
 
-- [x] DNS A `router` → 82.25.62.204 (Cloudflare Proxied) — verified 2026-07-19
+- [x] DNS A `router` → [REDACTED-VPS] (Cloudflare Proxied) — verified 2026-07-19
 - [x] Nginx site enabled, SSL OK (Cloudflare Origin CA), not default_server
 - [x] Cloudflare SSL/TLS mode: **Full (strict)**
 - [x] `systemctl is-enabled 9router-mw` + active
@@ -21,7 +21,7 @@ Redis **only** `127.0.0.1:6381` · SQLite better-sqlite3+WAL · MITM **OFF**
 ## Go-live (public edge)
 
 1. [x] Tag release `v0.5.35-mw.5` (ops harden) + `v0.5.35-mw.6` (final docs + migration)
-2. [x] Public HTTPS: `https://router.budgezen.com/api/health` → **200** (2026-07-19)
+2. [x] Public HTTPS: `https://example.com/api/health` → **200** (2026-07-19)
 3. [x] API key policy for remote `/v1/*` enforced (`401` without key)
 4. [x] Provider data migrated (non-mimo connections + custom nodes + proxy pools + combos + model kv) — `docs/evidence/phase-09/`
 5. [ ] Low-QPS real provider smoke (optional; credentials in DB)
@@ -30,10 +30,10 @@ Redis **only** `127.0.0.1:6381` · SQLite better-sqlite3+WAL · MITM **OFF**
 ## Public verify commands
 
 ```bash
-curl -sS https://router.budgezen.com/api/health
+curl -sS https://example.com/api/health
 # expect ok:true, workers:4, redis.ok, undici, better-sqlite3/wal
 
-curl -sS https://router.budgezen.com/v1/models
+curl -sS https://example.com/v1/models
 # expect 401 API key required (without Authorization)
 ```
 

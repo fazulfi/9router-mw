@@ -1,6 +1,6 @@
 # HANDOFF PROMPT — 9router-MW Long-Run Executor
 
-> **Copy-paste SELURUH isi section "PROMPT UNTUK SESSION EKSEKUTOR" di bawah ke session OpenCode/agent baru.**  
+> **Copy-paste SELURUH isi section "PROMPT UNTUK SESSION EKSEKUTOR" di bawah ke session OpenCode/agent baru.**
 > Session ini (PM) **tidak** mengimplementasi. Session penerima = pelaksana end-to-end sampai production 100%.
 
 ---
@@ -40,8 +40,8 @@ Fork & bangun **9router-mw** multi-worker production gateway:
 | Workers | **Always 4** via `cluster.fork` di `custom-server.js` (bukan PM2 primary) |
 | Redis | Dedicated **127.0.0.1:6381** only — **JANGAN** pakai 6379 (ggl) / 6380 (app) |
 | SQLite | better-sqlite3 + WAL; **ban sql.js** di prod multi-worker |
-| Domain | `router.budgezen.com` |
-| VPS | `root@82.25.62.204` (`faiz-prod-01`, Ubuntu 24.04, 4vCPU/15GB) |
+| Domain | `example.com` |
+| VPS | `user@[REDACTED-VPS]` (`[REDACTED-HOST]`, Ubuntu 24.04, 4vCPU/15GB) |
 | Process | systemd User=`router`, listen **127.0.0.1:20128** only |
 | Auth | API key only pada `/v1/*` |
 | Dashboard | Public di internet (login 9router), di belakang Nginx+Cloudflare |
@@ -57,12 +57,12 @@ Fork & bangun **9router-mw** multi-worker production gateway:
 
 ```
 Internet → Cloudflare (DNS + proxy TLS)
-        → Nginx :443 (VPS)
-        → 127.0.0.1:20128 (Node cluster primary)
-        → 4× worker (cluster.fork)
-             ├─ undici keep-alive → upstream providers
-             ├─ Redis dedicated :6381 — semaphore, breaker, usage buffer
-             └─ SQLite WAL /var/lib/9router-mw — source of truth
+ → Nginx :443 (VPS)
+ → 127.0.0.1:20128 (Node cluster primary)
+ → 4× worker (cluster.fork)
+ ├─ undici keep-alive → upstream providers
+ ├─ Redis dedicated :6381 — semaphore, breaker, usage buffer
+ └─ SQLite WAL /var/lib/9router-mw — source of truth
 MITM: OFF
 ```
 
@@ -70,12 +70,12 @@ MITM: OFF
 
 Path layout prod:
 ```
-/opt/9router-mw/          # code (releases + current symlink)
-/var/lib/9router-mw/      # data 0700
-/etc/9router-mw/env       # secrets 0600
+/opt/9router-mw/ # code (releases + current symlink)
+/var/lib/9router-mw/ # data 0700
+/etc/9router-mw/env # secrets 0600
 ```
 
-Isolasi multi-tenant VPS: **jangan sentuh** gomerch, zstore, GGL gamesim, hermes, NATS, ggl-redis:6379, app-redis:6380, Postgres existing. Nginx: **hanya ADD** server block, jangan rewrite default_server.
+Isolasi multi-tenant VPS: **jangan sentuh** [CO-TENANT-A], [CO-TENANT-B], GGL [CO-TENANT-C], [CO-TENANT-D], NATS, ggl-redis:6379, app-redis:6380, Postgres existing. Nginx: **hanya ADD** server block, jangan rewrite default_server.
 
 ---
 
@@ -134,7 +134,7 @@ Gunakan subagent **agresif & paralel** untuk kualitas:
 | Browser smoke dashboard | skill `dev-browser` / playwright |
 | Find more skills jika gap | skill `find-skills` — **install skill berguna SEBELUM implementasi besar** |
 
-**Anti-pattern:** kerjakan semua sendiri sequential padahal 4 workstream independen.  
+**Anti-pattern:** kerjakan semua sendiri sequential padahal 4 workstream independen.
 **Wajib:** dekomposisi + parallel subagents untuk research & implementation units.
 
 ---
@@ -166,47 +166,47 @@ Buat tree ini di repo (enterprise):
 
 ```
 docs/
-  plans/
-    9router-mw-production-plan.md          # sudah ada — commit
-    HANDOFF-EXECUTOR-PROMPT.md             # prompt ini
-  execution/
-    README.md                              # index fase + status
-    phase-00-bootstrap.md
-    phase-01-vps-isolation.md
-    ...
-    phase-09-operate.md
-    decisions-log.md                       # ADRs kecil / waiver
-    blockers.md
-  evidence/
-    phase-00/
-      01-fork-repo.txt
-      02-remotes.txt
-      ...
-    phase-01/
-      ...
-    phase-07/
-      k6-baseline-single.json
-      k6-mw-ramp.json
-      report-mw-YYYYMMDD.md
-    phase-08/
-      rollback-drill.md
-      smoke-real-provider.md
-  runbooks/
-    deploy.md
-    rollback.md
-    backup-restore.md
-    upstream-sync.md
-    incident.md
-    secrets-rotation.md
-  bench/
-    (hasil k6 + report)
+ plans/
+ 9router-mw-production-plan.md # sudah ada — commit
+ HANDOFF-EXECUTOR-PROMPT.md # prompt ini
+ execution/
+ README.md # index fase + status
+ phase-00-bootstrap.md
+ phase-01-vps-isolation.md
+ ...
+ phase-09-operate.md
+ decisions-log.md # ADRs kecil / waiver
+ blockers.md
+ evidence/
+ phase-00/
+ 01-fork-repo.txt
+ 02-remotes.txt
+ ...
+ phase-01/
+ ...
+ phase-07/
+ k6-baseline-single.json
+ k6-mw-ramp.json
+ report-mw-YYYYMMDD.md
+ phase-08/
+ rollback-drill.md
+ smoke-real-provider.md
+ runbooks/
+ deploy.md
+ rollback.md
+ backup-restore.md
+ upstream-sync.md
+ incident.md
+ secrets-rotation.md
+ bench/
+ (hasil k6 + report)
 deploy/
-  nginx/
-  systemd/
-  redis/
+ nginx/
+ systemd/
+ redis/
 bench/
-  k6/
-  mock-upstream/
+ k6/
+ mock-upstream/
 ```
 
 **Evidence rule per step:**
@@ -219,7 +219,7 @@ bench/
 # Evidence: <step-id> <title>
 - Phase: N
 - Date (UTC): ...
-- Host: local | faiz-prod-01
+- Host: local | [REDACTED-HOST]
 - Git SHA: ...
 - Operator: agent
 - Result: PASS | FAIL
@@ -231,14 +231,14 @@ bench/
 
 **Commit policy (enterprise):**
 - Atomic commits, message conventional:
-  - `docs(phase-N): ...`
-  - `feat(mw-cluster): ...`
-  - `feat(mw-redis): ...`
-  - `feat(mw-resilience): ...`
-  - `perf(undici): ...`
-  - `chore(deploy): ...`
-  - `test(bench): ...`
-  - `fix(...): ...`
+ - `docs(phase-N): ...`
+ - `feat(mw-cluster): ...`
+ - `feat(mw-redis): ...`
+ - `feat(mw-resilience): ...`
+ - `perf(undici): ...`
+ - `chore(deploy): ...`
+ - `test(bench): ...`
+ - `fix(...): ...`
 - Body: why, risk, evidence path
 - **Wajib** skill `git-master` untuk commit
 - Push ke `origin` (`fazulfi/9router-mw`) rutin per fase
@@ -258,13 +258,13 @@ bench/
 **Execute:**
 1. `gh repo fork decolua/9router --fork-name 9router-mw` (atau create + mirror) → `fazulfi/9router-mw`
 2. Clone ke workspace yang disepakati. **Hati-hati** preserve/merge:
-   - `docs/plans/9router-mw-production-plan.md`
-   - `docs/plans/HANDOFF-EXECUTOR-PROMPT.md`
-   - `AGENTS.md` katalog skill (jangan timpa tanpa merge)
+ - `docs/plans/9router-mw-production-plan.md`
+ - `docs/plans/HANDOFF-EXECUTOR-PROMPT.md`
+ - `AGENTS.md` katalog skill (jangan timpa tanpa merge)
 3. Remotes:
-   - `origin` = `fazulfi/9router-mw`
-   - `upstream` = `decolua/9router`
-   - `vans` = `Vanszs/VansRouter` (read-only)
+ - `origin` = `fazulfi/9router-mw`
+ - `upstream` = `decolua/9router`
+ - `vans` = `Vanszs/VansRouter` (read-only)
 4. Tag `base/0.5.35` (atau versi upstream saat fork)
 5. Version strategy: `0.5.35-mw.0` pre-feature di package / VERSION doc
 6. Commit plan + docs skeleton + evidence phase-00
@@ -289,15 +289,15 @@ bench/
 2. Sudoers drop-in terbatas (systemctl/journalctl 9router-mw, nginx reload) — lihat plan §2.5
 3. build-essential + python3 untuk better-sqlite3
 4. Redis Docker **dedicated** `9router-mw-redis`:
-   - bind 127.0.0.1:**6381**
-   - requirepass strong
-   - maxmemory 256mb, allkeys-lru
-   - volume under `/var/lib/9router-mw/redis`
-   - restart unless-stopped
+ - bind 127.0.0.1:**6381**
+ - requirepass strong
+ - maxmemory 256mb, allkeys-lru
+ - volume under `/var/lib/9router-mw/redis`
+ - restart unless-stopped
 5. **JANGAN** touch ggl-redis/app-redis
 6. Swap 2G recommended
 7. Simpan password Redis di `/etc/9router-mw/env` 0600 — **bukan** git
-8. User action needed: Cloudflare A record `router` → `82.25.62.204` Proxied — **dokumentasikan blocker** jika belum; agent boleh continue offline smoke via IP+Host header / local
+8. User action needed: Cloudflare A record `router` → `[REDACTED-VPS]` Proxied — **dokumentasikan blocker** jika belum; agent boleh continue offline smoke via IP+Host header / local
 
 **Exit:**
 - [ ] `redis-cli -p 6381 -a ... PING` = PONG (evidence)
@@ -311,7 +311,7 @@ bench/
 
 **Execute:**
 1. Deploy stock 9router (pre-MW code / WORKERS effectively 1) ke `/opt/9router-mw`
-2. Nginx site `router.budgezen.com` → 127.0.0.1:20128 dengan SSE headers (plan §3.6)
+2. Nginx site `example.com` → 127.0.0.1:20128 dengan SSE headers (plan §3.6)
 3. Smoke: health, `/v1/models`, 1 chat (mock atau real low)
 4. k6 baseline single → `docs/bench/baseline-single-YYYYMMDD.json` + evidence
 
@@ -388,11 +388,11 @@ bench/
 1. Mock upstream: SSE chunks + atomic `upstream_hits`
 2. k6: baseline_single, mw_ramp 0→200, mw_soak 30m, chaos kill worker
 3. Assert:
-   - 200 concurrent stable
-   - p95 TTFB mock < 2s
-   - error non-upstream < 1%
-   - throughput ≥ 1.5× single
-   - upstream_hits == client_requests
+ - 200 concurrent stable
+ - p95 TTFB mock < 2s
+ - error non-upstream < 1%
+ - throughput ≥ 1.5× single
+ - upstream_hits == client_requests
 4. Report: `docs/bench/report-mw-YYYYMMDD.md`
 
 **Exit:** §5 plan all green OR written waiver + fix loop (jangan fake green).
@@ -415,7 +415,7 @@ bench/
 
 ## FASE 9 — Operate notes
 
-Document monthly upstream sync procedure (MW layer never overwritten).  
+Document monthly upstream sync procedure (MW layer never overwritten).
 Do not block go-live on phase 9 full cycle; document only is OK for v1.
 
 ---
@@ -424,7 +424,7 @@ Do not block go-live on phase 9 full cycle; document only is OK for v1.
 
 Semua harus PASS + evidence:
 
-- [ ] DNS `router.budgezen.com` Cloudflare hijau (user DNS — agent document + verify)
+- [ ] DNS `example.com` Cloudflare hijau (user DNS — agent document + verify)
 - [ ] HTTPS browser OK
 - [ ] Dashboard login public OK
 - [ ] `/v1/*` API key works
@@ -487,9 +487,9 @@ Kerjakan sampai selesai. Long-run. Unlimited subagent. Unlimited granular todos.
 1. Buka **session OpenCode baru** (workspace `C:\Users\faizz\9router`).
 2. Paste **seluruh** blok di dalam fenced `PROMPT UNTUK SESSION EKSEKUTOR` (atau attach file ini + tulis: "eksekusi sesuai HANDOFF-EXECUTOR-PROMPT.md").
 3. Pastikan session punya:
-   - akses `gh` sebagai `fazulfi`
-   - SSH ke `root@82.25.62.204` (atau key yang sama)
-   - network untuk clone/fork/npm
+ - akses `gh` sebagai `fazulfi`
+ - SSH ke `user@[REDACTED-VPS]` (atau key yang sama)
+ - network untuk clone/fork/npm
 4. PM session ini **berhenti di sini** — tidak implementasi.
 
 ## Catatan PM
@@ -499,7 +499,7 @@ Kerjakan sampai selesai. Long-run. Unlimited subagent. Unlimited granular todos.
 | Plan locked | `docs/plans/9router-mw-production-plan.md` |
 | Handoff prompt | file ini |
 | Local clone source | belum — executor Fase 0 |
-| DNS `router.budgezen.com` | user action di Cloudflare (executor document blocker) |
+| DNS `example.com` | user action di Cloudflare (executor document blocker) |
 | gh CLI | `fazulfi` authenticated (verified PM session) |
 
 ---

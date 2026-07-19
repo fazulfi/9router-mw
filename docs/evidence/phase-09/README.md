@@ -1,9 +1,9 @@
 # Phase-09 Evidence — Operate + data migration finalize
 
-**Tag:** `v0.5.35-mw.6`  
-**Date:** 2026-07-19  
-**Live app:** `0.5.35-mw.4`  
-**Public:** https://router.budgezen.com
+**Tag:** `v0.5.35-mw.6`
+**Date:** 2026-07-19
+**Live app:** `0.5.35-mw.4`
+**Public:** https://example.com
 
 ## Exit — MET
 

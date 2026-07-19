@@ -1,6 +1,6 @@
-﻿# phase-01 post-bootstrap proof (NO SECRETS)
+# phase-01 post-bootstrap proof (NO SECRETS)
 timestamp_utc: 2026-07-18T23:08:43Z
-host: faiz-prod-01 (root@82.25.62.204)
+host: [REDACTED-HOST] (user@[REDACTED-VPS])
 
 ## F1.1 Audit result
 - 20128: FREE (pre-bootstrap)
@@ -8,7 +8,7 @@ host: faiz-prod-01 (root@82.25.62.204)
 - 6379: ggl-redis (NOAUTH required) UNTOUCHED
 - 6380: app-redis-1 (PONG) UNTOUCHED
 - CPU 4, RAM 15Gi, disk 83G free
-- nginx active; sites: gomerch, zstore-ts, zstore-webhook
+- nginx active; sites: [CO-TENANT-A], [CO-TENANT-B-ts], [CO-TENANT-B-webhook]
 - node v20.20.2 / npm 10.8.2
 - build-essential + python3 present
 

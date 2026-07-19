@@ -1,9 +1,9 @@
 # Production performance report — organic + post-fix soak
 
-**Date:** 2026-07-19 (UTC)  
-**Public endpoint:** https://router.budgezen.com  
-**Live binary:** `0.5.35-mw.4` (4 workers, Redis `:6381`, undici, better-sqlite3 + WAL)  
-**Host:** `faiz-prod-01` / `82.25.62.204`  
+**Date:** 2026-07-19 (UTC)
+**Public endpoint:** https://example.com
+**Live binary:** `0.5.35-mw.4` (4 workers, Redis `:6381`, undici, better-sqlite3 + WAL)
+**Host:** `[REDACTED-HOST]` / `[REDACTED-VPS]`
 **Related gate:** [`report-mw-20260719.md`](./report-mw-20260719.md) (§5 k6 load — GREEN)
 
 ---
@@ -108,15 +108,15 @@ Full methodology and scripts: [`report-mw-20260719.md`](./report-mw-20260719.md)
 #### RPM timeline (estimated = delta_v1 × 2 per 30s)
 
 ```text
-s02  ~64   s03  ~58   s04 ~104   s05 ~136
-s06 ~186   s07 ~144   s08 ~174   s09 ~188
-s10 ~228  s11 ~204  s12 ~230  s13 ~210
-s14 ~278  s15 ~278  s16   ~4   ← quiet tail
+s02 ~64 s03 ~58 s04 ~104 s05 ~136
+s06 ~186 s07 ~144 s08 ~174 s09 ~188
+s10 ~228 s11 ~204 s12 ~230 s13 ~210
+s14 ~278 s15 ~278 s16 ~4 ← quiet tail
 ```
 
 #### Load balance proof
 
-Health probes during the same window returned rotating `workerId` **1 / 2 / 3 / 4**.  
+Health probes during the same window returned rotating `workerId` **1 / 2 / 3 / 4**.
 Cluster = **capacity**, not request multiplication (see §5 no-double mock proof).
 
 ---
@@ -193,11 +193,11 @@ Sample every 30s for N minutes: nginx access delta for `/v1`, health JSON, Redis
 
 **9router-MW production** meets the multi-worker performance charter:
 
-1. Synthetic gate **2.53×** single-process throughput with **0%** errors and proven **no double upstream**.  
-2. Real organic production traffic sustained **~166 RPM average** with peaks **~278 RPM** and **zero 5xx**.  
-3. Live dashboard aggregates are **cluster-correct** via Redis `mw:live:*`.  
+1. Synthetic gate **2.53×** single-process throughput with **0%** errors and proven **no double upstream**.
+2. Real organic production traffic sustained **~166 RPM average** with peaks **~278 RPM** and **zero 5xx**.
+3. Live dashboard aggregates are **cluster-correct** via Redis `mw:live:*`.
 4. Invariants hold: **4 workers**, Redis **6381 only**, better-sqlite3+WAL, MITM off, localhost bind.
 
 **Sign-off:** PRODUCTION PERFORMANCE — GREEN (2026-07-19).
 
-See also: [`docs/RELEASE.md`](../RELEASE.md) · [`docs/ARCHITECTURE-MW.md`](../ARCHITECTURE-MW.md) · [public health](https://router.budgezen.com/api/health).
+See also: [`docs/RELEASE.md`](../RELEASE.md) · [`docs/ARCHITECTURE-MW.md`](../ARCHITECTURE-MW.md) · [public health](https://example.com/api/health).

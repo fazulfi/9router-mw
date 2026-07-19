@@ -5,17 +5,17 @@
 - User `router`, dirs `/opt/9router-mw`, `/var/lib/9router-mw`, `/etc/9router-mw`
 - Redis `9router-mw-redis` on `127.0.0.1:6381` (password in `/etc/9router-mw/env`)
 - Volume `/var/lib/9router-mw/redis` owned **999:999** (Redis container UID)
-- DNS `router.budgezen.com` → VPS (Cloudflare; optional grey-cloud for long SSE)
+- DNS `example.com` → VPS (Cloudflare; optional grey-cloud for long SSE)
 
 ## Deploy new release
 
 1. Push to `origin/master` (or tag).
 2. On VPS as root, use phase deploy scripts:
-   - F6 pattern: `docs/deploy/f6-deploy-hotpath.sh` with `RELEASE_ID=0.5.35-mw.N`
+ - F6 pattern: `docs/deploy/f6-deploy-hotpath.sh` with `RELEASE_ID=0.5.35-mw.N`
 3. Verify:
-   - `systemctl is-active 9router-mw`
-   - `curl -s http://127.0.0.1:20128/api/health` → `ok`, 4 workers, redis ok, hotpath undici+wal
-   - Foreign redis 6379/6380 still healthy
+ - `systemctl is-active 9router-mw`
+ - `curl -s http://127.0.0.1:20128/api/health` → `ok`, 4 workers, redis ok, hotpath undici+wal
+ - Foreign redis 6379/6380 still healthy
 
 ## Env keys (no secrets in git)
 
@@ -29,6 +29,6 @@ See `docs/deploy/env.example`. Required prod:
 
 ## Never
 
-- Touch ggl/app redis  
-- Open 20128/6381 publicly  
-- Enable MITM in production  
+- Touch ggl/app redis
+- Open 20128/6381 publicly
+- Enable MITM in production

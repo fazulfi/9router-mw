@@ -1,150 +1,150 @@
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496930]: - Network:       http://127.0.0.1:20128
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496930]: ✓ Ready in 0ms
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: ▲ Next.js 16.2.10
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: - Local:         http://127.0.0.1:20128
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: - Network:       http://127.0.0.1:20128
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: ✓ Ready in 0ms
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: ▲ Next.js 16.2.10
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: - Local:         http://127.0.0.1:20128
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: - Network:       http://127.0.0.1:20128
-Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: ✓ Ready in 0ms
-Jul 19 00:02:59 faiz-prod-01 9router-mw[496928]: [DB] Driver: better-sqlite3 | file: /var/lib/9router-mw/db/data.sqlite
-Jul 19 00:21:46 faiz-prod-01 systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]: Error: write EPIPE
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:     at new Promise (<anonymous>) {
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:   errno: -32,
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:   code: 'EPIPE',
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:   syscall: 'write'
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]: }
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]: ⨯ uncaughtException:  Error: write EPIPE
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:     at new Promise (<anonymous>) {
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:   errno: -32,
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:   code: 'EPIPE',
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]:   syscall: 'write'
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496936]: }
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]: Error: write EPIPE
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:     at new Promise (<anonymous>) {
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:   errno: -32,
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:   code: 'EPIPE',
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:   syscall: 'write'
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]: }
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]: ⨯ uncaughtException:  Error: write EPIPE
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:     at new Promise (<anonymous>) {
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:   errno: -32,
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:   code: 'EPIPE',
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]:   syscall: 'write'
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496929]: }
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]: Error: write EPIPE
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:     at new Promise (<anonymous>) {
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:   errno: -32,
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:   code: 'EPIPE',
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:   syscall: 'write'
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]: }
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]: ⨯ uncaughtException:  Error: write EPIPE
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:     at new Promise (<anonymous>) {
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:   errno: -32,
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:   code: 'EPIPE',
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]:   syscall: 'write'
-Jul 19 00:21:46 faiz-prod-01 9router-mw[496930]: }
-Jul 19 00:21:46 faiz-prod-01 systemd[1]: 9router-mw.service: Deactivated successfully.
-Jul 19 00:21:46 faiz-prod-01 systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
-Jul 19 00:21:46 faiz-prod-01 systemd[1]: 9router-mw.service: Consumed 59.312s CPU time, 746.3M memory peak, 0B memory swap peak.
-Jul 19 00:21:46 faiz-prod-01 systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517441]: [9router-mw] primary pid=517441 forking workers=4 (WORKERS=4)
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517441]: [9router-mw] worker online id=2 pid=517452
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517441]: [9router-mw] worker online id=1 pid=517451
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517441]: [9router-mw] worker online id=3 pid=517453
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517451]: [9router-mw] worker start id=1 pid=517451 count=4
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517452]: [9router-mw] worker start id=2 pid=517452 count=4
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517453]: [9router-mw] worker start id=3 pid=517453 count=4
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517441]: [9router-mw] worker online id=4 pid=517459
-Jul 19 00:21:46 faiz-prod-01 9router-mw[517459]: [9router-mw] worker start id=4 pid=517459 count=4
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517451]: ▲ Next.js 16.2.10
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517451]: - Local:         http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517451]: - Network:       http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517451]: ✓ Ready in 0ms
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517452]: ▲ Next.js 16.2.10
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517452]: - Local:         http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517452]: - Network:       http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517452]: ✓ Ready in 0ms
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: ▲ Next.js 16.2.10
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: - Local:         http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: - Network:       http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: ✓ Ready in 0ms
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: ▲ Next.js 16.2.10
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: - Local:         http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: - Network:       http://127.0.0.1:20128
-Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: ✓ Ready in 0ms
-Jul 19 00:21:56 faiz-prod-01 9router-mw[517451]: [DB] Driver: better-sqlite3 | file: /var/lib/9router-mw/db/data.sqlite
-Jul 19 00:23:17 faiz-prod-01 systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]: Error: write EPIPE
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:     at new Promise (<anonymous>) {
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:   errno: -32,
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:   code: 'EPIPE',
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:   syscall: 'write'
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]: }
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]: ⨯ uncaughtException:  Error: write EPIPE
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:     at new Promise (<anonymous>) {
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:   errno: -32,
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:   code: 'EPIPE',
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]:   syscall: 'write'
-Jul 19 00:23:17 faiz-prod-01 9router-mw[517453]: }
-Jul 19 00:23:17 faiz-prod-01 systemd[1]: 9router-mw.service: Deactivated successfully.
-Jul 19 00:23:17 faiz-prod-01 systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
-Jul 19 00:23:17 faiz-prod-01 systemd[1]: 9router-mw.service: Consumed 58.127s CPU time, 357.8M memory peak, 0B memory swap peak.
-Jul 19 00:23:17 faiz-prod-01 systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
-Jul 19 00:23:17 faiz-prod-01 9router-mw[519999]: [9router-mw] primary pid=519999 forking workers=4 (WORKERS=4)
-Jul 19 00:23:18 faiz-prod-01 9router-mw[519999]: [9router-mw] worker online id=2 pid=520009
-Jul 19 00:23:18 faiz-prod-01 9router-mw[519999]: [9router-mw] worker online id=1 pid=520008
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520009]: [9router-mw] worker start id=2 pid=520009 count=4
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520008]: [9router-mw] worker start id=1 pid=520008 count=4
-Jul 19 00:23:18 faiz-prod-01 9router-mw[519999]: [9router-mw] worker online id=4 pid=520018
-Jul 19 00:23:18 faiz-prod-01 9router-mw[519999]: [9router-mw] worker online id=3 pid=520011
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520018]: [9router-mw] worker start id=4 pid=520018 count=4
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520011]: [9router-mw] worker start id=3 pid=520011 count=4
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520009]: ▲ Next.js 16.2.10
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520009]: - Local:         http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520009]: - Network:       http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520009]: ✓ Ready in 0ms
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520018]: ▲ Next.js 16.2.10
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520018]: - Local:         http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520008]: ▲ Next.js 16.2.10
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520018]: - Network:       http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520018]: ✓ Ready in 0ms
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520008]: - Local:         http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520008]: - Network:       http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520008]: ✓ Ready in 0ms
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520011]: ▲ Next.js 16.2.10
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520011]: - Local:         http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520011]: - Network:       http://127.0.0.1:20128
-Jul 19 00:23:18 faiz-prod-01 9router-mw[520011]: ✓ Ready in 0ms
-Jul 19 00:34:23 faiz-prod-01 systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
-Jul 19 00:34:23 faiz-prod-01 systemd[1]: 9router-mw.service: Deactivated successfully.
-Jul 19 00:34:23 faiz-prod-01 systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
-Jul 19 00:34:23 faiz-prod-01 systemd[1]: 9router-mw.service: Consumed 9.253s CPU time, 386.7M memory peak, 0B memory swap peak.
-Jul 19 00:34:23 faiz-prod-01 systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533400]: [9router-mw] primary pid=533400 forking workers=4 (WORKERS=4)
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533409]: [9router-mw] worker start id=1 pid=533409 count=4
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533400]: [9router-mw] worker online id=1 pid=533409
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533400]: [9router-mw] worker online id=2 pid=533410
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533400]: [9router-mw] worker online id=3 pid=533411
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533411]: [9router-mw] worker start id=3 pid=533411 count=4
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533410]: [9router-mw] worker start id=2 pid=533410 count=4
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533400]: [9router-mw] worker online id=4 pid=533417
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533417]: [9router-mw] worker start id=4 pid=533417 count=4
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533409]: ▲ Next.js 16.2.10
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533409]: - Local:         http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533409]: - Network:       http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533409]: ✓ Ready in 0ms
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533411]: ▲ Next.js 16.2.10
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533411]: - Local:         http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533411]: - Network:       http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533411]: ✓ Ready in 0ms
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533417]: ▲ Next.js 16.2.10
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533417]: - Local:         http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533417]: - Network:       http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533417]: ✓ Ready in 0ms
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533410]: ▲ Next.js 16.2.10
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533410]: - Local:         http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533410]: - Network:       http://127.0.0.1:20128
-Jul 19 00:34:23 faiz-prod-01 9router-mw[533410]: ✓ Ready in 0ms
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496930]: - Network: http://127.0.0.1:20128
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496930]: ✓ Ready in 0ms
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496936]: ▲ Next.js 16.2.10
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496936]: - Local: http://127.0.0.1:20128
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496936]: - Network: http://127.0.0.1:20128
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496936]: ✓ Ready in 0ms
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496928]: ▲ Next.js 16.2.10
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496928]: - Local: http://127.0.0.1:20128
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496928]: - Network: http://127.0.0.1:20128
+Jul 19 00:02:50 [REDACTED-HOST] 9router-mw[496928]: ✓ Ready in 0ms
+Jul 19 00:02:59 [REDACTED-HOST] 9router-mw[496928]: [DB] Driver: better-sqlite3 | file: /var/lib/9router-mw/db/data.sqlite
+Jul 19 00:21:46 [REDACTED-HOST] systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: Error: write EPIPE
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: at new Promise (<anonymous>) {
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: errno: -32,
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: code: 'EPIPE',
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: syscall: 'write'
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: }
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: ⨯ uncaughtException: Error: write EPIPE
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: at new Promise (<anonymous>) {
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: errno: -32,
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: code: 'EPIPE',
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: syscall: 'write'
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496936]: }
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: Error: write EPIPE
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: at new Promise (<anonymous>) {
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: errno: -32,
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: code: 'EPIPE',
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: syscall: 'write'
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: }
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: ⨯ uncaughtException: Error: write EPIPE
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: at new Promise (<anonymous>) {
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: errno: -32,
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: code: 'EPIPE',
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: syscall: 'write'
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496929]: }
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: Error: write EPIPE
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: at new Promise (<anonymous>) {
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: errno: -32,
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: code: 'EPIPE',
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: syscall: 'write'
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: }
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: ⨯ uncaughtException: Error: write EPIPE
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: at new Promise (<anonymous>) {
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: errno: -32,
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: code: 'EPIPE',
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: syscall: 'write'
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[496930]: }
+Jul 19 00:21:46 [REDACTED-HOST] systemd[1]: 9router-mw.service: Deactivated successfully.
+Jul 19 00:21:46 [REDACTED-HOST] systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:21:46 [REDACTED-HOST] systemd[1]: 9router-mw.service: Consumed 59.312s CPU time, 746.3M memory peak, 0B memory swap peak.
+Jul 19 00:21:46 [REDACTED-HOST] systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517441]: [9router-mw] primary pid=517441 forking workers=4 (WORKERS=4)
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517441]: [9router-mw] worker online id=2 pid=517452
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517441]: [9router-mw] worker online id=1 pid=517451
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517441]: [9router-mw] worker online id=3 pid=517453
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517451]: [9router-mw] worker start id=1 pid=517451 count=4
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517452]: [9router-mw] worker start id=2 pid=517452 count=4
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517453]: [9router-mw] worker start id=3 pid=517453 count=4
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517441]: [9router-mw] worker online id=4 pid=517459
+Jul 19 00:21:46 [REDACTED-HOST] 9router-mw[517459]: [9router-mw] worker start id=4 pid=517459 count=4
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517451]: ▲ Next.js 16.2.10
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517451]: - Local: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517451]: - Network: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517451]: ✓ Ready in 0ms
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517452]: ▲ Next.js 16.2.10
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517452]: - Local: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517452]: - Network: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517452]: ✓ Ready in 0ms
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517459]: ▲ Next.js 16.2.10
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517459]: - Local: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517459]: - Network: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517459]: ✓ Ready in 0ms
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517453]: ▲ Next.js 16.2.10
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517453]: - Local: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517453]: - Network: http://127.0.0.1:20128
+Jul 19 00:21:47 [REDACTED-HOST] 9router-mw[517453]: ✓ Ready in 0ms
+Jul 19 00:21:56 [REDACTED-HOST] 9router-mw[517451]: [DB] Driver: better-sqlite3 | file: /var/lib/9router-mw/db/data.sqlite
+Jul 19 00:23:17 [REDACTED-HOST] systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: Error: write EPIPE
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: at new Promise (<anonymous>) {
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: errno: -32,
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: code: 'EPIPE',
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: syscall: 'write'
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: }
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: ⨯ uncaughtException: Error: write EPIPE
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: at new Promise (<anonymous>) {
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: errno: -32,
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: code: 'EPIPE',
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: syscall: 'write'
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[517453]: }
+Jul 19 00:23:17 [REDACTED-HOST] systemd[1]: 9router-mw.service: Deactivated successfully.
+Jul 19 00:23:17 [REDACTED-HOST] systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:23:17 [REDACTED-HOST] systemd[1]: 9router-mw.service: Consumed 58.127s CPU time, 357.8M memory peak, 0B memory swap peak.
+Jul 19 00:23:17 [REDACTED-HOST] systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:23:17 [REDACTED-HOST] 9router-mw[519999]: [9router-mw] primary pid=519999 forking workers=4 (WORKERS=4)
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[519999]: [9router-mw] worker online id=2 pid=520009
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[519999]: [9router-mw] worker online id=1 pid=520008
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520009]: [9router-mw] worker start id=2 pid=520009 count=4
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520008]: [9router-mw] worker start id=1 pid=520008 count=4
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[519999]: [9router-mw] worker online id=4 pid=520018
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[519999]: [9router-mw] worker online id=3 pid=520011
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520018]: [9router-mw] worker start id=4 pid=520018 count=4
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520011]: [9router-mw] worker start id=3 pid=520011 count=4
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520009]: ▲ Next.js 16.2.10
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520009]: - Local: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520009]: - Network: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520009]: ✓ Ready in 0ms
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520018]: ▲ Next.js 16.2.10
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520018]: - Local: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520008]: ▲ Next.js 16.2.10
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520018]: - Network: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520018]: ✓ Ready in 0ms
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520008]: - Local: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520008]: - Network: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520008]: ✓ Ready in 0ms
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520011]: ▲ Next.js 16.2.10
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520011]: - Local: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520011]: - Network: http://127.0.0.1:20128
+Jul 19 00:23:18 [REDACTED-HOST] 9router-mw[520011]: ✓ Ready in 0ms
+Jul 19 00:34:23 [REDACTED-HOST] systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
+Jul 19 00:34:23 [REDACTED-HOST] systemd[1]: 9router-mw.service: Deactivated successfully.
+Jul 19 00:34:23 [REDACTED-HOST] systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:34:23 [REDACTED-HOST] systemd[1]: 9router-mw.service: Consumed 9.253s CPU time, 386.7M memory peak, 0B memory swap peak.
+Jul 19 00:34:23 [REDACTED-HOST] systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533400]: [9router-mw] primary pid=533400 forking workers=4 (WORKERS=4)
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533409]: [9router-mw] worker start id=1 pid=533409 count=4
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533400]: [9router-mw] worker online id=1 pid=533409
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533400]: [9router-mw] worker online id=2 pid=533410
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533400]: [9router-mw] worker online id=3 pid=533411
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533411]: [9router-mw] worker start id=3 pid=533411 count=4
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533410]: [9router-mw] worker start id=2 pid=533410 count=4
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533400]: [9router-mw] worker online id=4 pid=533417
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533417]: [9router-mw] worker start id=4 pid=533417 count=4
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533409]: ▲ Next.js 16.2.10
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533409]: - Local: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533409]: - Network: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533409]: ✓ Ready in 0ms
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533411]: ▲ Next.js 16.2.10
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533411]: - Local: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533411]: - Network: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533411]: ✓ Ready in 0ms
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533417]: ▲ Next.js 16.2.10
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533417]: - Local: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533417]: - Network: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533417]: ✓ Ready in 0ms
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533410]: ▲ Next.js 16.2.10
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533410]: - Local: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533410]: - Network: http://127.0.0.1:20128
+Jul 19 00:34:23 [REDACTED-HOST] 9router-mw[533410]: ✓ Ready in 0ms

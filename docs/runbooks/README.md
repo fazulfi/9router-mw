@@ -2,8 +2,8 @@
 
 Operational procedures for production gateway.
 
-**Final release:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.7`  
-**Public:** https://router.budgezen.com
+**Final release:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.7`
+**Public:** https://example.com
 
 | Runbook | Purpose |
 | ------- | ------- |
@@ -15,7 +15,7 @@ Operational procedures for production gateway.
 
 | Item | Value |
 | ---- | ----- |
-| Domain | `router.budgezen.com` |
+| Domain | `example.com` |
 | Listen | `127.0.0.1:20128` (systemd User=router) |
 | Redis | `127.0.0.1:6381` only |
 | Workers | always 4 via `cluster.fork` |

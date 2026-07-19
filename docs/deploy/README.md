@@ -2,14 +2,14 @@
 
 Deployment artifacts and templates (no live secrets).
 
-**Final status:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.7`  
+**Final status:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.7`
 **Live app release:** `0.5.35-mw.7` under `/opt/9router-mw/releases/` (rollback: `0.5.35-mw.4`)
 
 ## Targets
 
 | Item | Value |
 | ---- | ----- |
-| VPS | root@82.25.62.204 (faiz-prod-01) |
+| VPS | user@[REDACTED-VPS] ([REDACTED-HOST]) |
 | App user | router |
 | App dir | /opt/9router-mw |
 | Data | /var/lib/9router-mw |
@@ -17,15 +17,15 @@ Deployment artifacts and templates (no live secrets).
 | Bind | 127.0.0.1:20128 |
 | Workers | always 4 via cluster.fork |
 | Redis | 127.0.0.1:6381 (Docker dedicated) |
-| Domain | router.budgezen.com |
-| Public health | https://router.budgezen.com/api/health |
+| Domain | example.com |
+| Public health | https://example.com/api/health |
 
 ## Contents
 
 | Artifact | Purpose |
 | -------- | ------- |
 | `9router-mw.service` | systemd unit |
-| `nginx-router.budgezen.com.conf` | edge site (Origin CA paths) |
+| `nginx-example.com.conf` | edge site (Origin CA paths) |
 | `env.example` | env template (no secrets) |
 | `DNS-CLOUDFLARE-BLOCKER.md` | DNS+SSL status (**RESOLVED**) |
 | `logrotate-9router-mw` | logrotate snippet |
@@ -39,7 +39,7 @@ Deployment artifacts and templates (no live secrets).
 ```bash
 systemctl status 9router-mw
 curl -sS http://127.0.0.1:20128/api/health
-curl -sS https://router.budgezen.com/api/health
+curl -sS https://example.com/api/health
 # backup
 /usr/local/sbin/backup-9router-mw.sh
 # rollback

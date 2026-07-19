@@ -13,7 +13,7 @@ Fork of [decolua/9router](https://github.com/decolua/9router) optimized for **st
 [![Status](https://img.shields.io/badge/status-PRODUCTION%20FINAL-0B6E4F)](./docs/RELEASE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
-**Public production:** [https://router.budgezen.com](https://router.budgezen.com) · **Health:** [`/api/health`](https://router.budgezen.com/api/health)
+**Public production:** [https://example.com](https://example.com) · **Health:** [`/api/health`](https://example.com/api/health)
 
 [Release status](./docs/RELEASE.md) · [Architecture](./docs/ARCHITECTURE-MW.md) · [Runbooks](./docs/runbooks/) · [**Benchmarks**](./docs/bench/) · [Synthetic load](./docs/bench/report-mw-20260719.md) · [Production soak](./docs/bench/report-production-soak-20260719.md) · [Upstream](https://github.com/decolua/9router)
 
@@ -50,36 +50,36 @@ Stock 9router is excellent as a single-process local gateway. Under high concurr
 
 ### Topology (production actual)
 
-> Full mermaid system-context + worker hot path: **[`docs/ARCHITECTURE-MW.md`](./docs/ARCHITECTURE-MW.md)**  
+> Full mermaid system-context + worker hot path: **[`docs/ARCHITECTURE-MW.md`](./docs/ARCHITECTURE-MW.md)**
 > Upstream single-process product map (`db.json` / one “Local Process” box): [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — **not** this deploy.
 
 ```text
 Clients (Claude Code, OpenCode, browser, OpenAI-compatible)
-    → Cloudflare Proxied  router.budgezen.com
-    → Nginx :443  Origin CA · Full (strict)
-    → 127.0.0.1:20128  custom-server.js cluster
-         primary  (fork + respawn only)
-         ├─ worker 1 ─┐
-         ├─ worker 2 ─┤  each: Next standalone + open-sse
-         ├─ worker 3 ─┤       undici keep-alive → upstream providers
-         └─ worker 4 ─┘       (OAuth / API key / compatible nodes)
-              │
-              ├─ Redis 127.0.0.1:6381
-              │    semaphore · circuit breaker · usage buffer
-              │    mw:live:*  (global dashboard pending/recent)
-              └─ SQLite WAL  /var/lib/9router-mw/db/data.sqlite
-                   better-sqlite3 · source of truth
+ → Cloudflare Proxied example.com
+ → Nginx :443 Origin CA · Full (strict)
+ → 127.0.0.1:20128 custom-server.js cluster
+ primary (fork + respawn only)
+ ├─ worker 1 ─┐
+ ├─ worker 2 ─┤ each: Next standalone + open-sse
+ ├─ worker 3 ─┤ undici keep-alive → upstream providers
+ └─ worker 4 ─┘ (OAuth / API key / compatible nodes)
+ │
+ ├─ Redis 127.0.0.1:6381
+ │ semaphore · circuit breaker · usage buffer
+ │ mw:live:* (global dashboard pending/recent)
+ └─ SQLite WAL /var/lib/9router-mw/db/data.sqlite
+ better-sqlite3 · source of truth
 MITM: OFF · foreign Redis :6379/:6380 untouched
 ```
 
 ```mermaid
 flowchart LR
-    C[Clients] --> CF[Cloudflare]
-    CF --> NGX[Nginx TLS]
-    NGX --> CL["cluster :20128\n4 workers"]
-    CL --> R[(Redis :6381)]
-    CL --> S[(SQLite WAL)]
-    CL --> U[Upstream providers]
+ C[Clients] --> CF[Cloudflare]
+ CF --> NGX[Nginx TLS]
+ NGX --> CL["cluster :20128\n4 workers"]
+ CL --> R[(Redis :6381)]
+ CL --> S[(SQLite WAL)]
+ CL --> U[Upstream providers]
 ```
 
 ### Double-request guarantee
@@ -91,7 +91,7 @@ Cluster is **capacity**, not **multiplication**. The kernel / Node cluster deliv
 
 | Check | Result |
 | ----- | ------ |
-| Public URL | https://router.budgezen.com |
+| Public URL | https://example.com |
 | `GET /api/health` | **200** — `ok`, `workers:4`, redis ready, undici, better-sqlite3/WAL |
 | `GET /` | **307** → `/dashboard` |
 | `GET /v1/models` (no key) | **401** API key required |
@@ -113,7 +113,7 @@ Cluster is **capacity**, not **multiplication**. The kernel / Node cluster deliv
 
 ## Performance & benchmarks
 
-Enterprise evidence pack: synthetic k6 gates **plus** production organic soak on the live public edge.  
+Enterprise evidence pack: synthetic k6 gates **plus** production organic soak on the live public edge.
 **Index:** [`docs/bench/`](./docs/bench/) · **SSOT release:** [`docs/RELEASE.md`](./docs/RELEASE.md)
 
 ### Scoreboard (headline)
@@ -148,7 +148,7 @@ Full methodology: [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-20
 
 ### Production organic soak — GREEN
 
-Measured on **live** https://router.budgezen.com after go-live (4 workers · Redis 6381 · undici · better-sqlite3+WAL).
+Measured on **live** https://example.com after go-live (4 workers · Redis 6381 · undici · better-sqlite3+WAL).
 
 | Run | Mode | Window | RPM avg | Peak RPM | 5xx | Workers |
 | --- | ---- | ------ | ------- | -------- | --- | ------- |
@@ -194,7 +194,7 @@ k6 run docs/bench/k6-load-mock-upstream.js
 k6 run docs/bench/k6-soak-health.js
 
 # Live health
-curl -sS https://router.budgezen.com/api/health | jq .
+curl -sS https://example.com/api/health | jq .
 ```
 
 ---
@@ -277,8 +277,8 @@ Everything you expect from 9Router remains available on this fork:
 
 Deep product guides, provider setup videos, and consumer install paths live upstream:
 
-- Upstream repo: https://github.com/decolua/9router  
-- Upstream site: https://9router.com  
+- Upstream repo: https://github.com/decolua/9router
+- Upstream site: https://9router.com
 
 This README intentionally does **not** duplicate the full marketing catalog or i18n grid — those belong to upstream.
 
@@ -293,7 +293,7 @@ This README intentionally does **not** duplicate the full marketing catalog or i
 | Repo `VERSION` / `package.json` | **0.5.35-mw.7** |
 | Live runtime release dir | **`0.5.35-mw.7`** (formal deploy 2026-07-19; rollback: `0.5.35-mw.4`) |
 
-Scheme: `0.5.35-mw.N` = upstream base + multi-worker production line.  
+Scheme: `0.5.35-mw.N` = upstream base + multi-worker production line.
 **mw.7** is live in production: Redis global live usage (`mw:live:*`) + all multi-worker hot path. Rollback path: `0.5.35-mw.4` kept on disk.
 
 ---
@@ -317,9 +317,9 @@ Operational residual checklist (optional): real provider smoke at low QPS, 24–
 
 ## Attribution & license
 
-- **Base product:** [decolua/9router](https://github.com/decolua/9router) — original authors and community  
-- **Resilience ideas:** patterns adapted from [Vanszs/VansRouter](https://github.com/Vanszs/VansRouter) (semaphore / breaker / settings cache)  
-- **MW control plane:** multi-worker cluster, Redis shared state, undici pool, production ops — this repository  
+- **Base product:** [decolua/9router](https://github.com/decolua/9router) — original authors and community
+- **Resilience ideas:** patterns adapted from [Vanszs/VansRouter](https://github.com/Vanszs/VansRouter) (semaphore / breaker / settings cache)
+- **MW control plane:** multi-worker cluster, Redis shared state, undici pool, production ops — this repository
 - **License:** MIT — see [`LICENSE`](./LICENSE)
 
 Keep an `upstream` remote and follow [`docs/runbooks/upstream-sync.md`](./docs/runbooks/upstream-sync.md) for monthly rebases.
@@ -335,10 +335,10 @@ Keep an `upstream` remote and follow [`docs/runbooks/upstream-sync.md`](./docs/r
 
 Please do not open PRs that reintroduce:
 
-- sql.js as the production SQLite path under multi-worker  
-- Redis on 6379/6380 for this product  
-- Secrets, production env files, or private keys in git  
-- `WORKERS=1` as a production default  
+- sql.js as the production SQLite path under multi-worker
+- Redis on 6379/6380 for this product
+- Secrets, production env files, or private keys in git
+- `WORKERS=1` as a production default
 
 ---
 
@@ -346,7 +346,7 @@ Please do not open PRs that reintroduce:
 
 | Need | Link |
 | ---- | ---- |
-| Is production healthy? | https://router.budgezen.com/api/health |
+| Is production healthy? | https://example.com/api/health |
 | Final release status | [`docs/RELEASE.md`](./docs/RELEASE.md) |
 | Deploy / rollback | [`docs/runbooks/`](./docs/runbooks/) |
 | Benchmarks (all) | [`docs/bench/`](./docs/bench/) |
@@ -358,8 +358,8 @@ Please do not open PRs that reintroduce:
 
 <div align="center">
 
-**9router-MW** · PRODUCTION FINAL · `v0.5.35-mw.7`  
-**2.53×** synthetic · **~166 RPM** organic · **0%** 5xx under peak  
+**9router-MW** · PRODUCTION FINAL · `v0.5.35-mw.7`
+**2.53×** synthetic · **~166 RPM** organic · **0%** 5xx under peak
 Built on [decolua/9router](https://github.com/decolua/9router) · High-concurrency production routing
 
 </div>

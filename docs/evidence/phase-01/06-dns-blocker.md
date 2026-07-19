@@ -1,21 +1,21 @@
-﻿# DNS blocker — router.budgezen.com
+# DNS blocker — example.com
 
 **Status:** BLOCKER for public go-live (Fase 8). Nginx site can be prepared earlier.
 
-**Required (user action in Cloudflare, zone budgezen.com):**
+**Required (user action in Cloudflare, zone example.com):**
 
 | Name | Type | Content | Proxy | TTL |
 |------|------|---------|-------|-----|
-| router | A | 82.25.62.204 | Proxied (orange cloud) | Auto |
+| router | A | [REDACTED-VPS] | Proxied (orange cloud) | Auto |
 
 Optional later:
-| router-staging | A | 82.25.62.204 | DNS only (grey) | Auto |
+| router-staging | A | [REDACTED-VPS] | DNS only (grey) | Auto |
 
 **Verify after create:**
 ```bash
-dig +short router.budgezen.com A
-# expect Cloudflare anycast IPs if proxied, or 82.25.62.204 if DNS-only
-curl -sI https://router.budgezen.com/health
+dig +short example.com A
+# expect Cloudflare anycast IPs if proxied, or [REDACTED-VPS] if DNS-only
+curl -sI https://example.com/health
 ```
 
 **Risk note (plan §3.6):** Cloudflare free SSE timeout ~100s may cut long streams.

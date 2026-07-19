@@ -1,7 +1,7 @@
 # Phase 10 — Formal deploy `0.5.35-mw.7`
 
-**Date:** 2026-07-19  
-**Host:** root@82.25.62.204 (faiz-prod-01)  
+**Date:** 2026-07-19
+**Host:** user@[REDACTED-VPS] ([REDACTED-HOST])
 **Status:** **DONE**
 
 ## Goal
@@ -30,7 +30,7 @@ Promote production from hotpatched `0.5.35-mw.4` to formal release directory **`
 | sqlite | better-sqlite3 + **WAL** |
 | liveUsage | `open-sse/services/liveUsageState.js` present; chunk has `mw:live:` |
 | Redis keys | `mw:live:recent` LLEN=50, `mw:live:lastErr` |
-| public | https://router.budgezen.com/api/health **200** |
+| public | https://example.com/api/health **200** |
 | data | connections 13727, nodes 3, proxies 65, combos 8, mimo 0 |
 | foreign | ggl-redis 6379 / app-redis 6380 **untouched** |
 | rollback | `0.5.35-mw.4` standalone still on disk |

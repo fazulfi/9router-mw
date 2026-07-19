@@ -1,11 +1,11 @@
 # 9router-MW — Final Release Status
 
-> **Status:** **PRODUCTION FINAL** (2026-07-19)  
-> **Product:** `9router-mw`  
-> **Repo:** https://github.com/fazulfi/9router-mw  
-> **Public URL:** https://router.budgezen.com  
-> **Git tag (latest):** `v0.5.35-mw.7` — Redis global live usage (no dashboard flicker)  
-> **Live app binary:** **`0.5.35-mw.7`** formal (`/opt/9router-mw/releases/0.5.35-mw.7/.next/standalone`)  
+> **Status:** **PRODUCTION FINAL** (2026-07-19)
+> **Product:** `9router-mw`
+> **Repo:** https://github.com/fazulfi/9router-mw
+> **Public URL:** https://example.com
+> **Git tag (latest):** `v0.5.35-mw.7` — Redis global live usage (no dashboard flicker)
+> **Live app binary:** **`0.5.35-mw.7`** formal (`/opt/9router-mw/releases/0.5.35-mw.7/.next/standalone`)
 > **Repo `VERSION`:** `0.5.35-mw.7`
 
 ---
@@ -31,9 +31,9 @@
 
 | Check | Result |
 | ----- | ------ |
-| `https://router.budgezen.com/api/health` | **200** — `ok:true`, `workers:4`, redis ready, undici, better-sqlite3/wal |
-| `https://router.budgezen.com/` | **307** → `/dashboard` |
-| `https://router.budgezen.com/v1/models` (no key) | **401** API key required |
+| `https://example.com/api/health` | **200** — `ok:true`, `workers:4`, redis ready, undici, better-sqlite3/wal |
+| `https://example.com/` | **307** → `/dashboard` |
+| `https://example.com/v1/models` (no key) | **401** API key required |
 | Local bind | `127.0.0.1:20128` only (not public) |
 | Foreign Redis | `:6379` / `:6380` **untouched** |
 
@@ -41,13 +41,13 @@
 
 ## 3. Data migration (source → MW)
 
-**Source:** `root@49.12.82.34:39999` — active `9router.service`, `DATA_DIR=/var/lib/9router`  
-**Dest:** `root@82.25.62.204` — `9router-mw`, `/var/lib/9router-mw/db/data.sqlite`
+**Source:** `user@[REDACTED-VPS-LEGACY]` — active `9router.service`, `DATA_DIR=/var/lib/9router`
+**Dest:** `user@[REDACTED-VPS]` — `9router-mw`, `/var/lib/9router-mw/db/data.sqlite`
 
 | Table / scope | Migrated | Count (dest final) | Notes |
 | ------------- | -------- | ------------------ | ----- |
 | `providerConnections` | yes (non-mimo) | **13727** | Exclude `xiaomi-mimo` + `xiaomi-tokenplan` name=`mimo` |
-| `providerNodes` | yes | **3** | apikeyfun, inv=ferhub, tokenrouter |
+| `providerNodes` | yes | **3** | 3 custom OpenAI/Anthropic-compatible nodes |
 | `proxyPools` | yes | **65** | all `isActive=1` |
 | `combos` | yes | **8** | |
 | `kv` customModels | yes | **48** | |
@@ -97,23 +97,23 @@ Backups on dest (examples):
 
 ## 6. Locked production invariants
 
-1. Workers always **4** — no `WORKERS=1` production default  
-2. Redis only **6381** — never 6379/6380  
-3. SQLite only **better-sqlite3 + WAL**  
-4. MITM **OFF** in production  
-5. Bind **127.0.0.1:20128** behind Nginx  
-6. No secrets in git  
+1. Workers always **4** — no `WORKERS=1` production default
+2. Redis only **6381** — never 6379/6380
+3. SQLite only **better-sqlite3 + WAL**
+4. MITM **OFF** in production
+5. Bind **127.0.0.1:20128** behind Nginx
+6. No secrets in git
 7. No double-request (cluster is capacity, not fan-out)
 
 ---
 
 ## 7. Residual / optional follow-ups
 
-- [x] Dashboard multi-worker live usage (no flicker) — **mw.7** / `mw:live:*`  
-- [ ] Optional real provider smoke at low QPS (credentials already in DB)  
-- [ ] 24–48h operational watch (journal, disk, Redis RSS, worker RSS)  
-- [ ] Create dashboard API keys on MW if clients need remote `/v1/*`  
-- [ ] Optional full 30m soak (current waiver: 10m @ 100 VU — still GREEN)  
+- [x] Dashboard multi-worker live usage (no flicker) — **mw.7** / `mw:live:*`
+- [ ] Optional real provider smoke at low QPS (credentials already in DB)
+- [ ] 24–48h operational watch (journal, disk, Redis RSS, worker RSS)
+- [ ] Create dashboard API keys on MW if clients need remote `/v1/*`
+- [ ] Optional full 30m soak (current waiver: 10m @ 100 VU — still GREEN)
 - [ ] Monthly upstream sync — `docs/runbooks/upstream-sync.md`
 
 ---
@@ -143,5 +143,5 @@ Backups on dest (examples):
 | Provider data (non-mimo) + custom nodes + proxy pools | **MIGRATED** |
 | Production final rilis docs | **COMPLETE** |
 
-**Public production date:** 2026-07-19  
+**Public production date:** 2026-07-19
 **Owner:** fazulfi / 9router-MW

@@ -1,4 +1,4 @@
-﻿uid=987(router) gid=980(router) groups=980(router)
+uid=987(router) gid=980(router) groups=980(router)
 ---
 /etc/9router-mw:
 total 20
@@ -20,16 +20,16 @@ drwxr-xr-x 55 root    root   4096 Jul 18 23:08 ..
 drwxr-xr-x  2 router  router 4096 Jul 18 23:08 backups
 drwxr-xr-x  2 router  router 4096 Jul 18 23:08 db
 drwxr-xr-x  2 router  router 4096 Jul 18 23:08 logs
-drwxr-xr-x  2 gomerch router 4096 Jul 18 23:08 redis
+drwxr-xr-x  2 [CO-TENANT-A] router 4096 Jul 18 23:08 redis
 drwxr-xr-x  2 router  router 4096 Jul 18 23:08 tokens
 ---
 # 9router-mw limited nopasswd for user router
 router ALL=(root) NOPASSWD: /bin/systemctl start 9router-mw, /bin/systemctl stop 9router-mw, /bin/systemctl restart 9router-mw, /bin/systemctl status 9router-mw, /bin/systemctl reload nginx, /bin/systemctl is-active 9router-mw, /bin/systemctl is-enabled 9router-mw, /bin/journalctl -u 9router-mw *
 ---
 9router-mw-redis Up 44 seconds 127.0.0.1:6381->6379/tcp
-LISTEN 0      4096                     127.0.0.1:6381       0.0.0.0:*    users:(("docker-proxy",pid=441207,fd=8))                                                                                                 
-LISTEN 0      4096                     127.0.0.1:6380       0.0.0.0:*    users:(("docker-proxy",pid=44769,fd=8))                                                                                                  
-LISTEN 0      4096                     127.0.0.1:6379       0.0.0.0:*    users:(("docker-proxy",pid=113554,fd=8))                                                                                                 
+LISTEN 0      4096                     127.0.0.1:6381       0.0.0.0:*    users:(("docker-proxy",pid=441207,fd=8))
+LISTEN 0      4096                     127.0.0.1:6380       0.0.0.0:*    users:(("docker-proxy",pid=44769,fd=8))
+LISTEN 0      4096                     127.0.0.1:6379       0.0.0.0:*    users:(("docker-proxy",pid=113554,fd=8))
 ---
 NAME      TYPE SIZE USED PRIO
 /swapfile file   2G   0B   -2

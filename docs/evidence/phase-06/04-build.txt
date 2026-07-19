@@ -17,9 +17,9 @@
 [DB] Driver: better-sqlite3 | file: /home/router/.9router/db/data.sqlite
 [DB] Driver: better-sqlite3 | file: /home/router/.9router/db/data.sqlite
   Generating static pages using 3 workers (0/130) ...
-  Generating static pages using 3 workers (32/130) 
-  Generating static pages using 3 workers (64/130) 
-  Generating static pages using 3 workers (97/130) 
+  Generating static pages using 3 workers (32/130)
+  Generating static pages using 3 workers (64/130)
+  Generating static pages using 3 workers (97/130)
 ✓ Generating static pages using 3 workers (130/130) in 1466ms
   Finalizing page optimization ...
   Collecting build traces ...
@@ -47,7 +47,7 @@ Route (app)
 ├ ƒ /api/cli-tools/deepseek-tui-settings
 ├ ƒ /api/cli-tools/droid-settings
 ├ ƒ /api/cli-tools/grok-build-settings
-├ ƒ /api/cli-tools/hermes-settings
+├ ƒ /api/cli-tools/[CO-TENANT-D]-settings
 ├ ƒ /api/cli-tools/jcode-settings
 ├ ƒ /api/cli-tools/kilo-settings
 ├ ƒ /api/cli-tools/openclaw-settings
