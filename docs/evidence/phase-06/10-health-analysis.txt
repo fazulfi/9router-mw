@@ -1,0 +1,14 @@
+samples 20
+unique_workerIds ['1', '2', '3', '4']
+counts {'1': 5, '3': 5, '4': 5, '2': 5}
+redis_ok_count 20
+redis_modes {'redis': 20}
+undici_ok_count 20
+sqlite_drivers {'better-sqlite3': 20}
+journal_modes {'wal': 20}
+PASS_MULTI
+PASS_FOUR
+PASS_REDIS
+PASS_UNDICI
+PASS_NATIVE_SQLITE
+PASS_WAL

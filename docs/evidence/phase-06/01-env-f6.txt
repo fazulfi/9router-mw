@@ -1,0 +1,4 @@
+LOG_LEVEL=warn
+ENABLE_REQUEST_LOGS=false
+NODE_OPTIONS=--dns-result-order=ipv4first
+MW_REQUIRE_NATIVE_SQLITE=1

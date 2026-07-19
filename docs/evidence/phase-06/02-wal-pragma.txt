@@ -1,0 +1,2 @@
+9:PRAGMA journal_mode = WAL;
+15:PRAGMA busy_timeout = 5000;
