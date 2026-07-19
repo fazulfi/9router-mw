@@ -1,0 +1,8 @@
+samples 20
+unique_workerIds ['1', '2', '3', '4']
+counts {'1': 5, '2': 5, '4': 5, '3': 5}
+redis_ok_count 20
+redis_modes {'redis': 20}
+PASS_MULTI
+PASS_FOUR
+PASS_REDIS

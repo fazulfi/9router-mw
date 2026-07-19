@@ -1,0 +1,36 @@
+=== concurrent claim test ===
+=== mw-concurrent-claim (Fase 4) ===
+{"REDIS_URL":"[set]","REDIS_HOST":"127.0.0.1","REDIS_PORT":"6381","REDIS_PASSWORD":"[set]","ROUNDS":5,"KEY_PREFIX":"mw:sem:"}
+redis_ping PONG
+{"round":1,"accountId":"mw-claim-test-1784419379547-r1","a":{"acquired":true,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r1"},"b":{"acquired":false,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r1"},"winners":1}
+{"round":2,"accountId":"mw-claim-test-1784419379547-r2","a":{"acquired":true,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r2"},"b":{"acquired":false,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r2"},"winners":1}
+{"round":3,"accountId":"mw-claim-test-1784419379547-r3","a":{"acquired":true,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r3"},"b":{"acquired":false,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r3"},"winners":1}
+{"round":4,"accountId":"mw-claim-test-1784419379547-r4","a":{"acquired":true,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r4"},"b":{"acquired":false,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r4"},"winners":1}
+{"round":5,"accountId":"mw-claim-test-1784419379547-r5","a":{"acquired":true,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r5"},"b":{"acquired":false,"count":1,"key":"mw:sem:mw-claim-test-1784419379547-r5"},"winners":1}
+=== SUMMARY ===
+{
+  "rounds": 5,
+  "results": [
+    {
+      "round": 1,
+      "pass": true
+    },
+    {
+      "round": 2,
+      "pass": true
+    },
+    {
+      "round": 3,
+      "pass": true
+    },
+    {
+      "round": 4,
+      "pass": true
+    },
+    {
+      "round": 5,
+      "pass": true
+    }
+  ]
+}
+PASS: no double-claim across concurrent acquires (max=1, Redis mw:sem:*)

@@ -1,0 +1,2 @@
+HEAD=c9beae38fee7cd9a8311142972482ddd3f558fe3
+c9beae3 docs(evidence): scaffold phase-04 Redis shared state checklist

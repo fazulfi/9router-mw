@@ -1,0 +1,5 @@
+NAMES                   STATUS                PORTS
+9router-mw-redis        Up 54 minutes         127.0.0.1:6381->6379/tcp
+ggl-redis-exporter      Up 3 days             9121/tcp
+ggl-redis               Up 3 days (healthy)   127.0.0.1:6379->6379/tcp
+app-redis-1             Up 3 days (healthy)   127.0.0.1:6380->6379/tcp

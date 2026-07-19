@@ -1,0 +1,80 @@
+Jul 18 23:26:19 faiz-prod-01 systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: ▲ Next.js 16.2.10
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: - Local:         http://127.0.0.1:20128
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: - Network:       http://127.0.0.1:20128
+Jul 18 23:26:20 faiz-prod-01 9router-mw[459581]: ✓ Ready in 0ms
+Jul 18 23:26:42 faiz-prod-01 9router-mw[459581]: [DB] Driver: better-sqlite3 | file: /var/lib/9router-mw/db/data.sqlite
+Jul 18 23:26:42 faiz-prod-01 9router-mw[459581]: [DB][migrate] applied #1 initial
+Jul 18 23:43:02 faiz-prod-01 systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
+Jul 18 23:43:02 faiz-prod-01 systemd[1]: 9router-mw.service: Deactivated successfully.
+Jul 18 23:43:02 faiz-prod-01 systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
+Jul 18 23:43:02 faiz-prod-01 systemd[1]: 9router-mw.service: Consumed 1min 1.449s CPU time, 285.1M memory peak, 0B memory swap peak.
+Jul 18 23:43:02 faiz-prod-01 systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477394]: [9router-mw] primary pid=477394 forking workers=4 (WORKERS=4)
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477394]: [9router-mw] worker online id=1 pid=477402
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477394]: [9router-mw] worker online id=4 pid=477410
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477410]: [9router-mw] worker start id=4 pid=477410 count=4
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477402]: [9router-mw] worker start id=1 pid=477402 count=4
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477394]: [9router-mw] worker online id=2 pid=477403
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477403]: [9router-mw] worker start id=2 pid=477403 count=4
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477394]: [9router-mw] worker online id=3 pid=477404
+Jul 18 23:43:02 faiz-prod-01 9router-mw[477404]: [9router-mw] worker start id=3 pid=477404 count=4
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477403]: ▲ Next.js 16.2.10
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477403]: - Local:         http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477403]: - Network:       http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477403]: ✓ Ready in 0ms
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477410]: ▲ Next.js 16.2.10
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477410]: - Local:         http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477410]: - Network:       http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477410]: ✓ Ready in 0ms
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: ▲ Next.js 16.2.10
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: - Local:         http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: - Network:       http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477402]: ✓ Ready in 0ms
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: ▲ Next.js 16.2.10
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: - Local:         http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: - Network:       http://127.0.0.1:20128
+Jul 18 23:43:03 faiz-prod-01 9router-mw[477404]: ✓ Ready in 0ms
+Jul 18 23:43:09 faiz-prod-01 9router-mw[477403]: [DB] Driver: better-sqlite3 | file: /var/lib/9router-mw/db/data.sqlite
+Jul 19 00:02:50 faiz-prod-01 systemd[1]: Stopping 9router-mw.service - 9router-MW production gateway...
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]: Error: write EPIPE
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:     at new Promise (<anonymous>) {
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:   errno: -32,
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:   code: 'EPIPE',
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:   syscall: 'write'
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]: }
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]: ⨯ uncaughtException:  Error: write EPIPE
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:     at new Promise (<anonymous>) {
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:   errno: -32,
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:   code: 'EPIPE',
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]:   syscall: 'write'
+Jul 19 00:02:50 faiz-prod-01 9router-mw[477402]: }
+Jul 19 00:02:50 faiz-prod-01 systemd[1]: 9router-mw.service: Deactivated successfully.
+Jul 19 00:02:50 faiz-prod-01 systemd[1]: Stopped 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:02:50 faiz-prod-01 systemd[1]: 9router-mw.service: Consumed 59.758s CPU time, 760.3M memory peak, 0B memory swap peak.
+Jul 19 00:02:50 faiz-prod-01 systemd[1]: Started 9router-mw.service - 9router-MW production gateway.
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496918]: [9router-mw] primary pid=496918 forking workers=4 (WORKERS=4)
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496918]: [9router-mw] worker online id=1 pid=496928
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496918]: [9router-mw] worker online id=2 pid=496929
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: [9router-mw] worker start id=1 pid=496928 count=4
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496918]: [9router-mw] worker online id=4 pid=496936
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496929]: [9router-mw] worker start id=2 pid=496929 count=4
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496918]: [9router-mw] worker online id=3 pid=496930
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: [9router-mw] worker start id=4 pid=496936 count=4
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496930]: [9router-mw] worker start id=3 pid=496930 count=4
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496929]: ▲ Next.js 16.2.10
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496929]: - Local:         http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496929]: - Network:       http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496929]: ✓ Ready in 0ms
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496930]: ▲ Next.js 16.2.10
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496930]: - Local:         http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496930]: - Network:       http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496930]: ✓ Ready in 0ms
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: ▲ Next.js 16.2.10
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: - Local:         http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: - Network:       http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496936]: ✓ Ready in 0ms
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: ▲ Next.js 16.2.10
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: - Local:         http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: - Network:       http://127.0.0.1:20128
+Jul 19 00:02:50 faiz-prod-01 9router-mw[496928]: ✓ Ready in 0ms
