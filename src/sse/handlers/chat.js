@@ -22,6 +22,16 @@ import { detectFormatByEndpoint } from "open-sse/translator/formats.js";
 import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
+// F5: cross-worker resilience (Redis semaphore + circuit breaker)
+import {
+  acquireAccountSlot,
+  releaseAccountSlot,
+} from "open-sse/services/accountSemaphore.js";
+import {
+  getBreakerState,
+  recordBreakerSuccess,
+  recordBreakerFailure,
+} from "open-sse/services/circuitBreaker.js";
 
 /**
  * Handle chat completion request
@@ -215,73 +225,118 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     }
 
     // Account selection shown in the unified "▶" line (acc:...)
-    const refreshedCredentials = await checkAndRefreshToken(provider, credentials);
+    const connId = credentials.connectionId;
+    const isNoAuth = !connId || connId === "noauth";
 
-    // Ensure real project ID is available for providers that need it (P0 fix: cold miss)
-    if ((provider === "antigravity" || provider === "gemini-cli") && !refreshedCredentials.projectId) {
-      const pid = await getProjectIdForConnection(credentials.connectionId, refreshedCredentials.accessToken);
-      if (pid) {
-        refreshedCredentials.projectId = pid;
-        // Persist to DB in background so subsequent requests have it immediately
-        updateProviderCredentials(credentials.connectionId, { projectId: pid }).catch(() => { });
+    // F5: circuit breaker — skip OPEN accounts (fail-open if Redis down)
+    if (!isNoAuth) {
+      const breaker = await getBreakerState(connId);
+      if (!breaker.allow) {
+        log.warn("BREAKER", `ACC:${credentials.connectionName || connId} OPEN → skip`);
+        excludeConnectionIds.add(connId);
+        lastError = lastError || "Account circuit open";
+        lastStatus = lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE;
+        continue;
       }
     }
 
-    // Use shared chatCore
-    const chatSettings = await getSettings();
-    const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
-    const result = await handleChatCore({
-      body: { ...body, model: `${provider}/${model}` },
-      modelInfo: { provider, model },
-      credentials: refreshedCredentials,
-      log,
-      clientRawRequest,
-      connectionId: credentials.connectionId,
-      userAgent,
-      apiKey,
-      ccFilterNaming: !!chatSettings.ccFilterNaming,
-      rtkEnabled: !!chatSettings.rtkEnabled,
-      headroomEnabled: !!chatSettings.headroomEnabled,
-      headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
-      headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
-      cavemanEnabled: !!chatSettings.cavemanEnabled,
-      cavemanLevel: chatSettings.cavemanLevel || "full",
-      ponytailEnabled: !!chatSettings.ponytailEnabled,
-      ponytailLevel: chatSettings.ponytailLevel || "full",
-      pxpipeEnabled: !!chatSettings.pxpipeEnabled,
-      pxpipeMinChars: chatSettings.pxpipeMinChars,
-      pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
-      // Lazily warms the in-process module on first use; null when not installed (fail-open)
-      pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
-      onPxpipeEvent: appendPxpipeEvent,
-      providerThinking,
-      // Detect source format by endpoint + body
-      sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
-      onCredentialsRefreshed: async (newCreds) => {
-        await updateProviderCredentials(credentials.connectionId, {
-          ...newCreds,
-          existingProviderSpecificData: credentials.providerSpecificData,
-          testStatus: "active"
-        });
-      },
-      onRequestSuccess: async () => {
-        await clearAccountError(credentials.connectionId, credentials, model);
+    // F5: cross-worker semaphore — claim slot before upstream call
+    let slotAcquired = false;
+    if (!isNoAuth) {
+      const slot = await acquireAccountSlot(connId);
+      if (!slot.acquired) {
+        log.warn("SEM", `ACC:${credentials.connectionName || connId} full (count=${slot.count} mode=${slot.mode}) → next`);
+        excludeConnectionIds.add(connId);
+        lastError = lastError || "Account concurrency limit";
+        lastStatus = lastStatus || HTTP_STATUS.RATE_LIMITED || 429;
+        continue;
       }
-    });
-
-    if (result.success) return result.response;
-
-    // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
-    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, result.resetsAtMs);
-
-    if (shouldFallback) {
-      log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
-      excludeConnectionIds.add(credentials.connectionId);
-      lastError = result.error;
-      lastStatus = result.status;
-      continue;
+      slotAcquired = true;
     }
 
-    return result.response;
+    try {
+      const refreshedCredentials = await checkAndRefreshToken(provider, credentials);
+
+      // Ensure real project ID is available for providers that need it (P0 fix: cold miss)
+      if ((provider === "antigravity" || provider === "gemini-cli") && !refreshedCredentials.projectId) {
+        const pid = await getProjectIdForConnection(connId, refreshedCredentials.accessToken);
+        if (pid) {
+          refreshedCredentials.projectId = pid;
+          // Persist to DB in background so subsequent requests have it immediately
+          updateProviderCredentials(connId, { projectId: pid }).catch(() => { });
+        }
+      }
+
+      // Use shared chatCore
+      const chatSettings = await getSettings();
+      const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
+      const result = await handleChatCore({
+        body: { ...body, model: `${provider}/${model}` },
+        modelInfo: { provider, model },
+        credentials: refreshedCredentials,
+        log,
+        clientRawRequest,
+        connectionId: connId,
+        userAgent,
+        apiKey,
+        ccFilterNaming: !!chatSettings.ccFilterNaming,
+        rtkEnabled: !!chatSettings.rtkEnabled,
+        headroomEnabled: !!chatSettings.headroomEnabled,
+        headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
+        headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
+        cavemanEnabled: !!chatSettings.cavemanEnabled,
+        cavemanLevel: chatSettings.cavemanLevel || "full",
+        ponytailEnabled: !!chatSettings.ponytailEnabled,
+        ponytailLevel: chatSettings.ponytailLevel || "full",
+        pxpipeEnabled: !!chatSettings.pxpipeEnabled,
+        pxpipeMinChars: chatSettings.pxpipeMinChars,
+        pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
+        // Lazily warms the in-process module on first use; null when not installed (fail-open)
+        pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
+        onPxpipeEvent: appendPxpipeEvent,
+        providerThinking,
+        // Detect source format by endpoint + body
+        sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
+        onCredentialsRefreshed: async (newCreds) => {
+          await updateProviderCredentials(connId, {
+            ...newCreds,
+            existingProviderSpecificData: credentials.providerSpecificData,
+            testStatus: "active"
+          });
+        },
+        onRequestSuccess: async () => {
+          await clearAccountError(connId, credentials, model);
+        }
+      });
+
+      if (result.success) {
+        if (!isNoAuth) {
+          recordBreakerSuccess(connId).catch(() => { });
+        }
+        return result.response;
+      }
+
+      // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
+      const { shouldFallback } = await markAccountUnavailable(connId, result.status, result.error, provider, model, result.resetsAtMs);
+
+      // F5: record breaker failure except 429 (rate-limit is not a hard fault — Vans pattern)
+      if (!isNoAuth && shouldFallback && Number(result.status) !== 429) {
+        recordBreakerFailure(connId).catch(() => { });
+      }
+
+      if (shouldFallback) {
+        log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
+        excludeConnectionIds.add(connId);
+        lastError = result.error;
+        lastStatus = result.status;
+        continue;
+      }
+
+      return result.response;
+    } finally {
+      if (slotAcquired) {
+        releaseAccountSlot(connId).catch(() => { });
+      }
+    }
   }
 }
