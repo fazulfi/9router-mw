@@ -1,9 +1,60 @@
 import { Readable } from "stream";
+import { Agent, ProxyAgent, setGlobalDispatcher } from "undici";
 import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
 import { dbg } from "./debugLog.js";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
+
+// ─── F6: undici keep-alive Agent (plan §3.5) ───────────────────────────────
+// Shared connection pool for direct (non-proxy) upstream calls.
+function resolveUndiciAgentOptions() {
+  const connections = Math.max(
+    1,
+    Number(process.env.MW_UNDICI_CONNECTIONS || 32) || 32,
+  );
+  const pipelining = Math.max(
+    1,
+    Number(process.env.MW_UNDICI_PIPELINING || 1) || 1,
+  );
+  const keepAliveTimeout = Math.max(
+    1_000,
+    Number(process.env.MW_UNDICI_KEEPALIVE_MS || 30_000) || 30_000,
+  );
+  const keepAliveMaxTimeout = Math.max(
+    keepAliveTimeout,
+    Number(process.env.MW_UNDICI_KEEPALIVE_MAX_MS || 60_000) || 60_000,
+  );
+  return { connections, pipelining, keepAliveTimeout, keepAliveMaxTimeout };
+}
+
+const _hotPathAgentOpts = resolveUndiciAgentOptions();
+const _hotPathAgent = new Agent(_hotPathAgentOpts);
+try {
+  setGlobalDispatcher(_hotPathAgent);
+  dbg(
+    "UNDICI",
+    `hot-path Agent connections=${_hotPathAgentOpts.connections} pipelining=${_hotPathAgentOpts.pipelining} keepAlive=${_hotPathAgentOpts.keepAliveTimeout}`,
+  );
+} catch (e) {
+  console.warn(`[ProxyFetch] setGlobalDispatcher failed: ${e?.message || e}`);
+}
+
+/** @returns {import("undici").Agent} */
+export function getHotPathAgent() {
+  return _hotPathAgent;
+}
+
+/** Health / diagnostics snapshot (no secrets). */
+export function getHotPathAgentInfo() {
+  return {
+    enabled: true,
+    connections: _hotPathAgentOpts.connections,
+    pipelining: _hotPathAgentOpts.pipelining,
+    keepAliveTimeout: _hotPathAgentOpts.keepAliveTimeout,
+    keepAliveMaxTimeout: _hotPathAgentOpts.keepAliveMaxTimeout,
+  };
+}
 
 // ─── TLS fingerprinting via got-scraping (browser-like JA3) ───────────────
 // Disabled: not in use. Kept commented for future re-enable.
@@ -225,7 +276,6 @@ async function getDispatcher(proxyUrl) {
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
       proxyDispatchers.delete(proxyDispatchers.keys().next().value);
     }
-    const { ProxyAgent } = await import("undici");
     proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
   }
 
@@ -348,6 +398,11 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     }
   }
 
+  // F6: direct upstream via undici keep-alive Agent (no proxy)
+  const agent = getHotPathAgent();
+  if (agent) {
+    return originalFetch(url, { ...options, dispatcher: agent });
+  }
   // got-scraping disabled — use native fetch directly
   // (Re-enable per-host by wrapping with tryGotScrapingFetch when needed)
   return originalFetch(url, options);
