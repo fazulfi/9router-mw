@@ -1,3 +1,10 @@
+# v0.9.62 (2026-07-19)
+
+VansRouter 0.9.62 restores the `prepublishOnly` lifecycle script to the CLI configuration to guarantee that the Next.js standalone server directory (`app/`) is always built and packaged during npm releases.
+
+## Fixed
+- **NPM Package Standalone Restoration** — Restored `prepublishOnly` build hook in `cli/package.json` to resolve missing standalone directory errors on global installations.
+
 # v0.9.61 (2026-07-19)
 
 VansRouter 0.9.61 fixes standalone Next.js server runtime issues in clean environments by including explicit dependencies (like `react`, `react-dom`, `node-machine-id`, and `ora`) in the CLI package structure.
