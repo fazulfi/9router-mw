@@ -1,8 +1,9 @@
 ﻿# Phase-08 Evidence — Production harden & go-live
 
-**Tag:** `v0.5.35-mw.5`  
-**HEAD scripts:** `a6485ce4`  
-**Live app release:** `0.5.35-mw.4` (hotpath); ops tools from mw.5
+**Tag (ops harden):** `v0.5.35-mw.5`  
+**Tag (final docs):** `v0.5.35-mw.6`  
+**HEAD scripts (harden):** `a6485ce4`  
+**Live app release:** `0.5.35-mw.4` (hotpath); ops tools from mw.5+
 
 ## Exit — MET
 
@@ -17,7 +18,12 @@
 | runbooks | deploy/rollback/backup/go-live/upstream-sync |
 | tag | `v0.5.35-mw.5` on origin |
 | foreign redis | 6379/6380 untouched |
+| public HTTPS | **200** after Origin CA — see `01-public-https-golive.md` |
 
 ## Artifacts
 
-00-start, 01-scripts-head, 02-logrotate-*, 03-backup-*, 04-rollback-*, 05-health, 06-foreign-ok, 07-runbooks, 99-done
+00-start, 01-scripts-head, **01-public-https-golive.md**, 02-logrotate-*, 03-backup-*, 04-rollback-*, 05-health, 06-foreign-ok, 07-runbooks, 99-done
+
+## Status
+
+**Phase-08 COMPLETE** including public edge go-live (DNS + Origin CA SSL).
