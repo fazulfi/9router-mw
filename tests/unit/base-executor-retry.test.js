@@ -62,6 +62,24 @@ describe("BaseExecutor.execute — request preparation", () => {
       .toEqual(["x-request-id"]);
     expect(headers["x-request-id"]).toBe("019f7fa1-0d8d-7000-8000-000000000001");
   });
+
+  it("keeps the buildHeaders override contract while applying the request id", async () => {
+    const ex = makeExec({ baseUrl: "https://x/responses" });
+    ex.buildHeaders = vi.fn(() => ({ "X-Request-ID": "provider-generated" }));
+    fetchMock.mockResolvedValueOnce(res(200));
+
+    await ex.execute({
+      model: "m",
+      body: {},
+      stream: false,
+      credentials: creds,
+      requestId: "019f7fa1-0d8d-7000-8000-000000000001",
+    });
+
+    expect(ex.buildHeaders).toHaveBeenCalledWith(creds, false);
+    expect(fetchMock.mock.calls[0][1].headers["x-request-id"])
+      .toBe("019f7fa1-0d8d-7000-8000-000000000001");
+  });
 });
 describe("BaseExecutor.execute — retry by status (config-driven)", () => {
   it("retries 502 `attempts` times then succeeds", async () => {
@@ -96,6 +114,19 @@ describe("BaseExecutor.execute — baseUrls fallback", () => {
     expect(out.url).toBe("https://b/api");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("keeps the request id across base-url fallback", async () => {
+    const requestId = "019f7fa1-0d8d-7000-8000-000000000001";
+    const ex = makeExec({ baseUrls: ["https://a/api", "https://b/api"], retry: { 429: { attempts: 0 } } });
+    fetchMock
+      .mockResolvedValueOnce(res(429))
+      .mockResolvedValueOnce(res(200));
+
+    await ex.execute({ model: "m", body: {}, stream: false, credentials: creds, requestId });
+
+    expect(fetchMock.mock.calls.map(([, options]) => options.headers["x-request-id"]))
+      .toEqual([requestId, requestId]);
+  });
 });
 
 describe("BaseExecutor.execute — network error retry/fallback", () => {
@@ -107,6 +138,19 @@ describe("BaseExecutor.execute — network error retry/fallback", () => {
     const out = await ex.execute({ model: "m", body: {}, stream: false, credentials: creds });
     expect(out.response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the request id across a network retry", async () => {
+    const requestId = "019f7fa1-0d8d-7000-8000-000000000001";
+    const ex = makeExec({ baseUrl: "https://x/api", retry: { 502: { attempts: 1, delayMs: 0 } } });
+    fetchMock
+      .mockImplementationOnce(async () => { throw new Error("ECONNRESET"); })
+      .mockResolvedValueOnce(res(200));
+
+    await ex.execute({ model: "m", body: {}, stream: false, credentials: creds, requestId });
+
+    expect(fetchMock.mock.calls.map(([, options]) => options.headers["x-request-id"]))
+      .toEqual([requestId, requestId]);
   });
 
   it("throws when the only url fails with network error and no retries left", async () => {

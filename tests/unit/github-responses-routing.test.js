@@ -67,10 +67,9 @@ describe("GithubExecutor.execute cached-route guard (#1062)", () => {
   });
 });
 describe("GitHub request correlation", () => {
-  it("passes request id into regular chat header construction", async () => {
+  it("adds request id to regular chat requests", async () => {
     proxyFetchMock.mockResolvedValueOnce(new Response("bad request", { status: 400 }));
     const exec = new GithubExecutor();
-    const headersSpy = vi.spyOn(exec, "buildHeaders");
 
     await exec.execute({
       model: "future-model",
@@ -80,11 +79,9 @@ describe("GitHub request correlation", () => {
       requestId: "019f7fa1-0d8d-7000-8000-000000000001",
     });
 
-    expect(headersSpy).toHaveBeenCalledWith(
-      { copilotToken: "test-token" },
-      true,
-      "019f7fa1-0d8d-7000-8000-000000000001",
-    );
+    expect(proxyFetchMock).toHaveBeenCalledTimes(1);
+    expect(proxyFetchMock.mock.calls[0][1].headers["x-request-id"])
+      .toBe("019f7fa1-0d8d-7000-8000-000000000001");
   });
 
   it.each([

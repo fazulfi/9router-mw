@@ -108,6 +108,7 @@ vi.mock("@/lib/usageDb.js", () => ({
 }));
 
 const FORCED = ["openai", "codex", "commandcode"];
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function makeOptions(bodyStream) {
   const body = {
@@ -158,7 +159,36 @@ describe("forceStream provider config", () => {
 
     expect(executeMock).toHaveBeenCalledTimes(1);
     expect(executeMock.mock.calls[0][0].stream).toBe(true);
-    expect(executeMock.mock.calls[0][0].requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i);
+    expect(executeMock.mock.calls[0][0].requestId).toMatch(UUID_V4_RE);
+  });
+
+  it("creates distinct request ids for concurrent provider attempts", async () => {
+    const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+
+    await Promise.all([
+      handleChatCore(makeOptions(false)),
+      handleChatCore(makeOptions(false)),
+    ]);
+
+    const requestIds = executeMock.mock.calls.map(([options]) => options.requestId);
+    expect(requestIds).toHaveLength(2);
+    expect(new Set(requestIds).size).toBe(2);
+    expect(requestIds.every((requestId) => UUID_V4_RE.test(requestId))).toBe(true);
+  });
+
+  it("uses Worker-compatible global Web Crypto for request ids", async () => {
+    const randomUUID = vi.fn(() => "019f7fa1-0d8d-4000-8000-000000000001");
+    vi.stubGlobal("crypto", { randomUUID });
+    const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+
+    try {
+      await handleChatCore(makeOptions(false));
+      expect(randomUUID).toHaveBeenCalledTimes(1);
+      expect(executeMock.mock.calls[0][0].requestId)
+        .toBe("019f7fa1-0d8d-4000-8000-000000000001");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("uses executor request id for executor-error details", async () => {
