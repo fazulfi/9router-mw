@@ -77,6 +77,19 @@ describe("Post-merge: models/route.js ACL filter preserved", () => {
   it("imports capabilitiesFromServiceKind (upstream)", () => {
     expect(src).toContain("capabilitiesFromServiceKind");
   });
+
+  it("GET handler validates API key before returning models", () => {
+    // Must call isValidApiKey inside GET handler, not just import it
+    const getHandler = src.slice(src.indexOf("export async function GET(request)"));
+    expect(getHandler).toContain("isValidApiKey(apiKey)");
+  });
+
+  it("GET handler filters models by isProviderAllowed and isComboAllowed", () => {
+    const getHandler = src.slice(src.indexOf("export async function GET(request)"));
+    expect(getHandler).toContain("isProviderAllowed(apiKeyInfo");
+    expect(getHandler).toContain("isComboAllowed(apiKeyInfo");
+    expect(getHandler).toContain("data.filter(");
+  });
 });
 
 describe("Post-merge: model.js RESERVED_PROVIDER_PREFIXES works", () => {
@@ -171,7 +184,7 @@ describe("Post-merge: ponytail still wired in chatCore", () => {
   });
 
   it("calls injectPonytail when enabled", () => {
-    expect(src).toMatch(/if\s*\(ponytailEnabled.*ponytailLevel\)/);
+    expect(src).toMatch(/if\s*\(.*ponytailEnabled.*ponytailLevel\)/);
     expect(src).toContain("injectPonytail(translatedBody, finalFormat, ponytailLevel)");
   });
 });

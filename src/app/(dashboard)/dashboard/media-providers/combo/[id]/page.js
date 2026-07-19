@@ -395,18 +395,20 @@ export default function ComboDetailPage() {
           </pre>
         )}
       </Card>
-      <ModelSelectModal
-        isOpen={showPicker}
-        onClose={() => setShowPicker(false)}
-        onSelect={handleAddModel}
-        onDeselect={handleDeselectModel}
-        activeProviders={connections}
-        modelAliases={modelAliases}
-        title={`Add ${kindLabel} Model`}
-        kindFilter={combo.kind}
-        addedModelValues={providers}
-        closeOnSelect={false}
-      />
+      {showPicker && (
+        <ModelSelectModal
+          isOpen={showPicker}
+          onClose={() => setShowPicker(false)}
+          onSelect={handleAddModel}
+          onDeselect={handleDeselectModel}
+          activeProviders={connections}
+          modelAliases={modelAliases}
+          title={`Add ${kindLabel} Model`}
+          kindFilter={combo.kind}
+          addedModelValues={providers}
+          closeOnSelect={false}
+        />
+      )}
     </div>
   );
 }

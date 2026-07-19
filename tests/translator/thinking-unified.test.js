@@ -55,10 +55,14 @@ describe("extractThinking", () => {
 });
 
 describe("applyThinking per provider format", () => {
-  it("claude 4.6+ → adaptive output_config (no budget_tokens)", () => {
+  it("claude 4.6+ → adaptive thinking + output_config (no budget_tokens)", () => {
     const out = apply("claude", "claude-opus-4.7", { reasoning_effort: "high" }, "claude");
     expect(out.output_config).toEqual({ effort: "high" });
-    expect(out.thinking).toBeUndefined();
+    // Anthropic: on Opus 4.6/4.7/4.8 and Sonnet 4.6 thinking stays OFF unless
+    // thinking:{type:"adaptive"} is sent explicitly; output_config alone is not
+    // enough (and Anthropic-compatible shims like Copilot default off even on
+    // Sonnet 5). Both fields together are the documented adaptive shape.
+    expect(out.thinking).toEqual({ type: "adaptive" });
   });
   it("claude haiku → enabled+budget", () => {
     const out = apply("claude", "claude-haiku-4.5", { reasoning_effort: "high" }, "claude");
@@ -122,10 +126,10 @@ describe("applyThinking per provider format", () => {
     const out = apply("openai", "kimi-k2.6", { reasoning_effort: "high" }, "kimi");
     expect(out.reasoning_effort).toBe("high");
   });
-  it("Kimi off → reasoning_effort none", () => {
+  it("Kimi off → thinking disabled", () => {
     const out = apply("openai", "kimi-k2.7", { reasoning_effort: "none" }, "kimi");
-    expect(out.reasoning_effort).toBe("none");
-    expect(out.thinking).toBeUndefined();
+    expect(out.thinking).toEqual({ type: "disabled" });
+    expect(out.reasoning_effort).toBeUndefined();
   });
   it("Kimi auto → supported reasoning_effort", () => {
     const out = apply("openai", "kimi-k2.7", { reasoning_effort: "auto" }, "kimi");

@@ -5,19 +5,12 @@ import Link from "next/link";
 import { CardSkeleton } from "@/shared/components";
 import { CLI_TOOLS } from "@/shared/constants/cliTools";
 import { getModelsByProviderId, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
-import ClaudeToolCard from "../components/ClaudeToolCard";
-import CodexToolCard from "../components/CodexToolCard";
-import DroidToolCard from "../components/DroidToolCard";
-import OpenClawToolCard from "../components/OpenClawToolCard";
-import HermesToolCard from "../components/HermesToolCard";
-import DefaultToolCard from "../components/DefaultToolCard";
-import OpenCodeToolCard from "../components/OpenCodeToolCard";
-import CoworkToolCard from "../components/CoworkToolCard";
-import CopilotToolCard from "../components/CopilotToolCard";
-import ClineToolCard from "../components/ClineToolCard";
-import KiloToolCard from "../components/KiloToolCard";
-import DeepSeekTuiToolCard from "../components/DeepSeekTuiToolCard";
-import JcodeToolCard from "../components/JcodeToolCard";
+import {
+  ClaudeToolCard, CodexToolCard, DroidToolCard, OpenClawToolCard,
+  HermesToolCard, DefaultToolCard, OpenCodeToolCard, CoworkToolCard,
+  CopilotToolCard, ClineToolCard, KiloToolCard, DeepSeekTuiToolCard,
+  JcodeToolCard, GrokBuildToolCard,
+} from "../components";
 
 const CLOUD_URL = process.env.NEXT_PUBLIC_CLOUD_URL;
 
@@ -34,17 +27,16 @@ export default function ToolDetailClient({ toolId, machineId }) {
   const [apiKeys, setApiKeys] = useState([]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const signal = controller.signal;
+    let mounted = true;
     (async () => {
       try {
         const [provRes, settingsRes, tunnelRes, keysRes] = await Promise.all([
-          fetch("/api/providers", { signal }),
-          fetch("/api/settings", { signal }),
-          fetch("/api/tunnel/status", { signal }),
-          fetch("/api/keys", { signal }),
+          fetch("/api/providers"),
+          fetch("/api/settings"),
+          fetch("/api/tunnel/status"),
+          fetch("/api/keys"),
         ]);
-        if (signal.aborted) return;
+        if (!mounted) return;
         if (provRes.ok) {
           const data = await provRes.json();
           setConnections(data.connections || []);
@@ -65,12 +57,12 @@ export default function ToolDetailClient({ toolId, machineId }) {
           setApiKeys(data.keys || []);
         }
       } catch (error) {
-        if (!signal.aborted) console.log("Error loading tool data:", error);
+        console.log("Error loading tool data:", error);
       } finally {
-        if (!signal.aborted) setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
-    return () => controller.abort();
+    return () => { mounted = false; };
   }, []);
 
   const getActiveProviders = () => connections.filter(c => c.isActive !== false);
@@ -147,6 +139,8 @@ export default function ToolDetailClient({ toolId, machineId }) {
         return <DeepSeekTuiToolCard {...commonProps} activeProviders={getActiveProviders()} hasActiveProviders={hasActiveProviders} cloudEnabled={cloudEnabled} />;
       case "jcode":
         return <JcodeToolCard {...commonProps} activeProviders={getActiveProviders()} hasActiveProviders={hasActiveProviders} cloudEnabled={cloudEnabled} />;
+      case "grok-build":
+        return <GrokBuildToolCard {...commonProps} activeProviders={getActiveProviders()} hasActiveProviders={hasActiveProviders} cloudEnabled={cloudEnabled} />;
       default:
         return <DefaultToolCard toolId={toolId} {...commonProps} activeProviders={getActiveProviders()} cloudEnabled={cloudEnabled} tunnelEnabled={tunnelEnabled} />;
     }

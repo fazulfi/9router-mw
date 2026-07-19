@@ -279,6 +279,21 @@ exports[`GOLDEN response stream: Gemini → OpenAI > text + thought(no-sig) + fu
   {
     "choices": [
       {
+        "delta": {
+          "reasoning_content": "[thinking: 2 tokens hidden by upstream]",
+        },
+        "finish_reason": null,
+        "index": 0,
+      },
+    ],
+    "created": 0,
+    "id": "chatcmpl-resp_1",
+    "model": "gemini-3-pro",
+    "object": "chat.completion.chunk",
+  },
+  {
+    "choices": [
+      {
         "delta": {},
         "finish_reason": "tool_calls",
         "index": 0,

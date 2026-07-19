@@ -11,20 +11,22 @@ import { dirname, resolve } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROUTE_SRC = resolve(__dirname, "../../src/app/api/v1/models/route.js");
+const ALLOWED_SRC = resolve(__dirname, "../../src/sse/services/allowedModels.js");
 
 describe("v1/models route — UPSTREAM_CONNECTION_RE regression", () => {
   const src = readFileSync(ROUTE_SRC, "utf8");
+  const allowedSrc = readFileSync(ALLOWED_SRC, "utf8");
 
   it("defines UPSTREAM_CONNECTION_RE before use (no ReferenceError)", () => {
-    const defIdx = src.indexOf("const UPSTREAM_CONNECTION_RE");
-    const useIdx = src.indexOf("UPSTREAM_CONNECTION_RE.test");
+    const defIdx = allowedSrc.indexOf("const UPSTREAM_CONNECTION_RE");
+    const useIdx = allowedSrc.indexOf("UPSTREAM_CONNECTION_RE.test");
     expect(defIdx).toBeGreaterThanOrEqual(0); // must be declared
     expect(useIdx).toBeGreaterThan(defIdx);   // declared before used
   });
 
   it("the connection-hash regex skips custom compatible IDs but not plain providers", () => {
     // Mirror the exact pattern declared in the route.
-    const m = src.match(/const UPSTREAM_CONNECTION_RE = (\/.*\/[a-z]*);/);
+    const m = allowedSrc.match(/const UPSTREAM_CONNECTION_RE = (\/.*\/[a-z]*);/);
     expect(m).not.toBeNull();
     // eslint-disable-next-line no-eval
     const RE = eval(m[1]);

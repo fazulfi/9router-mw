@@ -3,39 +3,11 @@
 exports[`GOLDEN buildHeaders (default executor providers) > agentrouter → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
-    "Anthropic-Beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20,effort-2025-11-24,structured-outputs-2025-12-15,fast-mode-2026-02-01,redact-thinking-2026-02-12,token-efficient-tools-2026-03-28,advisor-tool-2026-03-01,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
-    "Anthropic-Dangerous-Direct-Browser-Access": "true",
-    "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
-    "User-Agent": "claude-cli/2.1.195 (external, cli)",
-    "X-App": "cli",
-    "X-Stainless-Arch": "x64",
-    "X-Stainless-Helper-Method": "stream",
-    "X-Stainless-Lang": "js",
-    "X-Stainless-Os": "Linux",
-    "X-Stainless-Package-Version": "0.94.0",
-    "X-Stainless-Retry-Count": "0",
-    "X-Stainless-Runtime": "node",
-    "X-Stainless-Runtime-Version": "v24.3.0",
-    "X-Stainless-Timeout": "600",
     "x-api-key": "<CRED>",
   },
   "nonStream": {
-    "Anthropic-Beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20,effort-2025-11-24,structured-outputs-2025-12-15,fast-mode-2026-02-01,redact-thinking-2026-02-12,token-efficient-tools-2026-03-28,advisor-tool-2026-03-01,extended-cache-ttl-2025-04-11,cache-diagnosis-2026-04-07",
-    "Anthropic-Dangerous-Direct-Browser-Access": "true",
-    "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
-    "User-Agent": "claude-cli/2.1.195 (external, cli)",
-    "X-App": "cli",
-    "X-Stainless-Arch": "x64",
-    "X-Stainless-Helper-Method": "stream",
-    "X-Stainless-Lang": "js",
-    "X-Stainless-Os": "Linux",
-    "X-Stainless-Package-Version": "0.94.0",
-    "X-Stainless-Retry-Count": "0",
-    "X-Stainless-Runtime": "node",
-    "X-Stainless-Runtime-Version": "v24.3.0",
-    "X-Stainless-Timeout": "600",
     "x-api-key": "<CRED>",
   },
   "oauth": "THROW: Cannot read properties of undefined (reading 'header')",
@@ -123,14 +95,12 @@ exports[`GOLDEN buildHeaders (default executor providers) > anthropic → header
   "apiKey": {
     "Accept": "text/event-stream",
     "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
-    "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "anthropic-version": "2023-06-01",
     "x-api-key": "<CRED>",
   },
   "nonStream": {
     "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
-    "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "anthropic-version": "2023-06-01",
     "x-api-key": "<CRED>",
@@ -138,7 +108,6 @@ exports[`GOLDEN buildHeaders (default executor providers) > anthropic → header
   "oauth": {
     "Accept": "text/event-stream",
     "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
-    "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "anthropic-version": "2023-06-01",
     "x-api-key": "<CRED>",
@@ -347,10 +316,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "VansRouter/0.8.9",
+    "User-Agent": "VansRouter/0.9.55",
     "X-CLIENT-TYPE": "vansrouter",
-    "X-CLIENT-VERSION": "0.8.9",
-    "X-CORE-VERSION": "0.8.9",
+    "X-CLIENT-VERSION": "0.9.55",
+    "X-CORE-VERSION": "0.9.55",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
     "X-PLATFORM-VERSION": "v24.15.0",
@@ -360,10 +329,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "VansRouter/0.8.9",
+    "User-Agent": "VansRouter/0.9.55",
     "X-CLIENT-TYPE": "vansrouter",
-    "X-CLIENT-VERSION": "0.8.9",
-    "X-CORE-VERSION": "0.8.9",
+    "X-CLIENT-VERSION": "0.9.55",
+    "X-CORE-VERSION": "0.9.55",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
     "X-PLATFORM-VERSION": "v24.15.0",
@@ -374,10 +343,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "VansRouter/0.8.9",
+    "User-Agent": "VansRouter/0.9.55",
     "X-CLIENT-TYPE": "vansrouter",
-    "X-CLIENT-VERSION": "0.8.9",
-    "X-CORE-VERSION": "0.8.9",
+    "X-CLIENT-VERSION": "0.9.55",
+    "X-CORE-VERSION": "0.9.55",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "linux",
     "X-PLATFORM-VERSION": "v24.15.0",
@@ -764,30 +733,24 @@ exports[`GOLDEN buildHeaders (default executor providers) > grok-cli → headers
     "Accept": "text/event-stream",
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "grok-pager/0.2.93 grok-shell/0.2.93 (linux; x86_64)",
-    "x-authenticateresponse": "authenticate-response",
-    "x-grok-client-identifier": "grok-pager",
-    "x-grok-client-version": "0.2.93",
-    "x-xai-token-auth": "xai-grok-cli",
+    "User-Agent": "grok-shell/0.2.99 (linux; x86_64)",
+    "x-grok-client-identifier": "grok-shell",
+    "x-grok-client-version": "0.2.99",
   },
   "nonStream": {
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "grok-pager/0.2.93 grok-shell/0.2.93 (linux; x86_64)",
-    "x-authenticateresponse": "authenticate-response",
-    "x-grok-client-identifier": "grok-pager",
-    "x-grok-client-version": "0.2.93",
-    "x-xai-token-auth": "xai-grok-cli",
+    "User-Agent": "grok-shell/0.2.99 (linux; x86_64)",
+    "x-grok-client-identifier": "grok-shell",
+    "x-grok-client-version": "0.2.99",
   },
   "oauth": {
     "Accept": "text/event-stream",
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "grok-pager/0.2.93 grok-shell/0.2.93 (linux; x86_64)",
-    "x-authenticateresponse": "authenticate-response",
-    "x-grok-client-identifier": "grok-pager",
-    "x-grok-client-version": "0.2.93",
-    "x-xai-token-auth": "xai-grok-cli",
+    "User-Agent": "grok-shell/0.2.99 (linux; x86_64)",
+    "x-grok-client-identifier": "grok-shell",
+    "x-grok-client-version": "0.2.99",
   },
 }
 `;
@@ -893,35 +856,11 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi → headers (ap
     "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
     "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
-    "x-api-key": "<CRED>",
-  },
-  "nonStream": {
-    "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
-    "Anthropic-Version": "2023-06-01",
-    "Content-Type": "application/json",
-    "x-api-key": "<CRED>",
-  },
-  "oauth": {
-    "Accept": "text/event-stream",
-    "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
-    "Anthropic-Version": "2023-06-01",
-    "Content-Type": "application/json",
-    "x-api-key": "<CRED>",
-  },
-}
-`;
-
-exports[`GOLDEN buildHeaders (default executor providers) > kimi-coding → headers (apiKey / oauth) 1`] = `
-{
-  "apiKey": {
-    "Accept": "text/event-stream",
-    "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
-    "Anthropic-Version": "2023-06-01",
-    "Content-Type": "application/json",
     "X-Msh-Device-Id": "kimi-<TS>",
-    "X-Msh-Device-Model": "linux x64",
+    "X-Msh-Device-Model": "Linux x64",
+    "X-Msh-Device-Name": "archlinux",
     "X-Msh-Platform": "9router",
-    "X-Msh-Version": "2.1.2",
+    "X-Msh-Version": "0.9.55",
     "x-api-key": "<CRED>",
   },
   "nonStream": {
@@ -929,9 +868,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi-coding → head
     "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "X-Msh-Device-Id": "kimi-<TS>",
-    "X-Msh-Device-Model": "linux x64",
+    "X-Msh-Device-Model": "Linux x64",
+    "X-Msh-Device-Name": "archlinux",
     "X-Msh-Platform": "9router",
-    "X-Msh-Version": "2.1.2",
+    "X-Msh-Version": "0.9.55",
     "x-api-key": "<CRED>",
   },
   "oauth": {
@@ -940,9 +880,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi-coding → head
     "Anthropic-Version": "2023-06-01",
     "Content-Type": "application/json",
     "X-Msh-Device-Id": "kimi-<TS>",
-    "X-Msh-Device-Model": "linux x64",
+    "X-Msh-Device-Model": "Linux x64",
+    "X-Msh-Device-Name": "archlinux",
     "X-Msh-Platform": "9router",
-    "X-Msh-Version": "2.1.2",
+    "X-Msh-Version": "0.9.55",
     "x-api-key": "<CRED>",
   },
 }
@@ -1037,6 +978,25 @@ exports[`GOLDEN buildHeaders (default executor providers) > mistral → headers 
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > mmf → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > muse-spark-web → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -1591,8 +1551,8 @@ exports[`GOLDEN buildUrl (default executor providers) > alicode → url (stream 
 
 exports[`GOLDEN buildUrl (default executor providers) > alicode-intl → url (stream + non-stream) 1`] = `
 {
-  "nonStream": "https://coding-intl.dashscope.aliyuncs.com/v1/chat/completions",
-  "stream": "https://coding-intl.dashscope.aliyuncs.com/v1/chat/completions",
+  "nonStream": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+  "stream": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
 }
 `;
 
@@ -1841,13 +1801,6 @@ exports[`GOLDEN buildUrl (default executor providers) > kimi → url (stream + n
 }
 `;
 
-exports[`GOLDEN buildUrl (default executor providers) > kimi-coding → url (stream + non-stream) 1`] = `
-{
-  "nonStream": "https://api.kimi.com/coding/v1/messages?beta=true",
-  "stream": "https://api.kimi.com/coding/v1/messages?beta=true",
-}
-`;
-
 exports[`GOLDEN buildUrl (default executor providers) > llamagate → url (stream + non-stream) 1`] = `
 {
   "nonStream": "https://llamagate.ai/v1/chat/completions",
@@ -1880,6 +1833,13 @@ exports[`GOLDEN buildUrl (default executor providers) > mmf → url (stream + no
 {
   "nonStream": "https://api.xiaomimimo.com/api/free-ai/openai/chat",
   "stream": "https://api.xiaomimimo.com/api/free-ai/openai/chat",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > muse-spark-web → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://www.meta.ai/api/graphql",
+  "stream": "https://www.meta.ai/api/graphql",
 }
 `;
 

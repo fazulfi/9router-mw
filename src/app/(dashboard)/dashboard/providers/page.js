@@ -9,6 +9,7 @@ import {
   Toggle,
 } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
+import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import {
   FREE_PROVIDERS,
@@ -754,12 +755,12 @@ function ApiKeyProviderCard({
   };
 
   const getIconPath = () => {
-    if (isCompatible)
+    if (isCompatible && provider.apiType)
       return provider.apiType === "responses"
         ? "/providers/oai-r.webp"
         : "/providers/oai-cc.webp";
     if (isAnthropicCompatible) return "/providers/anthropic-m.webp";
-    return `/providers/${provider.id}.webp`;
+    return getProviderIconSrc(provider.id);
   };
 
   return (
