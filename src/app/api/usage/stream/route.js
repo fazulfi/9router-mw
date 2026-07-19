@@ -27,6 +27,7 @@ export async function GET() {
           statsEmitter.off("update", state.send);
           statsEmitter.off("pending", state.sendPending);
           clearInterval(state.keepalive);
+          clearInterval(state.livePoll);
         }
       };
 
@@ -42,6 +43,7 @@ export async function GET() {
           statsEmitter.off("update", state.send);
           statsEmitter.off("pending", state.sendPending);
           clearInterval(state.keepalive);
+          clearInterval(state.livePoll);
         }
       };
 
@@ -49,6 +51,14 @@ export async function GET() {
 
       statsEmitter.on("update", state.send);
       statsEmitter.on("pending", state.sendPending);
+
+      // Cross-worker: poll Redis live state so this SSE connection sees
+      // pending/recent from other workers even without local events.
+      state.livePoll = setInterval(() => {
+        if (state.closed) return;
+        void state.sendPending?.();
+      }, 1500);
+      state.livePoll?.unref?.();
 
       state.keepalive = setInterval(() => {
         if (state.closed) { clearInterval(state.keepalive); return; }
@@ -66,6 +76,7 @@ export async function GET() {
       statsEmitter.off("update", state.send);
       statsEmitter.off("pending", state.sendPending);
       clearInterval(state.keepalive);
+      clearInterval(state.livePoll);
     },
   });
 

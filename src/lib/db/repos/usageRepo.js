@@ -2,6 +2,13 @@ import { EventEmitter } from "events";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
+import {
+  adjustPending,
+  getPendingSnapshot,
+  pushRecentEntry,
+  getRecentEntries,
+  getLastErrorProvider,
+} from "open-sse/services/liveUsageState.js";
 
 function maskApiKey(key) {
   if (!key || typeof key !== "string") return null;
@@ -9,26 +16,19 @@ function maskApiKey(key) {
   return key.slice(0, 8) + "***";
 }
 
-const PENDING_TIMEOUT_MS = 60 * 1000;
 const RING_CAP = 50;
 const CONN_CACHE_TTL_MS = 30 * 1000;
 const PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
 
-// In-memory state shared across Next.js modules
-if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
-if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
+// Event bus remains per-process (SSE poll + Redis snapshot = global view)
 if (!global._statsEmitter) {
   global._statsEmitter = new EventEmitter();
   global._statsEmitter.setMaxListeners(50);
 }
-if (!global._pendingTimers) global._pendingTimers = {};
 if (!global._recentRing) global._recentRing = { items: [], initialized: false };
 if (!global._connectionMapCache) global._connectionMapCache = { map: {}, ts: 0 };
 if (!global._statsEmitTimers) global._statsEmitTimers = { pending: null, update: null };
 
-const pendingRequests = global._pendingRequests;
-const lastErrorProvider = global._lastErrorProvider;
-const pendingTimers = global._pendingTimers;
 const recentRing = global._recentRing;
 const connCache = global._connectionMapCache;
 const statsEmitTimers = global._statsEmitTimers;
@@ -98,10 +98,12 @@ function aggregateEntryToDay(day, entry) {
 }
 
 function pushToRing(entry) {
+  // Local cache for same-worker fast path; Redis is source of truth across workers
   recentRing.items.push(entry);
   if (recentRing.items.length > RING_CAP) {
     recentRing.items = recentRing.items.slice(-RING_CAP);
   }
+  void pushRecentEntry(entry);
 }
 
 async function getConnectionMapCached() {
@@ -149,76 +151,48 @@ async function calculateCost(provider, model, tokens) {
   }
 }
 
+/**
+ * Track in-flight request. Uses Redis so all workers share one dashboard view.
+ * Sync signature preserved (chatCore fire-and-forget); work is async under the hood.
+ */
 export function trackPendingRequest(model, provider, connectionId, started, error = false) {
   const modelKey = provider ? `${model} (${provider})` : model;
-  const timerKey = `${connectionId}|${modelKey}`;
-
-  if (!pendingRequests.byModel[modelKey]) pendingRequests.byModel[modelKey] = 0;
-  pendingRequests.byModel[modelKey] = Math.max(0, pendingRequests.byModel[modelKey] + (started ? 1 : -1));
-  if (pendingRequests.byModel[modelKey] === 0) delete pendingRequests.byModel[modelKey];
-
-  if (connectionId) {
-    if (!pendingRequests.byAccount[connectionId]) pendingRequests.byAccount[connectionId] = {};
-    if (!pendingRequests.byAccount[connectionId][modelKey]) pendingRequests.byAccount[connectionId][modelKey] = 0;
-    pendingRequests.byAccount[connectionId][modelKey] = Math.max(0, pendingRequests.byAccount[connectionId][modelKey] + (started ? 1 : -1));
-    if (pendingRequests.byAccount[connectionId][modelKey] === 0) {
-      delete pendingRequests.byAccount[connectionId][modelKey];
-      if (Object.keys(pendingRequests.byAccount[connectionId]).length === 0) {
-        delete pendingRequests.byAccount[connectionId];
-      }
-    }
-  }
-
-  if (started) {
-    clearTimeout(pendingTimers[timerKey]);
-    pendingTimers[timerKey] = setTimeout(() => {
-      delete pendingTimers[timerKey];
-      if (pendingRequests.byModel[modelKey] > 0) pendingRequests.byModel[modelKey] = 0;
-      if (connectionId && pendingRequests.byAccount[connectionId]?.[modelKey] > 0) {
-        pendingRequests.byAccount[connectionId][modelKey] = 0;
-      }
-      scheduleStatsEvent("pending");
-    }, PENDING_TIMEOUT_MS);
-  } else {
-    clearTimeout(pendingTimers[timerKey]);
-    delete pendingTimers[timerKey];
-  }
-
-  if (!started && error && provider) {
-    lastErrorProvider.provider = provider.toLowerCase();
-    lastErrorProvider.ts = Date.now();
-  }
-
-  // [PENDING] console line removed; lifecycle is visible via "▶" and "📊 done" lines
+  void adjustPending(modelKey, connectionId, started, {
+    error: Boolean(error),
+    provider: provider || "",
+  }).then(() => scheduleStatsEvent("pending")).catch(() => scheduleStatsEvent("pending"));
   scheduleStatsEvent("pending");
 }
 
-export async function getActiveRequests() {
+function mapPendingToActive(byAccount, connectionMap) {
   const activeRequests = [];
-  const connectionMap = await getConnectionMapCached();
-
-  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
-    for (const [modelKey, count] of Object.entries(models)) {
+  for (const [connectionId, models] of Object.entries(byAccount || {})) {
+    for (const [modelKey, count] of Object.entries(models || {})) {
       if (count > 0) {
         const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
         const match = modelKey.match(/^(.*) \((.*)\)$/);
         activeRequests.push({
           model: match ? match[1] : modelKey,
           provider: match ? match[2] : "unknown",
-          account: accountName, count,
+          account: accountName,
+          count,
         });
       }
     }
   }
+  return activeRequests;
+}
 
-  await ensureRingInitialized();
+function mapRecentToUi(items) {
   const seen = new Set();
-  const recentRequests = [...recentRing.items]
+  return [...(items || [])]
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .map((e) => {
       const t = e.tokens || {};
       return {
-        timestamp: e.timestamp, model: e.model, provider: e.provider || "",
+        timestamp: e.timestamp,
+        model: e.model,
+        provider: e.provider || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         status: e.status || "ok",
@@ -233,8 +207,20 @@ export async function getActiveRequests() {
       return true;
     })
     .slice(0, 20);
+}
 
-  const errorProvider = (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "";
+export async function getActiveRequests() {
+  const connectionMap = await getConnectionMapCached();
+  const snap = await getPendingSnapshot();
+  const activeRequests = mapPendingToActive(snap.byAccount, connectionMap);
+
+  let ringItems = await getRecentEntries();
+  if (!ringItems.length) {
+    await ensureRingInitialized();
+    ringItems = recentRing.items;
+  }
+  const recentRequests = mapRecentToUi(ringItems);
+  const errorProvider = (await getLastErrorProvider()) || "";
   return { activeRequests, recentRequests, errorProvider };
 }
 
@@ -392,31 +378,18 @@ export async function getUsageStats(period = "all") {
     })
     .slice(0, 20);
 
+  const liveSnap = await getPendingSnapshot();
+  const liveErr = (await getLastErrorProvider()) || "";
   const stats = {
     totalRequests: 0,
     totalPromptTokens: 0, totalCompletionTokens: 0, totalCachedTokens: 0, totalCost: 0,
     byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
     last10Minutes: [],
-    pending: pendingRequests,
-    activeRequests: [],
+    pending: { byModel: liveSnap.byModel || {}, byAccount: liveSnap.byAccount || {} },
+    activeRequests: mapPendingToActive(liveSnap.byAccount, connectionMap),
     recentRequests,
-    errorProvider: (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "",
+    errorProvider: liveErr,
   };
-
-  // Active requests
-  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
-    for (const [modelKey, count] of Object.entries(models)) {
-      if (count > 0) {
-        const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
-        const match = modelKey.match(/^(.*) \((.*)\)$/);
-        stats.activeRequests.push({
-          model: match ? match[1] : modelKey,
-          provider: match ? match[2] : "unknown",
-          account: accountName, count,
-        });
-      }
-    }
-  }
 
   // last10Minutes — query 10min window
   const now = new Date();
