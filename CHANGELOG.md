@@ -1,3 +1,21 @@
+# v0.5.35-mw.6 (2026-07-19) — 9router-MW production FINAL
+
+## Production final (docs + data)
+
+- **Public edge:** `https://router.budgezen.com` LIVE (Cloudflare Proxied + Origin CA, Full strict)
+- **Data migration:** non-mimo `providerConnections` (~13.7k), `providerNodes` (3), `proxyPools` (65), `combos` (8), kv customModels/modelAliases — from legacy VPS `49.12.82.34:39999`
+- **Docs:** `docs/RELEASE.md` final status; phase-09 evidence; execution matrix F0–F9 COMPLETE
+- **Live runtime:** still `0.5.35-mw.4` binary (hot-path); this tag finalizes ops/docs/data
+
+## Prior MW line (summary)
+
+- **mw.5:** F8 harden — logrotate, backup cron, rollback, runbooks; load report §5 GREEN
+- **mw.4:** undici keep-alive, ban sql.js prod, hotpath health fields
+- **mw.3:** Redis semaphore + circuit breaker + 5s settings cache
+- **mw.1–2:** multi-worker cluster.fork ×4, Redis 6381, baseline deploy
+
+Full evidence: `docs/RELEASE.md`, `docs/evidence/phase-00` … `phase-09`, `docs/bench/report-mw-20260719.md`.
+
 # v0.5.35 (2026-07-16)
 
 ## Features
