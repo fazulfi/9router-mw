@@ -510,7 +510,45 @@ export async function GET(request) {
   try {
     // Detect cross-instance recursive /models fetch (another 9router fetching our /models)
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
-    const data = await buildModelsList([LLM_KIND], { skipDynamicFetch });
+
+    // ACL: validate API key and filter models by permissions
+    const settings = await getSettings();
+    let apiKeyInfo = null;
+    if (settings.requireApiKey) {
+      const apiKey = extractApiKey(request);
+      if (!apiKey) {
+        return Response.json(
+          { error: { message: "Missing API key", type: "authentication_error" } },
+          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+      apiKeyInfo = await isValidApiKey(apiKey);
+      if (!apiKeyInfo) {
+        return Response.json(
+          { error: { message: "Invalid API key", type: "authentication_error" } },
+          { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        );
+      }
+    }
+
+    let data = await buildModelsList([LLM_KIND], { skipDynamicFetch });
+
+    // ACL: filter models by provider/combo permissions
+    if (apiKeyInfo) {
+      const allowedChecks = await Promise.all(
+        data.map(async (model) => {
+          const isCombo = model.owned_by === "combo";
+          if (isCombo) {
+            const comboName = stripComboPrefix(model.id);
+            return isComboAllowed(apiKeyInfo, comboName);
+          }
+          const providerAlias = model.id.includes("/") ? model.id.split("/")[0] : model.owned_by;
+          return await isProviderAllowed(apiKeyInfo, providerAlias);
+        })
+      );
+      data = data.filter((_, i) => allowedChecks[i]);
+    }
+
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
