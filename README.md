@@ -27,8 +27,8 @@ Fork of [decolua/9router](https://github.com/decolua/9router) optimized for **st
 | --- | --- |
 | **Product** | `9router-mw` — multi-worker production line of 9Router |
 | **Repo** | https://github.com/fazulfi/9router-mw |
-| **Repo version** | `0.5.35-mw.6` (`VERSION` / `package.json`) |
-| **Live binary** | `0.5.35-mw.4` (runtime features shipped; mw.6 = docs/ops finalize) |
+| **Repo version** | `0.5.35-mw.7` (`VERSION` / `package.json`) |
+| **Live binary** | `0.5.35-mw.4` release dir + **mw.7 liveUsageState hotpatch** (global RECENT / active) |
 | **Upstream base** | [decolua/9router](https://github.com/decolua/9router) `0.5.35` |
 | **Resilience patterns** | Account semaphore + circuit breaker + settings cache (inspired by [Vanszs/VansRouter](https://github.com/Vanszs/VansRouter)) |
 
@@ -273,12 +273,12 @@ This README intentionally does **not** duplicate the full marketing catalog or i
 | Artifact | Version |
 | -------- | ------- |
 | Upstream base | `decolua/9router` **0.5.35** |
-| Git tag (docs/ops finalize) | **`v0.5.35-mw.6`** |
-| Repo `VERSION` / `package.json` | **0.5.35-mw.6** |
-| Live runtime release dir | **0.5.35-mw.4** |
+| Git tag (latest) | **`v0.5.35-mw.7`** (Redis global live usage) |
+| Repo `VERSION` / `package.json` | **0.5.35-mw.7** |
+| Live runtime release dir | **0.5.35-mw.4** + liveUsageState hotpatch |
 
 Scheme: `0.5.35-mw.N` = upstream base + multi-worker production line.  
-Redeploy of the app binary to mw.6 is **optional** — mw.6 is documentation, migration evidence, and public SSL finalize; runtime multi-worker features have been live since mw.4.
+**mw.7** fixes multi-worker dashboard flicker (`mw:live:*`). Runtime multi-worker features have been live since mw.4; mw.6 was docs/ops FINAL.
 
 ---
 
@@ -342,7 +342,7 @@ Please do not open PRs that reintroduce:
 
 <div align="center">
 
-**9router-MW** · PRODUCTION FINAL · `v0.5.35-mw.6`  
+**9router-MW** · PRODUCTION FINAL · `v0.5.35-mw.7`  
 **2.53×** synthetic · **~166 RPM** organic · **0%** 5xx under peak  
 Built on [decolua/9router](https://github.com/decolua/9router) · High-concurrency production routing
 

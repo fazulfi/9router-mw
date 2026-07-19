@@ -4,9 +4,9 @@
 > **Product:** `9router-mw`  
 > **Repo:** https://github.com/fazulfi/9router-mw  
 > **Public URL:** https://router.budgezen.com  
-> **Git tag (docs/ops):** `v0.5.35-mw.6`  
-> **Live app binary:** `0.5.35-mw.4` (`/opt/9router-mw/releases/0.5.35-mw.4/.next/standalone`)  
-> **Ops/scripts/docs line:** `0.5.35-mw.6` (includes go-live SSL + data migration evidence)
+> **Git tag (latest):** `v0.5.35-mw.7` — Redis global live usage (no dashboard flicker)  
+> **Live app binary:** hotpatched `0.5.35-mw.4` release dir (`/opt/9router-mw/releases/0.5.35-mw.4/.next/standalone`) with `liveUsageState`  
+> **Repo `VERSION`:** `0.5.35-mw.7`
 
 ---
 
@@ -15,7 +15,7 @@
 | Layer | Delivered |
 | ----- | --------- |
 | Multi-worker | Always **4** workers via `cluster.fork` in `custom-server.js` |
-| Shared state | Redis **only** `127.0.0.1:6381` (semaphore, circuit breaker, usage buffer) |
+| Shared state | Redis **only** `127.0.0.1:6381` (semaphore, circuit breaker, usage buffer, **live pending/recent** `mw:live:*`) |
 | Persistence | SQLite **better-sqlite3 + WAL** at `/var/lib/9router-mw` (sql.js banned in prod MW) |
 | Hot path | undici keep-alive Agent (connections=32, pipelining=1) |
 | Resilience | Account semaphore + circuit breaker + 5s settings memory cache (Vans-style) |
@@ -86,11 +86,11 @@ Backups on dest (examples):
 | Artifact | Version |
 | -------- | ------- |
 | Upstream base | `decolua/9router` **0.5.35** |
-| Live runtime release dir | **0.5.35-mw.4** |
-| Git tags | `v0.5.35-mw.5` (ops harden), `v0.5.35-mw.6` (final docs + migration + public SSL evidence) |
-| `VERSION` / `package.json` (repo) | **0.5.35-mw.6** |
+| Live runtime release dir | **0.5.35-mw.4** (+ hotpatch `liveUsageState` for dashboard global ring) |
+| Git tags | `v0.5.35-mw.5` … `v0.5.35-mw.6` (docs/ops FINAL), **`v0.5.35-mw.7`** (global live usage) |
+| `VERSION` / `package.json` (repo) | **0.5.35-mw.7** |
 
-Redeploy of app binary to mw.6 is **optional** (mw.6 is documentation/evidence + finalize; runtime features already live since mw.4).
+**mw.7** ships the Redis-backed live usage module so multi-worker dashboards no longer flicker. Production already runs the fix via hotpatch rebuild of the mw.4 release tree; full redeploy into a new release dir is optional.
 
 ---
 
@@ -108,6 +108,7 @@ Redeploy of app binary to mw.6 is **optional** (mw.6 is documentation/evidence +
 
 ## 7. Residual / optional follow-ups
 
+- [x] Dashboard multi-worker live usage (no flicker) — **mw.7** / `mw:live:*`  
 - [ ] Optional real provider smoke at low QPS (credentials already in DB)  
 - [ ] 24–48h operational watch (journal, disk, Redis RSS, worker RSS)  
 - [ ] Create dashboard API keys on MW if clients need remote `/v1/*`  
@@ -124,7 +125,8 @@ Redeploy of app binary to mw.6 is **optional** (mw.6 is documentation/evidence +
 | [`docs/plans/9router-mw-production-plan.md`](./plans/9router-mw-production-plan.md) | SSOT architecture plan (LOCKED) |
 | [`docs/runbooks/`](./runbooks/) | Deploy / rollback / backup / go-live / upstream-sync |
 | [`docs/deploy/`](./deploy/) | systemd, nginx, env example, scripts |
-| [`docs/bench/report-mw-20260719.md`](./bench/report-mw-20260719.md) | Load gate report |
+| [`docs/bench/report-mw-20260719.md`](./bench/report-mw-20260719.md) | Load gate report (synthetic) |
+| [`docs/bench/report-production-soak-20260719.md`](./bench/report-production-soak-20260719.md) | Production organic soak + liveUsageState |
 | [`docs/evidence/phase-00` … `phase-09`](./evidence/) | Per-phase proofs |
 | [`CHANGELOG.md`](../CHANGELOG.md) | Version history (mw section) |
 
