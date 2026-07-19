@@ -4,9 +4,9 @@
 > **Product:** `9router-mw`
 > **Repo:** https://github.com/fazulfi/9router-mw
 > **Public URL:** https://example.com
-> **Git tag (latest):** `v0.5.35-mw.7` — Redis global live usage (no dashboard flicker)
-> **Live app binary:** **`0.5.35-mw.7`** formal (`/opt/9router-mw/releases/0.5.35-mw.7/.next/standalone`)
-> **Repo `VERSION`:** `0.5.35-mw.7`
+> **Git tag (latest):** `v0.5.35-mw.8` — upstream sync (kimi dual-auth + dashboard UI)
+> **Live app binary:** **`0.5.35-mw.7`** (formal release dir; mw.8 = docs/sync tag only)
+> **Repo `VERSION`:** `0.5.35-mw.8`
 
 ---
 
@@ -86,10 +86,10 @@ Backups on dest (examples):
 | Artifact | Version |
 | -------- | ------- |
 | Upstream base | `decolua/9router` **0.5.35** |
-| Live runtime release dir | **`0.5.35-mw.7`** (formal deploy 2026-07-19T09:25Z UTC) |
+| Live runtime release dir | **`0.5.35-mw.7`** (formal deploy 2026-07-19T09:25Z UTC; mw.8 = docs/sync tag only) |
 | Rollback release on disk | `0.5.35-mw.4` (kept) |
-| Git tags | `v0.5.35-mw.5` … `v0.5.35-mw.6` (docs/ops FINAL), **`v0.5.35-mw.7`** (global live usage + formal live) |
-| `VERSION` / `package.json` (repo) | **0.5.35-mw.7** |
+| Git tags | `v0.5.35-mw.5` … `v0.5.35-mw.6` (docs/ops FINAL), `v0.5.35-mw.7` (global live usage), **`v0.5.35-mw.8`** (upstream sync) |
+| `VERSION` / `package.json` (repo) | **0.5.35-mw.8** |
 
 **mw.7** ships Redis-backed live usage (`mw:live:*`) so multi-worker dashboards no longer flicker. Production was upgraded from hotpatched `0.5.35-mw.4` to a **formal** release directory `0.5.35-mw.7` (clone `a892527f`, F6 assemble, symlink switch). Evidence: `docs/evidence/phase-10/`.
 

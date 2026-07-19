@@ -1,3 +1,15 @@
+# v0.5.35-mw.8 (2026-07-19) — upstream sync (kimi dual-auth + dashboard UI)
+
+## Upstream sync: 3 commits from decolua/9router
+
+- **68566f53** feat(kimi): merge OAuth into dual-auth provider, add K3/K2.7 models
+- **ccb0842d** fix(dashboard): cut duplicate API/icon spam, lazy-load provider assets
+- **0513bf39** Flow animation — ProviderTopology.js + globals.css
+- Zero file overlap with MW multi-worker/Redis/hot-path code
+- Branch `sync/2026-07` created, merged clean to master
+
+See `docs/runbooks/upstream-sync.md` for procedure.
+
 # v0.5.35-mw.7 (2026-07-19) — multi-worker live usage (no dashboard flicker)
 
 ## Fix: global RECENT REQUESTS / active counters
