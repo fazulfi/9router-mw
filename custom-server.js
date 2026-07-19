@@ -94,6 +94,13 @@ if (isPrimary) {
 
   // Primary stays alive; workers own the HTTP listeners via cluster sharing.
 } else {
+  // F6: prod log defaults (D22) when unset — do not override explicit env
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.LOG_LEVEL) process.env.LOG_LEVEL = "warn";
+    if (process.env.ENABLE_REQUEST_LOGS === undefined || process.env.ENABLE_REQUEST_LOGS === "") {
+      process.env.ENABLE_REQUEST_LOGS = "false";
+    }
+  }
   if (!process.env.MW_WORKER_ID && cluster.worker) {
     process.env.MW_WORKER_ID = String(cluster.worker.id);
   }

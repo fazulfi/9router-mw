@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { pingRedis, getRedisHealthSnapshot } from "open-sse/services/redisClient.js";
+import { getHotPathAgentInfo } from "open-sse/utils/proxyFetch.js";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,7 @@ const CORS_HEADERS = {
  * Liveness probe for 9router-mw.
  * Fase 3: workerId + pid for cluster distribution.
  * Fase 4: redis ping (fail-open degraded mode reported, never fails liveness).
+ * Fase 6: hotpath undici + sqlite driver snapshot (best-effort).
  */
 export async function GET() {
   let redis = {
@@ -40,12 +42,36 @@ export async function GET() {
     };
   }
 
+  let hotpath = {
+    undici: getHotPathAgentInfo(),
+    sqlite: { driver: null, journalMode: null },
+  };
+  try {
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const adapter = await getAdapter();
+    let journalMode = null;
+    try {
+      if (adapter?.raw && typeof adapter.raw.pragma === "function") {
+        journalMode = adapter.raw.pragma("journal_mode", { simple: true });
+      } else if (typeof adapter?.get === "function") {
+        const row = adapter.get("PRAGMA journal_mode");
+        journalMode = row?.journal_mode || row?.["journal_mode"] || null;
+      }
+    } catch {
+      /* ignore */
+    }
+    hotpath.sqlite = { driver: adapter?.driver || null, journalMode: journalMode || null };
+  } catch (err) {
+    hotpath.sqlite = { driver: null, journalMode: null, error: err?.message || String(err) };
+  }
+
   const body = {
     ok: true,
     workerId: process.env.MW_WORKER_ID || null,
     pid: process.pid,
     workers: process.env.MW_WORKER_COUNT ? Number(process.env.MW_WORKER_COUNT) : null,
     redis,
+    hotpath,
   };
   return NextResponse.json(body, { headers: CORS_HEADERS });
 }
