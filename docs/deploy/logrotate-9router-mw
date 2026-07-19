@@ -1,0 +1,13 @@
+/var/log/9router-mw/*.log {
+  daily
+  rotate 14
+  compress
+  delaycompress
+  missingok
+  notifempty
+  create 0640 router router
+  sharedscripts
+  postrotate
+    systemctl kill -s HUP 9router-mw.service 2>/dev/null || true
+  endscript
+}

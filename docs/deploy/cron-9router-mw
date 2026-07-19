@@ -1,0 +1,2 @@
+# 9router-mw daily backup at 03:17 UTC
+17 3 * * * root /usr/local/sbin/backup-9router-mw.sh >> /var/log/9router-mw/backup.log 2>&1
