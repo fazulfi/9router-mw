@@ -15,7 +15,7 @@ Fork of [decolua/9router](https://github.com/decolua/9router) optimized for **st
 
 **Public production:** [https://router.budgezen.com](https://router.budgezen.com) · **Health:** [`/api/health`](https://router.budgezen.com/api/health)
 
-[Release status](./docs/RELEASE.md) · [Architecture](./docs/ARCHITECTURE-MW.md) · [Runbooks](./docs/runbooks/) · [Load report](./docs/bench/report-mw-20260719.md) · [Upstream product](https://github.com/decolua/9router)
+[Release status](./docs/RELEASE.md) · [Architecture](./docs/ARCHITECTURE-MW.md) · [Runbooks](./docs/runbooks/) · [**Benchmarks**](./docs/bench/) · [Synthetic load](./docs/bench/report-mw-20260719.md) · [Production soak](./docs/bench/report-production-soak-20260719.md) · [Upstream](https://github.com/decolua/9router)
 
 </div>
 
@@ -83,21 +83,6 @@ Cluster is **capacity**, not **multiplication**. The kernel / load balancer deli
 | Redis | **6381 only** — foreign `:6379` / `:6380` untouched |
 | Edge | Cloudflare Proxied + Nginx TLS (Origin CA) + Full (strict) |
 
-### Load gate (§5) — GREEN
-
-| Metric | Target | Result |
-| ------ | ------ | ------ |
-| Concurrent | 200 VU | peak 200 hold 2m |
-| Throughput | ≥1.5× single (~358 rps) | **905.5 rps (2.53×)** |
-| p95 TTFB (health) | < 2s | **241 ms** |
-| Error rate | < 1% | **0%** |
-| No double upstream | 1:1 mock | **PASS** |
-| Worker kill respawn | < 5s | **~1s** |
-| Full restart | < 30s | **~2.8s** |
-| Soak | 30m (waiver) | 10m @ 100 VU, 0% fail |
-
-Full report: [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-20260719.md)
-
 ### Production invariants (never violate)
 
 1. Workers always **4**
@@ -107,6 +92,94 @@ Full report: [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-2026071
 5. Bind **localhost**; public only via Nginx
 6. **No secrets in git**
 7. **No double-request** semantics
+
+---
+
+## Performance & benchmarks
+
+Enterprise evidence pack: synthetic k6 gates **plus** production organic soak on the live public edge.  
+**Index:** [`docs/bench/`](./docs/bench/) · **SSOT release:** [`docs/RELEASE.md`](./docs/RELEASE.md)
+
+### Scoreboard (headline)
+
+| Suite | Mode | Result | Status |
+| ----- | ---- | ------ | ------ |
+| **§5 multi-worker load** | k6 health · 200 VU | **905.5 rps** = **2.53×** single baseline (~358 rps) | **GREEN** |
+| p95 TTFB (health) | k6 | **241 ms** (target &lt; 2s) | **PASS** |
+| Error rate | k6 | **0%** | **PASS** |
+| No double upstream | mock counter 1:1 | client reqs = upstream reqs | **PASS** |
+| Worker respawn | `kill -9` one worker | **~1 s** back to 4 workers | **PASS** |
+| Full restart | systemd | **~2.8 s** ready | **PASS** |
+| **Production organic** | real `/v1` traffic | **~166 RPM avg** · peak **~278 RPM** · **0× 5xx** | **GREEN** |
+| Live dashboard aggregate | Redis `mw:live:*` | global recent/pending across 4 workers (no flicker) | **PASS** |
+
+> **Units:** synthetic tables use **RPS** (requests/second, health path). Organic tables use **RPM** (requests/minute from nginx `/v1` deltas). Do not mix when quoting.
+
+### Synthetic load gate (§5) — GREEN
+
+| Metric | Target | Measured |
+| ------ | ------ | -------- |
+| Concurrent | 200 VU | peak 200 · hold 2m |
+| Throughput | ≥1.5× single (~358 rps) | **905.5 rps (2.53×)** |
+| p95 TTFB (health) | &lt; 2s | **241 ms** |
+| Error rate | &lt; 1% | **0%** |
+| No double upstream | 1:1 mock | **PASS** |
+| Worker kill respawn | &lt; 5s | **~1 s** |
+| Full restart | &lt; 30s | **~2.8 s** |
+| k6 soak | 30m (waiver 10m @ 100 VU) | ~946 rps · 0% fail |
+
+Full methodology: [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-20260719.md)
+
+### Production organic soak — GREEN
+
+Measured on **live** https://router.budgezen.com after go-live (4 workers · Redis 6381 · undici · better-sqlite3+WAL).
+
+| Run | Mode | Window | RPM avg | Peak RPM | 5xx | Workers |
+| --- | ---- | ------ | ------- | -------- | --- | ------- |
+| Pre-fix organic | real clients | ~10m | ~100 | ~234 | 0 | 4 |
+| Post-fix soak | synth + organic | ~10m | ~192 | ~260 | 0 | 4 |
+| **Monitor (showcase)** | **organic only** | **~7.5m** | **~166** | **~278** | **0** | **4** |
+
+**Showcase window (2026-07-19 UTC):** cum `/v1` **1,243** · cum total **1,307** · redis ok · health always 200 · `workerId` rotates **1–4** (round-robin, not double-request).
+
+```text
+Organic RPM timeline (est. per 30s window ×2)
+~64 → ~58 → ~104 → ~136 → ~186 → ~144 → ~174 → ~188
+→ ~228 → ~204 → ~230 → ~210 → ~278 → ~278 → ~4 (quiet tail)
+```
+
+Full production report: [`docs/bench/report-production-soak-20260719.md`](./docs/bench/report-production-soak-20260719.md)
+
+### What “no double-request” means
+
+| Claim | Meaning | Proof |
+| ----- | ------- | ----- |
+| Cluster capacity | 1 client HTTP request → **exactly one** worker | health `workerId` rotation under load |
+| Upstream isolation | 1 client request → **1** mock upstream call | k6 mock counter equality |
+| Not fan-out | Workers do **not** each re-dispatch the same client request | mock 1:1 + organic path analysis |
+
+Combo / account **fallback** (try next account on failure) is product routing behavior — not cluster multiplication.
+
+### Multi-worker live UI integrity
+
+| Before | After |
+| ------ | ----- |
+| Dashboard “RECENT REQUESTS” flickered (per-worker in-memory ring) | Redis-backed global ring `mw:live:recent` (cap 50) + pending counters |
+| SSE on worker A missed traffic on B/C/D | stream route livePoll **1.5s** reads shared Redis snapshot |
+
+Module: `open-sse/services/liveUsageState.js` · fail-open if Redis down.
+
+### Reproduce
+
+```bash
+# Synthetic (from repo)
+k6 run docs/bench/k6-load-health-200.js
+k6 run docs/bench/k6-load-mock-upstream.js
+k6 run docs/bench/k6-soak-health.js
+
+# Live health
+curl -sS https://router.budgezen.com/api/health | jq .
+```
 
 ---
 
@@ -167,7 +240,9 @@ Secrets (`JWT_SECRET`, `API_KEY_SECRET`, `INITIAL_PASSWORD`, provider tokens) li
 | [`docs/plans/9router-mw-production-plan.md`](./docs/plans/9router-mw-production-plan.md) | Locked architecture plan (executed) |
 | [`docs/runbooks/`](./docs/runbooks/) | Deploy, rollback, backup, go-live, upstream-sync |
 | [`docs/deploy/`](./docs/deploy/) | systemd, nginx, env examples, ops scripts |
-| [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-20260719.md) | Load gate evidence |
+| [`docs/bench/`](./docs/bench/) | Bench index — synthetic + production |
+| [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-20260719.md) | §5 synthetic load gate (2.53×) |
+| [`docs/bench/report-production-soak-20260719.md`](./docs/bench/report-production-soak-20260719.md) | Production organic soak (~166 RPM) |
 | [`docs/evidence/`](./docs/evidence/) | Phase 00–09 proofs |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Upstream 9router architecture (stock) |
 | [`CHANGELOG.md`](./CHANGELOG.md) | Version history (mw section) |
@@ -212,7 +287,9 @@ Redeploy of the app binary to mw.6 is **optional** — mw.6 is documentation, mi
 | Area | State |
 | ---- | ----- |
 | Engineering F0–F9 | **ACCEPTED** |
-| Load §5 | **GREEN** |
+| Load §5 (synthetic) | **GREEN** — 2.53× · 905.5 rps · 0% err |
+| Production organic soak | **GREEN** — ~166 RPM avg · peak ~278 · 0× 5xx |
+| Live usage (dashboard) | **GLOBAL** Redis `mw:live:*` (no worker flicker) |
 | Public HTTPS | **LIVE** |
 | Provider data | Migrated non-mimo connections + custom nodes + proxy pools + combos + model kv |
 | `apiKeys` | Not auto-migrated — create on dashboard if needed |
@@ -256,7 +333,9 @@ Please do not open PRs that reintroduce:
 | Is production healthy? | https://router.budgezen.com/api/health |
 | Final release status | [`docs/RELEASE.md`](./docs/RELEASE.md) |
 | Deploy / rollback | [`docs/runbooks/`](./docs/runbooks/) |
-| Load evidence | [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-20260719.md) |
+| Benchmarks (all) | [`docs/bench/`](./docs/bench/) |
+| Synthetic load (2.53×) | [`docs/bench/report-mw-20260719.md`](./docs/bench/report-mw-20260719.md) |
+| Production soak (~166 RPM) | [`docs/bench/report-production-soak-20260719.md`](./docs/bench/report-production-soak-20260719.md) |
 | Upstream product help | https://github.com/decolua/9router |
 
 ---
@@ -264,6 +343,7 @@ Please do not open PRs that reintroduce:
 <div align="center">
 
 **9router-MW** · PRODUCTION FINAL · `v0.5.35-mw.6`  
-Built on [decolua/9router](https://github.com/decolua/9router) · Operated for high-concurrency production routing
+**2.53×** synthetic · **~166 RPM** organic · **0%** 5xx under peak  
+Built on [decolua/9router](https://github.com/decolua/9router) · High-concurrency production routing
 
 </div>
