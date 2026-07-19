@@ -48,27 +48,43 @@ Stock 9router is excellent as a single-process local gateway. Under high concurr
 4. **undici keep-alive Agent** — connection reuse on the provider hot path
 5. **No double-request** — one client HTTP request → exactly one worker → one upstream call (combo/account fallback is product behavior, not cluster fan-out)
 
-### Topology
+### Topology (production actual)
+
+> Full mermaid system-context + worker hot path: **[`docs/ARCHITECTURE-MW.md`](./docs/ARCHITECTURE-MW.md)**  
+> Upstream single-process product map (`db.json` / one “Local Process” box): [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — **not** this deploy.
 
 ```text
-Internet clients
-    → Cloudflare (DNS Proxied + TLS edge)
-    → Nginx :443 (Origin CA, Full strict)
-    → 127.0.0.1:20128  Node primary (cluster)
-         ├─ worker 1
-         ├─ worker 2
-         ├─ worker 3
-         └─ worker 4
-              ├─ undici keep-alive → upstream providers
-              ├─ Redis 127.0.0.1:6381 → semaphore / breaker / usage buffer
-              └─ SQLite WAL  /var/lib/9router-mw  → credentials, settings, history
-MITM: OFF in production
+Clients (Claude Code, OpenCode, browser, OpenAI-compatible)
+    → Cloudflare Proxied  router.budgezen.com
+    → Nginx :443  Origin CA · Full (strict)
+    → 127.0.0.1:20128  custom-server.js cluster
+         primary  (fork + respawn only)
+         ├─ worker 1 ─┐
+         ├─ worker 2 ─┤  each: Next standalone + open-sse
+         ├─ worker 3 ─┤       undici keep-alive → upstream providers
+         └─ worker 4 ─┘       (OAuth / API key / compatible nodes)
+              │
+              ├─ Redis 127.0.0.1:6381
+              │    semaphore · circuit breaker · usage buffer
+              │    mw:live:*  (global dashboard pending/recent)
+              └─ SQLite WAL  /var/lib/9router-mw/db/data.sqlite
+                   better-sqlite3 · source of truth
+MITM: OFF · foreign Redis :6379/:6380 untouched
+```
+
+```mermaid
+flowchart LR
+    C[Clients] --> CF[Cloudflare]
+    CF --> NGX[Nginx TLS]
+    NGX --> CL["cluster :20128\n4 workers"]
+    CL --> R[(Redis :6381)]
+    CL --> S[(SQLite WAL)]
+    CL --> U[Upstream providers]
 ```
 
 ### Double-request guarantee
 
-Cluster is **capacity**, not **multiplication**. The kernel / load balancer delivers each TCP/HTTP request to **one** worker. Proven under load: mock upstream request count == k6 client request count (`docs/bench/report-mw-20260719.md`).
-
+Cluster is **capacity**, not **multiplication**. The kernel / Node cluster delivers each TCP/HTTP request to **exactly one** worker; that worker performs **one** upstream path (combo/account fallback is product routing, not fan-out). Proven under load: mock upstream request count == k6 client request count (`docs/bench/report-mw-20260719.md`).
 ---
 
 ## Production snapshot
@@ -236,7 +252,7 @@ Secrets (`JWT_SECRET`, `API_KEY_SECRET`, `INITIAL_PASSWORD`, provider tokens) li
 | Document | Role |
 | -------- | ---- |
 | [`docs/RELEASE.md`](./docs/RELEASE.md) | **SSOT** — production final status, version map, sign-off |
-| [`docs/ARCHITECTURE-MW.md`](./docs/ARCHITECTURE-MW.md) | MW topology, health contract, invariants |
+| [`docs/ARCHITECTURE-MW.md`](./docs/ARCHITECTURE-MW.md) | **Production system context** (mermaid) — multi-worker, Redis, SQLite, edge |
 | [`docs/plans/9router-mw-production-plan.md`](./docs/plans/9router-mw-production-plan.md) | Locked architecture plan (executed) |
 | [`docs/runbooks/`](./docs/runbooks/) | Deploy, rollback, backup, go-live, upstream-sync |
 | [`docs/deploy/`](./docs/deploy/) | systemd, nginx, env examples, ops scripts |
