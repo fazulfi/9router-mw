@@ -116,6 +116,29 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
     }
   };
 
+  // Prevent SSR document reference error
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className={className}>
+        {!hideTrigger && (
+          <button type="button"
+            disabled={true}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-muted transition-colors opacity-70"
+            title="Language"
+          >
+            <span className="material-symbols-outlined text-[20px]">language</span>
+            <span className="text-sm font-medium">{getLocaleInfo(locale).name}</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
       {/* Trigger button */}

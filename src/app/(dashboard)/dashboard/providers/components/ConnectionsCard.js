@@ -61,6 +61,7 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
     .map(([, v]) => v).filter(Boolean).sort()[0] || null;
 
   useEffect(() => {
+    let t = null;
     const check = () => {
       const until = Object.entries(connection)
         .filter(([k]) => k.startsWith("modelLock_"))
@@ -68,9 +69,11 @@ function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMov
       setIsCooldown(!!until);
     };
     check();
-    const t = modelLockUntil ? setInterval(check, 1000) : null;
+    if (modelLockUntil) {
+      t = setInterval(check, 1000);
+    }
     return () => { if (t) clearInterval(t); };
-  }, [modelLockUntil]);
+  }, [modelLockUntil, connection]);
 
   useEffect(() => {
     if (!showProxyDropdown) return;

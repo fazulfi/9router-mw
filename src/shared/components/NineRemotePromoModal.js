@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const FEATURES = [
@@ -31,7 +31,13 @@ export default function NineRemotePromoModal({ isOpen, onClose }) {
     return () => { document.body.style.overflow = ""; document.removeEventListener("keydown", onEsc); };
   }, [isOpen]);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!isOpen) return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">

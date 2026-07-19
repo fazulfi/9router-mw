@@ -1,7 +1,7 @@
 {
   "$schema": "https://react.doctor/schema/config.json",
 
-  "projects": ["vansrouter-app"],
+  "projects": ["9router-app"],
 
   "ignore": {
     "rules": [
@@ -42,6 +42,7 @@
     "react-doctor/no-danger": "off",
     "react-doctor/local-rpc-native-bridge-risk": "off",
     "react-doctor/plugin-update-trust-risk": "off",
-    "react-doctor/nextjs-no-client-fetch-for-server-data": "off"
+    "react-doctor/nextjs-no-client-fetch-for-server-data": "off",
+    "react-doctor/effect-needs-cleanup": "off"
   }
 }

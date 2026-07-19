@@ -24,9 +24,10 @@ export default function LoginPage() {
   }, [retryAfter]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let timeoutId;
     async function checkAuth() {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      timeoutId = setTimeout(() => controller.abort(), 5000);
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
       try {
@@ -55,6 +56,10 @@ export default function LoginPage() {
       }
     }
     checkAuth();
+    return () => {
+      controller.abort();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleLogin = async (e) => {

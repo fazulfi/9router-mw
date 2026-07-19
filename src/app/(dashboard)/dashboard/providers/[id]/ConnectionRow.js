@@ -94,6 +94,7 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     .sort()[0] || null;
 
   useEffect(() => {
+    let interval = null;
     const checkCooldown = () => {
       const until = Object.entries(connection)
         .filter(([k]) => k.startsWith("modelLock_"))
@@ -104,11 +105,13 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
     };
 
     checkCooldown();
-    const interval = modelLockUntil ? setInterval(checkCooldown, 1000) : null;
+    if (modelLockUntil) {
+      interval = setInterval(checkCooldown, 1000);
+    }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [modelLockUntil]);
+  }, [modelLockUntil, connection]);
 
   // Determine effective status (override unavailable if cooldown expired)
   const effectiveStatus = (connection.testStatus === "unavailable" && !isCooldown)

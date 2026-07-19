@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, Fragment } from "react";
+import { useState, useCallback, useMemo, Fragment, useEffect } from "react";
 import Card from "@/shared/components/Card";
 import Badge from "@/shared/components/Badge";
 
@@ -101,14 +101,17 @@ export default function UsageTable({
     setExpanded((prev) => {
       const next = new Set(prev);
       next.has(groupKey) ? next.delete(groupKey) : next.add(groupKey);
-      try {
-        localStorage.setItem(storageKey, JSON.stringify([...next]));
-      } catch (e) {
-        console.error(`Failed to save ${storageKey}:`, e);
-      }
       return next;
     });
-  }, [storageKey]);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify([...expanded]));
+    } catch (e) {
+      console.error(`Failed to save ${storageKey}:`, e);
+    }
+  }, [expanded, storageKey]);
 
   const valueColumns = useMemo(() => {
     if (viewMode === "tokens") {
