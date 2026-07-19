@@ -1,0 +1,4 @@
+PREV=/opt/9router-mw/releases/0.5.35-mw.3/.next/standalone
+DEST=/opt/9router-mw/releases/0.5.35-mw.4/.next/standalone
+ROLLBACK_OK_MS=2758
+{"ok":true,"workerId":"2","pid":559536,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":25,"error":null,"connected":true,"status":"ready","lastPingMs":25,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}

@@ -1,0 +1,1 @@
+-rw-r--r-- 1 root root 236 Jul 19 01:00 /etc/logrotate.d/9router-mw
