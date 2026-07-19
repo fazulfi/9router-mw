@@ -171,7 +171,7 @@ describe("Post-merge: ponytail still wired in chatCore", () => {
   });
 
   it("calls injectPonytail when enabled", () => {
-    expect(src).toMatch(/if\s*\(ponytailEnabled.*ponytailLevel\)/);
+    expect(src).toMatch(/if\s*\(.*ponytailEnabled.*ponytailLevel\)/);
     expect(src).toContain("injectPonytail(translatedBody, finalFormat, ponytailLevel)");
   });
 });

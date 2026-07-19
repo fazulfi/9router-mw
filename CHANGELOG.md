@@ -1,3 +1,41 @@
+# v0.9.51 (2026-07-19)
+
+VansRouter 0.9.51 adopts all upstream `decolua/9router` commits from `v0.5.31` to `v0.5.35`.
+
+## Adopted from upstream (v0.5.31–v0.5.35)
+
+### Features
+- **Grok Imagine** — Grok video generation via `/v1/videos` endpoint + CLI command (`d6761c6fb`)
+- **Grok Build setup** — CLI tool card and settings route for Grok Build (`70e8dc497`)
+- **Kiro GPT-5.6 model family** — adds GPT-5.6 model slots to Kiro provider (`b94685b80`)
+- **X-9Router-Token-Saver header** — per-request bypass header to skip token savers (`c9926897b`)
+- **Thai language translation** — full 1389-key th.json + README.th.md (`0248dd534`)
+- **Persian (fa) translations** — UI literals + README.fa_IR.md (`02ccdc2d2`)
+
+### Fixes
+- **bulk-add API keys** — no longer overwrites existing keys (`de680e789`)
+- **anthropic-version header** — lowercase to prevent duplication on `/v1/messages` (`6acc3bb96`)
+- **alicode-intl** — use DashScope compatible-mode endpoint so standard keys work (`8b9cac180`)
+- **translator** — strip `client_metadata` when converting `openai-responses` to `openai` (`e567ba800`)
+- **thinking** — send explicit `thinking:{type:adaptive}` alongside `output_config.effort` (`ba508f250`)
+- **translator** — drop temperature for all Claude models (`9173c29b6`)
+- **grok-cli** — surface `expiresAt` so proactive token refresh fires (`7dfb34666`)
+- **grok-cli** — align Grok Build with current subscription protocol (`59b782823`)
+- **models** — populate capabilities for live-catalog LLM models (`2629218b0`)
+- **models** — list compatible provider models in `/v1/models` (`88a8c72d2`)
+- **kiro** — improve direct session cache reuse (`9c58ba645`)
+- **startup** — skip inactive background services on boot (`27b37705b`)
+
+## Fixed (VansRouter-specific — no-undef regressions dari upstream merge)
+- `open-sse/handlers/chatCore.js` — tambah import `extractThinking` dan definisi `reqTag` yang upstream referensikan tapi tidak dideklarasikan
+- `open-sse/translator/request/openai-to-kiro.js` — tambah `import { randomUUID } from "node:crypto"`
+- `src/app/api/v1/models/route.js` — inisialisasi `liveCapabilitiesById` dan `liveKind` dari hasil live resolver
+- `src/app/api/providers/[id]/models/route.js` — ganti `getStaticProviderModels()` yang tidak ada dengan fallback `[]`
+
+## Skipped (sengaja tidak diadopsi)
+- Penghapusan ZCode provider — upstream menghapus ZCode; VansRouter tetap mempertahankannya
+- Restore branding 9Router — upstream mengembalikan label UI 9Router; dilewati untuk menjaga branding VansAI
+
 # v0.5.31 (2026-07-13)
 
 ## Fixes

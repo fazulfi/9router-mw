@@ -369,7 +369,7 @@ const PROVIDER_MODELS_CONFIG = {
       });
       if (result.models.length) return result;
       return {
-        models: getStaticProviderModels("grok-cli"),
+        models: [],
         warning: result.warning || "Grok CLI returned no live models; using static catalog.",
       };
     },

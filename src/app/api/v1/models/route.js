@@ -356,11 +356,18 @@ export async function buildModelsList(kindFilter, options = {}) {
       // -thinking/-agentic variants per account). On failure, fall back to
       // whatever rawModelIds already holds.
       const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
+      let liveCapabilitiesById = new Map();
+      let liveKind = null;
       if (liveResolver && !hasExplicitEnabledModels) {
         try {
           const live = await liveResolver(conn);
           if (live?.models?.length) {
             rawModelIds = live.models.map((m) => m.id);
+            // Build capabilities map from live catalog if provided
+            for (const m of live.models) {
+              if (m.id && m.capabilities) liveCapabilitiesById.set(m.id, m.capabilities);
+            }
+            liveKind = live.kind || null;
           }
         } catch (err) {
           console.log(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
