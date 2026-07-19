@@ -9,7 +9,7 @@ import { parseSSEToOpenAIResponse } from "./sseToJsonHandler.js";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
-import { finalizeRequestPhases } from "../../utils/requestTiming.js";
+import { buildRequestLatency, elapsedRequestMilliseconds, requestNow } from "../../utils/requestTiming.js";
 
 function parseToolArguments(value) {
   if (!value) return {};
@@ -199,16 +199,33 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ requestId, providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, responseStartTime, requestPhases, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog, pxpipe, reqTag, log }) {
+export async function handleNonStreamingResponse({ requestId, correlationId, providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestTiming, responseStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog, pxpipe, reqTag, log }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
+  const saveErrorDetail = (message) => {
+    const completedAt = requestNow();
+    saveRequestDetail(buildRequestDetail({
+      id: requestId,
+      attemptId: requestId,
+      correlationId,
+      provider, model, connectionId,
+      latency: buildRequestLatency(requestTiming, { responseStartedAt: responseStartTime, endedAt: completedAt }),
+      tokens: { prompt_tokens: 0, completion_tokens: 0 },
+      request: extractRequestConfig(body, stream),
+      providerRequest: finalBody || translatedBody || null,
+      response: { error: message, status: HTTP_STATUS.BAD_GATEWAY, thinking: null },
+      pxpipe,
+      status: "error"
+    }, { endpoint: clientRawRequest?.endpoint || null })).catch(() => { });
+  };
 
   if (contentType.includes("text/event-stream")) {
     const sseText = await providerResponse.text();
     const parsed = parseSSEToOpenAIResponse(sseText, model);
     if (!parsed) {
       appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
+      saveErrorDetail("Invalid SSE response for non-streaming request");
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid SSE response for non-streaming request");
     }
     responseBody = parsed;
@@ -218,6 +235,7 @@ export async function handleNonStreamingResponse({ requestId, providerResponse, 
     } catch (err) {
       appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
       console.error(`[ChatCore] Failed to parse JSON from ${provider}:`, err.message);
+      saveErrorDetail(`Invalid JSON response from ${provider}`);
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `Invalid JSON response from ${provider}`);
     }
   }
@@ -237,7 +255,7 @@ export async function handleNonStreamingResponse({ requestId, providerResponse, 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
   saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
-  if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
+  if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: elapsedRequestMilliseconds(requestTiming.requestStartedAt) } }));
 
   const translatedResponse = needsTranslation(targetFormat, sourceFormat)
     ? translateNonStreamingResponse(responseBody, targetFormat, sourceFormat)
@@ -285,12 +303,14 @@ export async function handleNonStreamingResponse({ requestId, providerResponse, 
 
   reqLogger.logConvertedResponse(translatedResponse);
 
-  const completedAt = Date.now();
-  const totalLatency = completedAt - requestStartTime;
+  const completedAt = requestNow();
+  const requestTotal = elapsedRequestMilliseconds(requestTiming.requestStartedAt, completedAt);
   saveRequestDetail(buildRequestDetail({
     id: requestId,
+    attemptId: requestId,
+    correlationId,
     provider, model, connectionId,
-    latency: { ttft: totalLatency, total: totalLatency, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
+    latency: buildRequestLatency(requestTiming, { ttft: requestTotal, responseStartedAt: responseStartTime, endedAt: completedAt }),
     tokens: usage || { prompt_tokens: 0, completion_tokens: 0 },
     request: extractRequestConfig(body, stream),
     providerRequest: finalBody || translatedBody || null,

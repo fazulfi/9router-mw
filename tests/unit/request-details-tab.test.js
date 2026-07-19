@@ -82,6 +82,26 @@ describe("request details — tab crash-risk cases", () => {
     expect(res.pagination.pageSize).toBe(9999);
   });
 
+  it("preserves request correlation and gateway attempt ids in JSON detail data", async () => {
+    await saveDetail({
+      id: "attempt-1",
+      attemptId: "attempt-1",
+      correlationId: "request-1",
+      provider: "openai",
+      model: "gpt-4",
+      status: "error",
+      request: {},
+      response: {},
+    });
+
+    const got = await db.getRequestDetailById("attempt-1");
+    expect(got).toMatchObject({
+      id: "attempt-1",
+      attemptId: "attempt-1",
+      correlationId: "request-1",
+    });
+  });
+
   it("oversized field → stored truncated + reparseable (no circular)", async () => {
     const huge = "x".repeat(20 * 1024);
     await saveDetail({

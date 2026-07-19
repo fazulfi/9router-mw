@@ -15,66 +15,79 @@ import { handleNonStreamingResponse } from "../../open-sse/handlers/chatCore/non
 import { handleForcedSSEToJson } from "../../open-sse/handlers/chatCore/sseToJsonHandler.js";
 import { buildRequestDetail } from "../../open-sse/handlers/chatCore/requestDetail.js";
 import { buildOnStreamComplete, handleStreamingResponse } from "../../open-sse/handlers/chatCore/streamingHandler.js";
+import { createStreamController } from "../../open-sse/utils/streamHandler.js";
 
-const REQUEST_ID = "019f7fa1-0d8d-7000-8000-000000000001";
+const CORRELATION_ID = "019f7fa1-0d8d-7000-8000-000000000000";
+const ATTEMPT_ID = "019f7fa1-0d8d-7000-8000-000000000001";
+let monotonicNow;
 
-beforeEach(() => saveRequestDetailMock.mockClear());
-afterEach(() => vi.useRealTimers());
+function requestTiming(phases = {}) {
+  return { requestStartedAt: 900, attemptStartedAt: 950, phases };
+}
 
-describe("request correlation", () => {
-  it("preserves request id in request detail records", () => {
+function responseLogger() {
+  return { logProviderResponse: vi.fn(), logConvertedResponse: vi.fn() };
+}
+
+beforeEach(() => {
+  saveRequestDetailMock.mockClear();
+  monotonicNow = 1_000;
+  vi.spyOn(globalThis.performance, "now").mockImplementation(() => monotonicNow);
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("request correlation and terminal timing", () => {
+  it("preserves request-wide correlation and explicit attempt id in detail records", () => {
     const detail = buildRequestDetail({
-      id: REQUEST_ID,
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
       provider: "codex",
       model: "gpt-5.6-sol",
     });
 
-    expect(detail.id).toBe(REQUEST_ID);
-  });
-
-  it("uses request id for streaming detail updates", () => {
-    const result = buildOnStreamComplete({
-      requestId: REQUEST_ID,
-      provider: "codex",
-      model: "gpt-5.6-sol",
-      requestStartTime: Date.now(),
-      body: {},
-      translatedBody: {},
+    expect(detail).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
     });
-
-    expect(result.streamDetailId).toBe(REQUEST_ID);
   });
 
-  it("uses request id for streaming completion persistence", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(1_100);
-    const { onStreamComplete } = buildOnStreamComplete({
-      requestId: REQUEST_ID,
+  it("uses headers for stream response duration and keeps attempt/request totals distinct", () => {
+    monotonicNow = 1_100;
+    const { onStreamComplete, streamDetailId } = buildOnStreamComplete({
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
       provider: "codex",
       model: "gpt-5.6-sol",
-      requestStartTime: 900,
+      requestTiming: requestTiming({ ingress_ms: 3, upstream_headers_ms: 20 }),
       responseStartTime: 1_000,
-      requestPhases: { ingress_ms: 3, upstream_headers_ms: 20 },
       body: {},
       translatedBody: {},
     });
 
     onStreamComplete({ content: "OK" }, { input_tokens: 1, output_tokens: 1 }, 1_050);
 
+    expect(streamDetailId).toBe(ATTEMPT_ID);
     expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
-    expect(saveRequestDetailMock.mock.calls[0][0].id).toBe(REQUEST_ID);
-    expect(saveRequestDetailMock.mock.calls[0][0].latency).toEqual({
-      ttft: 150,
-      total: 200,
-      phases: { ingress_ms: 3, upstream_headers_ms: 20, response_ms: 50 },
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      latency: {
+        ttft: 150,
+        total: 150,
+        request_total: 200,
+        phases: { ingress_ms: 3, upstream_headers_ms: 20, response_ms: 100 },
+      },
     });
   });
 
-  it("uses request id for non-streaming persistence", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(1_000);
+  it("persists sanitized phases for non-streaming success", async () => {
     await handleNonStreamingResponse({
-      requestId: REQUEST_ID,
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
       providerResponse: new Response(JSON.stringify({
         id: "chatcmpl-test",
         model: "test-model",
@@ -88,30 +101,65 @@ describe("request correlation", () => {
       body: { messages: [] },
       stream: false,
       translatedBody: {},
-      requestStartTime: 900,
-      responseStartTime: 975,
-      requestPhases: {
+      requestTiming: requestTiming({
         ingress_ms: 3,
         upstream_headers_ms: 20,
-        auth_ms: Number.NaN,
+        auth_total_ms: Number.NaN,
         dynamic_model_ms: 500,
-      },
+      }),
+      responseStartTime: 975,
       clientRawRequest: { endpoint: "/v1/chat/completions" },
-      reqLogger: { logProviderResponse: vi.fn(), logConvertedResponse: vi.fn() },
+      reqLogger: responseLogger(),
       trackDone: vi.fn(),
       appendLog: vi.fn(),
     });
 
     expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
-    expect(saveRequestDetailMock.mock.calls[0][0].id).toBe(REQUEST_ID);
-    expect(saveRequestDetailMock.mock.calls[0][0].latency.phases).toEqual({
-      ingress_ms: 3,
-      upstream_headers_ms: 20,
-      response_ms: 25,
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      latency: {
+        ttft: 100,
+        total: 50,
+        request_total: 100,
+        phases: { ingress_ms: 3, upstream_headers_ms: 20, response_ms: 25 },
+      },
     });
   });
 
-  it("uses request id for forced SSE-to-JSON persistence", async () => {
+  it("persists a terminal detail when non-stream JSON parsing fails", async () => {
+    const result = await handleNonStreamingResponse({
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      providerResponse: new Response("not-json", { headers: { "content-type": "application/json" } }),
+      provider: "github",
+      model: "test-model",
+      sourceFormat: FORMATS.OPENAI,
+      targetFormat: FORMATS.OPENAI,
+      body: { messages: [] },
+      stream: false,
+      translatedBody: {},
+      requestTiming: requestTiming({ upstream_headers_ms: 20 }),
+      responseStartTime: 975,
+      reqLogger: responseLogger(),
+      trackDone: vi.fn(),
+      appendLog: vi.fn(),
+    });
+
+    expect(result.success).toBe(false);
+    expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      status: "error",
+      response: { error: "Invalid JSON response from github", status: 502 },
+      latency: { phases: { upstream_headers_ms: 20, response_ms: 25 } },
+    });
+  });
+
+  it("persists request identity and phases for forced SSE-to-JSON success", async () => {
     const chunk = {
       id: "chatcmpl-test",
       model: "test-model",
@@ -119,7 +167,8 @@ describe("request correlation", () => {
       usage: { prompt_tokens: 1, completion_tokens: 1 },
     };
     await handleForcedSSEToJson({
-      requestId: REQUEST_ID,
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
       providerResponse: new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, {
         headers: { "content-type": "text/event-stream" },
       }),
@@ -129,21 +178,124 @@ describe("request correlation", () => {
       body: { messages: [] },
       stream: true,
       translatedBody: {},
-      requestStartTime: Date.now(),
-      responseStartTime: Date.now(),
-      requestPhases: { compression_ms: 4 },
+      requestTiming: requestTiming({ compression_ms: 4 }),
+      responseStartTime: 1_000,
       clientRawRequest: { endpoint: "/v1/chat/completions" },
       trackDone: vi.fn(),
       appendLog: vi.fn(),
     });
 
     expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
-    expect(saveRequestDetailMock.mock.calls[0][0].id).toBe(REQUEST_ID);
-    expect(saveRequestDetailMock.mock.calls[0][0].latency.phases)
-      .toEqual({ compression_ms: 4, response_ms: expect.any(Number) });
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      latency: { phases: { compression_ms: 4, response_ms: 0 } },
+    });
   });
 
-  it("uses request id for streaming in-progress persistence", async () => {
+  it("persists a terminal detail when forced SSE conversion throws", async () => {
+    const result = await handleForcedSSEToJson({
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      providerResponse: {
+        headers: new Headers({ "content-type": "text/event-stream" }),
+        text: vi.fn().mockRejectedValue(new Error("stream read failed")),
+      },
+      sourceFormat: FORMATS.OPENAI,
+      provider: "github",
+      model: "test-model",
+      body: { messages: [] },
+      stream: true,
+      translatedBody: {},
+      requestTiming: requestTiming({ upstream_headers_ms: 8 }),
+      responseStartTime: 980,
+      trackDone: vi.fn(),
+      appendLog: vi.fn(),
+    });
+
+    expect(result.success).toBe(false);
+    expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      status: "error",
+      latency: { phases: { upstream_headers_ms: 8, response_ms: 20 } },
+    });
+  });
+
+  it("updates the same stream detail on abort", () => {
+    monotonicNow = 1_100;
+    const { onStreamError } = buildOnStreamComplete({
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      provider: "github",
+      model: "test-model",
+      requestTiming: requestTiming({ upstream_headers_ms: 10 }),
+      responseStartTime: 1_000,
+      body: {},
+      translatedBody: {},
+    });
+
+    onStreamError(new DOMException("aborted", "AbortError"));
+
+    expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      status: "error",
+      response: { error: "Stream aborted", status: 499 },
+      latency: { phases: { upstream_headers_ms: 10, response_ms: 100 } },
+    });
+  });
+
+  it("persists terminal stream detail when upstream is not SSE", async () => {
+    monotonicNow = 1_025;
+    const terminal = buildOnStreamComplete({
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      provider: "github",
+      model: "test-model",
+      requestTiming: requestTiming({ upstream_headers_ms: 10 }),
+      responseStartTime: 1_000,
+      body: {},
+      translatedBody: {},
+    });
+    const streamController = { signal: undefined, handleError: vi.fn() };
+
+    const result = await handleStreamingResponse({
+      providerResponse: new Response("<title>Bad Gateway</title>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+      provider: "github",
+      model: "test-model",
+      sourceFormat: FORMATS.OPENAI,
+      targetFormat: FORMATS.OPENAI,
+      body: { messages: [] },
+      stream: true,
+      translatedBody: {},
+      requestTiming: requestTiming({ upstream_headers_ms: 10 }),
+      responseStartTime: 1_000,
+      connectionId: "test-connection",
+      reqLogger: {},
+      streamController,
+      ...terminal,
+    });
+
+    expect(result.success).toBe(false);
+    expect(streamController.handleError).toHaveBeenCalledTimes(1);
+    expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      status: "error",
+      latency: { phases: { upstream_headers_ms: 10, response_ms: 25 } },
+    });
+  });
+
+  it("persists in-progress stream identity without inventing response duration", async () => {
     await handleStreamingResponse({
       providerResponse: new Response("data: [DONE]\n\n", {
         headers: { "content-type": "text/event-stream" },
@@ -156,23 +308,43 @@ describe("request correlation", () => {
       body: { messages: [] },
       stream: true,
       translatedBody: {},
-      requestStartTime: Date.now(),
-      responseStartTime: Date.now(),
-      requestPhases: { local_before_dispatch_ms: 8, upstream_headers_ms: 5 },
+      requestTiming: requestTiming({ request_before_dispatch_total_ms: 8, upstream_headers_ms: 5 }),
+      responseStartTime: 1_000,
       connectionId: "test-connection",
       reqLogger: {},
       streamController: { signal: undefined, handleError: vi.fn() },
       onStreamComplete: vi.fn(),
-      streamDetailId: REQUEST_ID,
+      onStreamError: vi.fn(),
+      streamDetailId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
     });
 
     expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
-    expect(saveRequestDetailMock.mock.calls[0][0].id).toBe(REQUEST_ID);
-    expect(saveRequestDetailMock.mock.calls[0][0].latency.phases).toEqual({
-      local_before_dispatch_ms: 8,
-      upstream_headers_ms: 5,
+    expect(saveRequestDetailMock.mock.calls[0][0]).toMatchObject({
+      id: ATTEMPT_ID,
+      attemptId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      latency: {
+        total: 50,
+        request_total: 100,
+        phases: { request_before_dispatch_total_ms: 8, upstream_headers_ms: 5 },
+      },
     });
     expect(saveRequestDetailMock.mock.calls[0][0].latency.phases)
       .not.toHaveProperty("response_ms");
+  });
+
+  it("notifies terminal persistence callback for AbortError", () => {
+    const onError = vi.fn();
+    const controller = createStreamController({
+      onError,
+      provider: "github",
+      model: "test-model",
+      log: { line: vi.fn(), errorLine: vi.fn() },
+    });
+
+    controller.handleError(new DOMException("aborted", "AbortError"));
+
+    expect(onError).toHaveBeenCalledTimes(1);
   });
 });

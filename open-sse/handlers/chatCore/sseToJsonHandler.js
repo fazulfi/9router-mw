@@ -8,7 +8,7 @@ import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLin
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
 const isResponsesProvider = (p) => PROVIDERS[p]?.format === FORMATS.OPENAI_RESPONSES;
 import { saveRequestDetail, appendRequestLog } from "@/lib/usageDb.js";
-import { finalizeRequestPhases } from "../../utils/requestTiming.js";
+import { buildRequestLatency, elapsedRequestMilliseconds, requestNow } from "../../utils/requestTiming.js";
 
 function textFromResponsesMessageItem(item) {
   if (!item?.content || !Array.isArray(item.content)) return "";
@@ -109,7 +109,7 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
  * Handle case: provider forced streaming but client wants JSON.
  * Supports both Codex/Responses API SSE and standard Chat Completions SSE.
  */
-export async function handleForcedSSEToJson({ requestId, providerResponse, sourceFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, responseStartTime, requestPhases, connectionId, apiKey, clientRawRequest, onRequestSuccess, trackDone, appendLog, reqTag, log }) {
+export async function handleForcedSSEToJson({ requestId, correlationId, providerResponse, sourceFormat, provider, model, body, stream, translatedBody, finalBody, requestTiming, responseStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, trackDone, appendLog, reqTag, log }) {
   const contentType = providerResponse.headers.get("content-type") || "";
   const isSSE = contentType.includes("text/event-stream") || (contentType === "" && isResponsesProvider(provider));
   if (!isSSE) return null; // not handled here
@@ -118,9 +118,21 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
 
   const ctx = {
     id: requestId,
+    attemptId: requestId,
+    correlationId,
     provider, model, connectionId,
     request: extractRequestConfig(body, stream),
     providerRequest: finalBody || translatedBody || null
+  };
+  const saveErrorDetail = (message) => {
+    const completedAt = requestNow();
+    saveRequestDetail(buildRequestDetail({
+      ...ctx,
+      latency: buildRequestLatency(requestTiming, { responseStartedAt: responseStartTime, endedAt: completedAt }),
+      tokens: { prompt_tokens: 0, completion_tokens: 0 },
+      response: { error: message, status: HTTP_STATUS.BAD_GATEWAY, thinking: null },
+      status: "error"
+    }, { endpoint: clientRawRequest?.endpoint || null })).catch(() => { });
   };
 
   // Codex/Responses API SSE path
@@ -133,15 +145,15 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
       const usage = jsonResponse.usage || {};
       appendLog({ tokens: usage, status: "200 OK" });
       saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
-      if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
+      if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: elapsedRequestMilliseconds(requestTiming.requestStartedAt) } }));
 
       const { msgItem, textContent } = pickAssistantMessageForChatCompletion(jsonResponse.output);
-      const completedAt = Date.now();
-      const totalLatency = completedAt - requestStartTime;
+      const completedAt = requestNow();
+      const requestTotal = elapsedRequestMilliseconds(requestTiming.requestStartedAt, completedAt);
 
       saveRequestDetail(buildRequestDetail({
         ...ctx,
-        latency: { ttft: totalLatency, total: totalLatency, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
+        latency: buildRequestLatency(requestTiming, { ttft: requestTotal, responseStartedAt: responseStartTime, endedAt: completedAt }),
         tokens: { prompt_tokens: usage.input_tokens || 0, completion_tokens: usage.output_tokens || 0 },
         response: { content: textContent, thinking: null, finish_reason: jsonResponse.status || "unknown" },
         status: "success"
@@ -196,6 +208,7 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
       return { success: true, response: new Response(JSON.stringify(finalResp), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
     } catch (err) {
       console.error("[ChatCore] Responses API SSE→JSON failed:", err);
+      saveErrorDetail("Failed to convert streaming response to JSON");
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Failed to convert streaming response to JSON");
     }
   }
@@ -204,12 +217,9 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
   try {
     const sseText = await providerResponse.text();
     const parsed = parseSSEToOpenAIResponse(sseText, model);
-    if (!parsed) return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid SSE response for non-streaming request");
-    if (parsed.error) {
-      return createErrorResult(
-        HTTP_STATUS.BAD_GATEWAY,
-        parsed.error.message || "Upstream SSE stream failed"
-      );
+    if (!parsed) {
+      saveErrorDetail("Invalid SSE response for non-streaming request");
+      return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Invalid SSE response for non-streaming request");
     }
 
     if (onRequestSuccess) await onRequestSuccess();
@@ -217,13 +227,13 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
     const usage = parsed.usage || {};
     appendLog({ tokens: usage, status: "200 OK" });
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
-    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
+    if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: elapsedRequestMilliseconds(requestTiming.requestStartedAt) } }));
 
-    const completedAt = Date.now();
-    const totalLatency = completedAt - requestStartTime;
+    const completedAt = requestNow();
+    const requestTotal = elapsedRequestMilliseconds(requestTiming.requestStartedAt, completedAt);
     saveRequestDetail(buildRequestDetail({
       ...ctx,
-      latency: { ttft: totalLatency, total: totalLatency, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
+      latency: buildRequestLatency(requestTiming, { ttft: requestTotal, responseStartedAt: responseStartTime, endedAt: completedAt }),
       tokens: usage,
       response: {
         content: parsed.choices?.[0]?.message?.content || null,
@@ -248,6 +258,7 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
     return { success: true, response: new Response(JSON.stringify(parsed), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
   } catch (err) {
     console.error("[ChatCore] Chat Completions SSE→JSON failed:", err);
+    saveErrorDetail("Failed to convert streaming response to JSON");
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Failed to convert streaming response to JSON");
   }
 }

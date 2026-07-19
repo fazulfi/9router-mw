@@ -30,7 +30,15 @@ import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 import { extractThinking } from "../translator/concerns/thinkingUnified.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
-import { cloneRequestTiming, finalizeRequestPhases, measureRequestPhase, recordRequestPhase } from "../utils/requestTiming.js";
+import {
+  buildRequestLatency,
+  cloneRequestTiming,
+  createAttemptTiming,
+  elapsedRequestMilliseconds,
+  measureRequestPhase,
+  recordRequestPhase,
+  requestNow,
+} from "../utils/requestTiming.js";
 
 /**
  * Core chat handler - shared between SSE and Worker
@@ -39,12 +47,15 @@ import { cloneRequestTiming, finalizeRequestPhases, measureRequestPhase, recordR
  * @param {object} options.credentials - Provider credentials
  * @param {string} options.sourceFormatOverride - Override detected source format (e.g. "openai-responses")
  */
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, requestTiming }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, requestTiming, correlationId, attemptId }) {
   const { provider, model } = modelInfo;
-  const timing = cloneRequestTiming(requestTiming);
-  const requestStartTime = timing.startedAt;
+  const parentTiming = cloneRequestTiming(requestTiming);
+  const timing = Number.isFinite(parentTiming.attemptStartedAt)
+    ? parentTiming
+    : createAttemptTiming(parentTiming);
   const requestPhases = timing.phases;
-  const requestId = globalThis.crypto.randomUUID();
+  const requestCorrelationId = correlationId || globalThis.crypto.randomUUID();
+  const requestId = attemptId || globalThis.crypto.randomUUID();
   // Stable per-session color so all lines of one CLI conversation share a tag
   const sessionSeed = (() => {
     try {
@@ -125,7 +136,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   let translatedBody;
   let toolNameMap;
-  const translationStartedAt = Date.now();
+  let translationError = null;
+  const translationStartedAt = requestNow();
   try {
     // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
     if (!passthrough) {
@@ -147,16 +159,36 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
     } else {
       translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
-      if (!translatedBody) {
-        trackPendingRequest(model, provider, connectionId, false, true);
-        return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
+      if (translatedBody) {
+        toolNameMap = translatedBody._toolNameMap;
+        delete translatedBody._toolNameMap;
+        translatedBody.model = stripThinkingSuffix(upstreamModel);
       }
-      toolNameMap = translatedBody._toolNameMap;
-      delete translatedBody._toolNameMap;
-      translatedBody.model = stripThinkingSuffix(upstreamModel);
     }
+  } catch (error) {
+    translationError = error;
   } finally {
     recordRequestPhase(requestPhases, "translation_ms", translationStartedAt);
+  }
+
+  if (translationError || !translatedBody) {
+    const status = translationError ? 500 : HTTP_STATUS.BAD_REQUEST;
+    if (!translationError) trackPendingRequest(model, provider, connectionId, false, true);
+    const completedAt = requestNow();
+    saveRequestDetail(buildRequestDetail({
+      id: requestId,
+      attemptId: requestId,
+      correlationId: requestCorrelationId,
+      provider, model, connectionId,
+      latency: buildRequestLatency(timing, { endedAt: completedAt }),
+      tokens: { prompt_tokens: 0, completion_tokens: 0 },
+      request: extractRequestConfig(body, stream),
+      providerRequest: translatedBody || null,
+      response: { error: "Request translation failed", status, thinking: null },
+      status: "error"
+    })).catch(() => { });
+    if (translationError) throw translationError;
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
   }
 
   // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
@@ -200,7 +232,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   let pxpipeSummary = null;
-  const compressionStartedAt = Date.now();
+  const compressionStartedAt = requestNow();
   try {
     // Per-request opt-out: client can bypass all token savers via header
     const tokenSaverEnabled = clientRawRequest?.headers?.[TOKEN_SAVER_HEADER]?.toLowerCase() !== "off";
@@ -261,12 +293,19 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const msgCount = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || translatedBody.request?.contents?.length || 0;
   log?.debug?.("REQUEST", `${provider.toUpperCase()} | ${model} | ${msgCount} msgs`);
 
+  let onStreamTerminalError = null;
   const streamController = createStreamController({
     onDisconnect: (reason) => {
       trackPendingRequest(model, provider, connectionId, false);
+      const error = new Error("Stream disconnected");
+      error.name = "AbortError";
+      onStreamTerminalError?.(error);
       if (onDisconnect) onDisconnect(reason);
     },
-    onError: () => trackPendingRequest(model, provider, connectionId, false),
+    onError: (error) => {
+      trackPendingRequest(model, provider, connectionId, false);
+      onStreamTerminalError?.(error);
+    },
     log, provider, model, reqTag
   });
 
@@ -306,12 +345,12 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Execute request
   let providerResponse, providerUrl, providerHeaders, finalBody;
   let responseStartTime;
-  const dispatchStartedAt = Date.now();
-  recordRequestPhase(requestPhases, "local_before_dispatch_ms", requestStartTime, dispatchStartedAt);
+  const dispatchStartedAt = requestNow();
+  recordRequestPhase(requestPhases, "request_before_dispatch_total_ms", timing.requestStartedAt, dispatchStartedAt);
   try {
     const result = await measureRequestPhase(requestPhases, "upstream_headers_ms", () =>
       executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions, requestId }));
-    responseStartTime = Date.now();
+    responseStartTime = requestNow();
     providerResponse = result.response;
     providerUrl = result.url;
     providerHeaders = result.headers;
@@ -319,13 +358,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     providerResponseFormat = result.responseFormat || targetFormat;
     reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
   } catch (error) {
-    const completedAt = Date.now();
+    const completedAt = requestNow();
     trackPendingRequest(model, provider, connectionId, false, true);
     appendRequestLog({ model, provider, connectionId, status: `FAILED ${error.name === "AbortError" ? 499 : HTTP_STATUS.BAD_GATEWAY}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
       id: requestId,
+      attemptId: requestId,
+      correlationId: requestCorrelationId,
       provider, model, connectionId,
-      latency: { ttft: 0, total: completedAt - requestStartTime, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
+      latency: buildRequestLatency(timing, { responseStartedAt: responseStartTime, endedAt: completedAt }),
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
       providerRequest: translatedBody || null,
@@ -340,7 +381,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
     const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
     if (log?.errorLine) {
-      log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${error.stack ? `\n    ${error.stack}` : ""}`);
+      log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${elapsedRequestMilliseconds(timing.requestStartedAt)}ms\n    ${errMsg}${error.stack ? `\n    ${error.stack}` : ""}`);
     }
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
   }
@@ -348,25 +389,25 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Handle 401/403 - try token refresh (skip for noAuth providers)
   if (!executor.noAuth && (providerResponse.status === HTTP_STATUS.UNAUTHORIZED || providerResponse.status === HTTP_STATUS.FORBIDDEN)) {
     try {
-      const newCredentials = await measureRequestPhase(requestPhases, "auth_ms", () =>
+      const newCredentials = await measureRequestPhase(requestPhases, "auth_total_ms", () =>
         refreshWithRetry(() => executor.refreshCredentials(credentials, log), 3, log));
       if (newCredentials?.accessToken || newCredentials?.copilotToken) {
         if (log?.line) log.line(reqTag, "🔑", `TOKEN REFRESHED · ${provider}/${model}`);
         Object.assign(credentials, newCredentials);
         if (onCredentialsRefreshed) {
           try {
-            await measureRequestPhase(requestPhases, "auth_ms", () =>
-              measureRequestPhase(requestPhases, "db_ms", () => onCredentialsRefreshed(newCredentials)));
+            await measureRequestPhase(requestPhases, "auth_total_ms", () =>
+              measureRequestPhase(requestPhases, "db_overlap_ms", () => onCredentialsRefreshed(newCredentials)));
           } catch (e) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e.message}`); }
         }
+        responseStartTime = undefined;
         try {
           const retryResult = await measureRequestPhase(requestPhases, "upstream_headers_ms", () =>
             executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions, requestId }));
-          const retryResponseStartTime = Date.now();
+          responseStartTime = requestNow();
           if (retryResult.response.ok) {
             providerResponse = retryResult.response;
             providerUrl = retryResult.url;
-            responseStartTime = retryResponseStartTime;
           }
         } catch { log?.warn?.("TOKEN", `${provider.toUpperCase()} | retry after refresh failed`); }
       } else {
@@ -381,12 +422,14 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (!providerResponse.ok) {
     trackPendingRequest(model, provider, connectionId, false, true);
     const { statusCode, message, resetsAtMs } = await parseUpstreamError(providerResponse, executor);
-    const completedAt = Date.now();
+    const completedAt = requestNow();
     appendRequestLog({ model, provider, connectionId, status: `FAILED ${statusCode}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
       id: requestId,
+      attemptId: requestId,
+      correlationId: requestCorrelationId,
       provider, model, connectionId,
-      latency: { ttft: 0, total: completedAt - requestStartTime, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
+      latency: buildRequestLatency(timing, { responseStartedAt: responseStartTime, endedAt: completedAt }),
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
       providerRequest: finalBody || translatedBody || null,
@@ -398,13 +441,13 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
     if (log?.errorLine) {
       const urlStr = providerUrl ? `\n    URL: ${providerUrl}` : "";
-      log.errorLine(reqTag, "✗", `ERROR ${statusCode} · ${provider}/${model} · ${Date.now() - requestStartTime}ms${urlStr}\n    ${errMsg}`);
+      log.errorLine(reqTag, "✗", `ERROR ${statusCode} · ${provider}/${model} · ${elapsedRequestMilliseconds(timing.requestStartedAt)}ms${urlStr}\n    ${errMsg}`);
     }
     reqLogger.logError(new Error(message), finalBody || translatedBody);
     return createErrorResult(statusCode, errMsg, resetsAtMs);
   }
 
-  const sharedCtx = { requestId, provider, model, body, stream, translatedBody, finalBody, requestStartTime, responseStartTime, requestPhases, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
+  const sharedCtx = { requestId, correlationId: requestCorrelationId, provider, model, body, stream, translatedBody, finalBody, requestTiming: timing, responseStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
@@ -422,8 +465,9 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   }
 
   // Streaming response
-  const { onStreamComplete, streamDetailId } = buildOnStreamComplete({ ...sharedCtx });
-  return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, userAgent, reqLogger, toolNameMap, streamController, onStreamComplete, streamDetailId });
+  const { onStreamComplete, onStreamError, streamDetailId } = buildOnStreamComplete({ ...sharedCtx });
+  onStreamTerminalError = onStreamError;
+  return handleStreamingResponse({ ...sharedCtx, providerResponse, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, streamController, onStreamComplete, onStreamError, streamDetailId });
 }
 
 export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {

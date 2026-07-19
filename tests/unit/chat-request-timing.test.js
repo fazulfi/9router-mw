@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   getModelInfo: vi.fn(),
   getComboModels: vi.fn(),
   handleChatCore: vi.fn(),
+  handleComboChat: vi.fn(),
+  handleFusionChat: vi.fn(),
   checkAndRefreshToken: vi.fn(),
   updateProviderCredentials: vi.fn(),
   getProjectIdForConnection: vi.fn(),
@@ -36,7 +38,10 @@ vi.mock("open-sse/utils/claudeHeaderCache.js", () => ({ cacheClaudeHeaders: vi.f
 vi.mock("@/lib/headroom/detect", () => ({ DEFAULT_HEADROOM_URL: "http://headroom.test" }));
 vi.mock("@/lib/pxpipe/loader.js", () => ({ getTransform: vi.fn(async () => null) }));
 vi.mock("@/lib/pxpipe/events.js", () => ({ appendPxpipeEvent: vi.fn() }));
-vi.mock("open-sse/services/combo.js", () => ({ handleComboChat: vi.fn(), handleFusionChat: vi.fn() }));
+vi.mock("open-sse/services/combo.js", () => ({
+  handleComboChat: mocks.handleComboChat,
+  handleFusionChat: mocks.handleFusionChat,
+}));
 vi.mock("open-sse/utils/bypassHandler.js", () => ({ handleBypassRequest: vi.fn(() => null) }));
 vi.mock("open-sse/utils/error.js", () => ({
   errorResponse: vi.fn((status, message) => new Response(message, { status })),
@@ -64,9 +69,11 @@ vi.mock("open-sse/services/projectId.js", () => ({
 
 const { handleChat } = await import("../../src/sse/handlers/chat.js");
 
+let monotonicNow;
+
 function advance(ms, value) {
   return async (...args) => {
-    vi.setSystemTime(Date.now() + ms);
+    monotonicNow += ms;
     return typeof value === "function" ? value(...args) : value;
   };
 }
@@ -84,6 +91,8 @@ describe("chat request phase timing", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(1_000);
+    monotonicNow = 1_000;
+    vi.spyOn(globalThis.performance, "now").mockImplementation(() => monotonicNow);
     mocks.getSettings.mockResolvedValue({ requireApiKey: false });
     mocks.getComboModels.mockResolvedValue(null);
     mocks.getModelInfo.mockResolvedValue({ provider: "github", model: "gpt-test" });
@@ -95,9 +104,14 @@ describe("chat request phase timing", () => {
     mocks.checkAndRefreshToken.mockImplementation(async (_provider, credentials) => credentials);
     mocks.markAccountUnavailable.mockResolvedValue({ shouldFallback: false });
     mocks.handleChatCore.mockResolvedValue({ success: true, response: Response.json({ ok: true }) });
+    mocks.handleComboChat.mockResolvedValue(Response.json({ ok: true }));
+    mocks.handleFusionChat.mockResolvedValue(Response.json({ ok: true }));
   });
 
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
 
   it("propagates auth and routing timings with overlapping diagnostic DB timing", async () => {
     mocks.getSettings
@@ -116,12 +130,13 @@ describe("chat request phase timing", () => {
 
     const { requestTiming } = mocks.handleChatCore.mock.calls[0][0];
     expect(requestTiming).toEqual({
-      startedAt: 1_000,
+      requestStartedAt: 1_000,
+      attemptStartedAt: 1_036,
       phases: {
         ingress_ms: 5,
-        auth_ms: 26,
-        routing_ms: 41,
-        db_ms: 71,
+        auth_total_ms: 26,
+        routing_total_ms: 41,
+        db_overlap_ms: 71,
       },
     });
   });
@@ -136,7 +151,7 @@ describe("chat request phase timing", () => {
           requestTiming.phases.translation_ms = 31;
           requestTiming.phases.upstream_headers_ms = 47;
         }
-        vi.setSystemTime(Date.now() + 50);
+        monotonicNow += 50;
         return { success: false, status: 429, error: "rate limited", response: new Response("rate", { status: 429 }) };
       })
       .mockResolvedValueOnce({ success: true, response: Response.json({ ok: true }) });
@@ -147,9 +162,61 @@ describe("chat request phase timing", () => {
     expect(response.status).toBe(200);
     const firstTiming = mocks.handleChatCore.mock.calls[0][0].requestTiming;
     const secondTiming = mocks.handleChatCore.mock.calls[1][0].requestTiming;
+    const firstAttempt = mocks.handleChatCore.mock.calls[0][0].attemptId;
+    const secondAttempt = mocks.handleChatCore.mock.calls[1][0].attemptId;
+    const firstCorrelation = mocks.handleChatCore.mock.calls[0][0].correlationId;
+    const secondCorrelation = mocks.handleChatCore.mock.calls[1][0].correlationId;
     expect(secondTiming).not.toBe(firstTiming);
-    expect(secondTiming.startedAt).toBe(firstTiming.startedAt);
+    expect(secondTiming.requestStartedAt).toBe(firstTiming.requestStartedAt);
+    expect(secondTiming.attemptStartedAt).toBeGreaterThan(firstTiming.attemptStartedAt);
     expect(secondTiming.phases).not.toHaveProperty("translation_ms");
     expect(secondTiming.phases).not.toHaveProperty("upstream_headers_ms");
+    expect(secondTiming.phases.fallback_total_ms).toBe(7);
+    expect(secondTiming.phases.routing_total_ms).toBe(firstTiming.phases.routing_total_ms);
+    expect(secondTiming.phases.db_overlap_ms).toBe(firstTiming.phases.db_overlap_ms);
+    expect(secondAttempt).not.toBe(firstAttempt);
+    expect(secondCorrelation).toBe(firstCorrelation);
+  });
+
+  it("isolates concurrent fusion panel timing bags", async () => {
+    let resolveAInfo;
+    let resolveBInfo;
+    let signalACore;
+    const aCoreCalled = new Promise((resolve) => { signalACore = resolve; });
+    const timings = new Map();
+
+    mocks.getSettings.mockResolvedValue({ requireApiKey: false, comboStrategy: "fusion" });
+    mocks.getComboModels.mockResolvedValueOnce(["github/a", "github/b"]);
+    mocks.getModelInfo.mockImplementation((modelStr) => new Promise((resolve) => {
+      if (modelStr.endsWith("/a")) resolveAInfo = resolve;
+      else resolveBInfo = resolve;
+    }));
+    mocks.handleChatCore.mockImplementation(async (options) => {
+      timings.set(options.modelInfo.model, options);
+      if (options.modelInfo.model === "a") signalACore();
+      return { success: true, response: Response.json({ ok: true }) };
+    });
+    mocks.handleFusionChat.mockImplementation(async ({ body, handleSingleModel }) => {
+      const panelA = handleSingleModel(body, "github/a", true);
+      const panelB = handleSingleModel(body, "github/b", true);
+      monotonicNow += 5;
+      resolveAInfo({ provider: "github", model: "a" });
+      await aCoreCalled;
+      monotonicNow += 7;
+      resolveBInfo({ provider: "github", model: "b" });
+      await Promise.all([panelA, panelB]);
+      return Response.json({ ok: true });
+    });
+
+    const response = await handleChat(makeRequest({ model: "fusion-test", messages: [] }));
+
+    expect(response.status).toBe(200);
+    const panelA = timings.get("a");
+    const panelB = timings.get("b");
+    expect(panelA.requestTiming).not.toBe(panelB.requestTiming);
+    expect(panelA.requestTiming.phases.routing_total_ms).toBe(5);
+    expect(panelB.requestTiming.phases.routing_total_ms).toBe(12);
+    expect(panelA.correlationId).toBe(panelB.correlationId);
+    expect(panelA.attemptId).not.toBe(panelB.attemptId);
   });
 });

@@ -61,6 +61,8 @@ export function extractUsageFromResponse(responseBody) {
 export function buildRequestDetail(base, overrides = {}) {
   const detail = {
     id: base.id || undefined,
+    attemptId: base.attemptId || base.id || undefined,
+    correlationId: base.correlationId || undefined,
     provider: base.provider || "unknown",
     model: base.model || "unknown",
     connectionId: base.connectionId || undefined,
@@ -76,8 +78,11 @@ export function buildRequestDetail(base, overrides = {}) {
     ...overrides
   };
   const latency = detail.latency || { ttft: 0, total: 0 };
+  const id = detail.id || undefined;
   return {
     ...detail,
+    id,
+    attemptId: detail.attemptId || id,
     latency: { ...latency, phases: sanitizeRequestPhases(latency.phases) }
   };
 }

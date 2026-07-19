@@ -8,7 +8,7 @@ import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamH
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { saveRequestDetail } from "@/lib/usageDb.js";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants.js";
-import { finalizeRequestPhases, sanitizeRequestPhases } from "../../utils/requestTiming.js";
+import { buildRequestLatency, elapsedRequestMilliseconds, requestNow } from "../../utils/requestTiming.js";
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
 // Gemini-family all map to ANTIGRAVITY decoder; unknown sources fall back to OPENAI.
@@ -44,7 +44,7 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
 /**
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, requestPhases, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log }) {
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestTiming, correlationId, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, streamController, onStreamComplete, onStreamError, streamDetailId, pxpipe, reqTag, log }) {
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
@@ -70,7 +70,9 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     const status = providerResponse.status || 502;
     if (log?.errorLine) log.errorLine(reqTag, "✗", `BLOCKED ${status} · ${provider}/${model} · non-SSE (${upstreamContentType})\n    ${shortMsg}`);
     else console.warn(`[STREAM] ${provider} | ${model} | blocked pipe: ${shortMsg} [${status}]`);
-    streamController?.handleError?.(new Error(`upstream non-SSE: ${status}`));
+    const error = new Error(`upstream non-SSE: ${status}`);
+    onStreamError?.(error);
+    streamController?.handleError?.(error);
     return {
       success: false,
       response: new Response(JSON.stringify({ error: { message: `[${status}]: ${shortMsg}` } }), {
@@ -89,8 +91,11 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs);
 
   saveRequestDetail(buildRequestDetail({
+    id: streamDetailId,
+    attemptId: streamDetailId,
+    correlationId,
     provider, model, connectionId,
-    latency: { ttft: 0, total: Date.now() - requestStartTime, phases: sanitizeRequestPhases(requestPhases) },
+    latency: buildRequestLatency(requestTiming, { terminal: false }),
     tokens: { prompt_tokens: 0, completion_tokens: 0 },
     request: extractRequestConfig(body, stream),
     providerRequest: finalBody || translatedBody || null,
@@ -98,7 +103,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     response: { content: "[Streaming in progress...]", thinking: null, type: "streaming" },
     pxpipe,
     status: "success"
-  }, { id: streamDetailId })).catch(err => {
+  })).catch(err => {
     console.error("[RequestDetail] Failed to save streaming request:", err.message);
   });
 
@@ -111,31 +116,42 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 /**
  * Build onStreamComplete callback for streaming usage tracking.
  */
-export function buildOnStreamComplete({ requestId, provider, model, connectionId, apiKey, requestStartTime, responseStartTime, requestPhases, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
+export function buildOnStreamComplete({ requestId, correlationId, provider, model, connectionId, apiKey, requestTiming, responseStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
   const streamDetailId = requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  let detailFinalized = false;
+
+  const persistTerminalDetail = (detail) => {
+    if (detailFinalized) return;
+    detailFinalized = true;
+    saveRequestDetail(buildRequestDetail({
+      id: streamDetailId,
+      attemptId: streamDetailId,
+      correlationId,
+      provider, model, connectionId,
+      request: extractRequestConfig(body, stream),
+      providerRequest: finalBody || translatedBody || null,
+      pxpipe,
+      ...detail,
+    })).catch(err => {
+      console.error("[RequestDetail] Failed to update streaming content:", err.message);
+    });
+  };
 
   const onStreamComplete = (contentObj, usage, ttftAt) => {
-    const completedAt = Date.now();
-    const latency = {
-      ttft: ttftAt ? ttftAt - requestStartTime : completedAt - requestStartTime,
-      total: completedAt - requestStartTime,
-      phases: finalizeRequestPhases(requestPhases, ttftAt || responseStartTime, completedAt)
-    };
+    const completedAt = requestNow();
+    const ttft = ttftAt
+      ? elapsedRequestMilliseconds(requestTiming.requestStartedAt, ttftAt)
+      : elapsedRequestMilliseconds(requestTiming.requestStartedAt, completedAt);
+    const latency = buildRequestLatency(requestTiming, { ttft, responseStartedAt: responseStartTime, endedAt: completedAt });
     const safeContent = contentObj?.content || "[Empty streaming response]";
     const safeThinking = contentObj?.thinking || null;
 
-    saveRequestDetail(buildRequestDetail({
-      provider, model, connectionId,
+    persistTerminalDetail({
       latency,
       tokens: usage || { prompt_tokens: 0, completion_tokens: 0 },
-      request: extractRequestConfig(body, stream),
-      providerRequest: finalBody || translatedBody || null,
       providerResponse: safeContent,
       response: { content: safeContent, thinking: safeThinking, type: "streaming" },
-      pxpipe,
       status: "success"
-    }, { id: streamDetailId })).catch(err => {
-      console.error("[RequestDetail] Failed to update streaming content:", err.message);
     });
 
     // Persist stream usage to DB (no console line; the "📊 done" line below is authoritative)
@@ -143,5 +159,17 @@ export function buildOnStreamComplete({ requestId, provider, model, connectionId
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency }));
   };
 
-  return { onStreamComplete, streamDetailId };
+  const onStreamError = (error) => {
+    const completedAt = requestNow();
+    const aborted = error?.name === "AbortError";
+    persistTerminalDetail({
+      latency: buildRequestLatency(requestTiming, { responseStartedAt: responseStartTime, endedAt: completedAt }),
+      tokens: { prompt_tokens: 0, completion_tokens: 0 },
+      providerResponse: null,
+      response: { error: aborted ? "Stream aborted" : "Stream failed", status: aborted ? 499 : 502, thinking: null },
+      status: "error"
+    });
+  };
+
+  return { onStreamComplete, onStreamError, streamDetailId };
 }
