@@ -1,14 +1,22 @@
 # v0.9.55 (2026-07-19)
 
-VansRouter 0.9.55 restores the CLI package scripts for NPM publishing, adds documentation warnings against incorrect package renames, and verifies sandbox execution.
+VansRouter 0.9.55 restores the CLI package scripts for NPM publishing, adopts upstream commits for Kimi dual-auth/flow animations/asset caching, and resolves packaging lints.
 
 ## Added
 - **CLI Package Scripts** — Restored `build`, `pack:cli`, `publish:cli`, and `postinstall` to `cli/package.json` to ensure postinstall hooks (dynamic SQLite and tray runtime setup) execute during global npm installations.
 - **Rename Protection Comment** — Added `comment_name` to `cli/package.json` warning future AI agents against renaming the package to `9router` (which breaks the global updater).
 - **Virgin Sandbox Verification** — Verified plug-and-play local installation of the generated `.tgz` package inside a clean `/tmp` directory.
 
+## Adopted from upstream
+- **Kimi Dual-Auth (`68566f53d`)** — Integrated OAuth/API-key dual-auth connection, unified `"kimi-coding"` and `"kimi"`, and updated refresh token flows.
+- **Flow Animation (`0513bf393`)** — Added dynamic router plasma flow animations to topology edges.
+- **Icon & API Cache (`ccb0842d0`)** — Optimized model list page mounting and added a session-level 404 cache to prevent redundant icon spam.
+
 ## Fixed
 - **Turbopack Dev Server CSS Warn** — Identified and documented the Next.js Turbopack CSS parser bug with Tailwind v4 (hex escape normalization failure on `--shadow-elev` inside `.shadow-[var(...)]`). Provided `npm run dev:webpack` as the recommended workaround for development.
+- **Missing PropTypes in Topology** — Added missing `PropTypes` import in `ProviderTopology.js` to resolve eslint no-undef failures.
+- **VansAI Branding Preservation** — Retained VansAI custom branding over upstream "9Router" logo updates in the topology layout.
+- **WebP Icon Extension Support** — Configured `ProviderIcon` component to support both PNG and WebP formats dynamically.
 
 # v0.9.51 (2026-07-19)
 
