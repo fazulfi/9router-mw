@@ -8,6 +8,7 @@ import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLin
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
 const isResponsesProvider = (p) => PROVIDERS[p]?.format === FORMATS.OPENAI_RESPONSES;
 import { saveRequestDetail, appendRequestLog } from "@/lib/usageDb.js";
+import { finalizeRequestPhases } from "../../utils/requestTiming.js";
 
 function textFromResponsesMessageItem(item) {
   if (!item?.content || !Array.isArray(item.content)) return "";
@@ -108,7 +109,7 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
  * Handle case: provider forced streaming but client wants JSON.
  * Supports both Codex/Responses API SSE and standard Chat Completions SSE.
  */
-export async function handleForcedSSEToJson({ requestId, providerResponse, sourceFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, trackDone, appendLog, reqTag, log }) {
+export async function handleForcedSSEToJson({ requestId, providerResponse, sourceFormat, provider, model, body, stream, translatedBody, finalBody, requestStartTime, responseStartTime, requestPhases, connectionId, apiKey, clientRawRequest, onRequestSuccess, trackDone, appendLog, reqTag, log }) {
   const contentType = providerResponse.headers.get("content-type") || "";
   const isSSE = contentType.includes("text/event-stream") || (contentType === "" && isResponsesProvider(provider));
   if (!isSSE) return null; // not handled here
@@ -135,11 +136,12 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
       if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
       const { msgItem, textContent } = pickAssistantMessageForChatCompletion(jsonResponse.output);
-      const totalLatency = Date.now() - requestStartTime;
+      const completedAt = Date.now();
+      const totalLatency = completedAt - requestStartTime;
 
       saveRequestDetail(buildRequestDetail({
         ...ctx,
-        latency: { ttft: totalLatency, total: totalLatency },
+        latency: { ttft: totalLatency, total: totalLatency, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
         tokens: { prompt_tokens: usage.input_tokens || 0, completion_tokens: usage.output_tokens || 0 },
         response: { content: textContent, thinking: null, finish_reason: jsonResponse.status || "unknown" },
         status: "success"
@@ -217,10 +219,11 @@ export async function handleForcedSSEToJson({ requestId, providerResponse, sourc
     saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
     if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: Date.now() - requestStartTime } }));
 
-    const totalLatency = Date.now() - requestStartTime;
+    const completedAt = Date.now();
+    const totalLatency = completedAt - requestStartTime;
     saveRequestDetail(buildRequestDetail({
       ...ctx,
-      latency: { ttft: totalLatency, total: totalLatency },
+      latency: { ttft: totalLatency, total: totalLatency, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
       tokens: usage,
       response: {
         content: parsed.choices?.[0]?.message?.content || null,

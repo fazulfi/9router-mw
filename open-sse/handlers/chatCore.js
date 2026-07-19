@@ -30,6 +30,7 @@ import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 import { extractThinking } from "../translator/concerns/thinkingUnified.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
+import { cloneRequestTiming, finalizeRequestPhases, measureRequestPhase, recordRequestPhase } from "../utils/requestTiming.js";
 
 /**
  * Core chat handler - shared between SSE and Worker
@@ -38,9 +39,11 @@ import { resolveSessionId } from "../utils/sessionManager.js";
  * @param {object} options.credentials - Provider credentials
  * @param {string} options.sourceFormatOverride - Override detected source format (e.g. "openai-responses")
  */
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, requestTiming }) {
   const { provider, model } = modelInfo;
-  const requestStartTime = Date.now();
+  const timing = cloneRequestTiming(requestTiming);
+  const requestStartTime = timing.startedAt;
+  const requestPhases = timing.phases;
   const requestId = globalThis.crypto.randomUUID();
   // Stable per-session color so all lines of one CLI conversation share a tag
   const sessionSeed = (() => {
@@ -120,53 +123,40 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Expose raw client headers to translators/executors for session-id resolution
   if (credentials) credentials.rawHeaders = clientRawRequest?.headers || {};
 
-  // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
-  if (!passthrough) {
-    const caps = getCapabilitiesForModel(provider, model);
-    if (stripUnsupportedModalities(body, sourceFormat, caps)) {
-      log?.debug?.("MODALITY", `stripped unsupported media for ${provider}/${model}`);
-    }
-    // Convert remote image URLs to base64 for targets that can't fetch URLs.
-    try {
-      const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: undefined });
-      if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
-    } catch (e) { log?.warn?.("MODALITY", `image prefetch failed: ${e.message}`); }
-  }
-
-
-  // Per-request opt-out: client can bypass all token savers via header
-  const tokenSaverEnabled = clientRawRequest?.headers?.[TOKEN_SAVER_HEADER]?.toLowerCase() !== "off";
-  // Headroom: compress source messages before translation so all
-  // output formats (commandcode, ollama, gemini, ...) are covered.
-  // Uses sourceFormat so body.messages is always present.
-  // See: https://github.com/decolua/9router/issues/2620
-  const headroomDiagnostics = {};
-  const headroomStats = await compressWithHeadroom(body, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: sourceFormat, compressUserMessages: headroomCompressUserMessages, diagnostics: headroomDiagnostics });
-  const headroomLine = formatHeadroomLog(headroomStats);
-  const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics);
-  if (headroomLine) {
-    log?.info?.("HEADROOM", `${headroomLine}${headroomSizeLine ? ` | ${headroomSizeLine}` : ""}`);
-    if (isHeadroomPhantomSavings(headroomStats, headroomDiagnostics)) {
-      log?.warn?.("HEADROOM", `reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload | ${headroomSizeLine}`);
-    }
-  } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
-
   let translatedBody;
   let toolNameMap;
-  if (passthrough) {
-    log?.debug?.("PASSTHROUGH", `${clientTool} → ${provider} | native lossless`);
-    translatedBody = { ...body, model: stripThinkingSuffix(upstreamModel) };
-    // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
-    if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
-  } else {
-    translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
-    if (!translatedBody) {
-      trackPendingRequest(model, provider, connectionId, false, true);
-      return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
+  const translationStartedAt = Date.now();
+  try {
+    // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
+    if (!passthrough) {
+      const caps = getCapabilitiesForModel(provider, model);
+      if (stripUnsupportedModalities(body, sourceFormat, caps)) {
+        log?.debug?.("MODALITY", `stripped unsupported media for ${provider}/${model}`);
+      }
+      // Convert remote image URLs to base64 for targets that can't fetch URLs.
+      try {
+        const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: undefined });
+        if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
+      } catch (e) { log?.warn?.("MODALITY", `image prefetch failed: ${e.message}`); }
     }
-    toolNameMap = translatedBody._toolNameMap;
-    delete translatedBody._toolNameMap;
-    translatedBody.model = stripThinkingSuffix(upstreamModel);
+
+    if (passthrough) {
+      log?.debug?.("PASSTHROUGH", `${clientTool} → ${provider} | native lossless`);
+      translatedBody = { ...body, model: stripThinkingSuffix(upstreamModel) };
+      // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
+      if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
+    } else {
+      translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
+      if (!translatedBody) {
+        trackPendingRequest(model, provider, connectionId, false, true);
+        return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
+      }
+      toolNameMap = translatedBody._toolNameMap;
+      delete translatedBody._toolNameMap;
+      translatedBody.model = stripThinkingSuffix(upstreamModel);
+    }
+  } finally {
+    recordRequestPhase(requestPhases, "translation_ms", translationStartedAt);
   }
 
   // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
@@ -209,41 +199,60 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     delete translatedBody.tools;
   }
 
-
-  // RTK: compress tool_result content
-  const rtkStats = compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
-  const rtkLine = formatRtkLog(rtkStats);
-  if (rtkLine) console.log(rtkLine);
-
-  // Token-saver flags accumulator for the single "⚙" log line below.
-  const xf = [];
-
-  // Caveman: inject terse-style system prompt
-  if (tokenSaverEnabled && cavemanEnabled && cavemanLevel) {
-    injectCaveman(translatedBody, finalFormat, cavemanLevel);
-    xf.push(`CAVEMAN:${cavemanLevel}`);
-  }
-
-  // Ponytail: inject lazy-senior-dev system prompt
-  if (tokenSaverEnabled && ponytailEnabled && ponytailLevel) {
-    injectPonytail(translatedBody, finalFormat, ponytailLevel);
-    xf.push(`PONYTAIL:${ponytailLevel}`);
-  }
-
-  // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch
   let pxpipeSummary = null;
-  if (pxpipeEnabled) {
-    const pxpipeResult = await compressWithPxpipe(translatedBody, {
-      enabled: true, format: finalFormat, model: upstreamModel,
-      minChars: pxpipeMinChars, timeoutMs: pxpipeTimeoutMs, transform: pxpipeTransform,
-    });
-    pxpipeSummary = pxpipeResult.summary;
-    if (pxpipeResult.body) translatedBody = pxpipeResult.body;
-    if (pxpipeSummary?.applied) xf.push(`PXPIPE:${pxpipeSummary.imageCount}img`);
-    try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
-  }
+  const compressionStartedAt = Date.now();
+  try {
+    // Per-request opt-out: client can bypass all token savers via header
+    const tokenSaverEnabled = clientRawRequest?.headers?.[TOKEN_SAVER_HEADER]?.toLowerCase() !== "off";
 
-  if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));
+    // RTK: compress tool_result content
+    const rtkStats = compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
+    const rtkLine = formatRtkLog(rtkStats);
+    if (rtkLine) console.log(rtkLine);
+
+    // Headroom: optional external proxy compression; fail open if proxy is absent.
+    const headroomDiagnostics = {};
+    const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, diagnostics: headroomDiagnostics });
+    const headroomLine = formatHeadroomLog(headroomStats);
+    const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics);
+    if (headroomLine) {
+      log?.info?.("HEADROOM", `${headroomLine}${headroomSizeLine ? ` | ${headroomSizeLine}` : ""}`);
+      if (isHeadroomPhantomSavings(headroomStats, headroomDiagnostics)) {
+        log?.warn?.("HEADROOM", `reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload | ${formatHeadroomSizeLog(headroomDiagnostics)}`);
+      }
+    } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
+
+    // Token-saver flags accumulator for the single "⚙" log line below.
+    const xf = [];
+
+    // Caveman: inject terse-style system prompt
+    if (tokenSaverEnabled && cavemanEnabled && cavemanLevel) {
+      injectCaveman(translatedBody, finalFormat, cavemanLevel);
+      xf.push(`CAVEMAN:${cavemanLevel}`);
+    }
+
+    // Ponytail: inject lazy-senior-dev system prompt
+    if (tokenSaverEnabled && ponytailEnabled && ponytailLevel) {
+      injectPonytail(translatedBody, finalFormat, ponytailLevel);
+      xf.push(`PONYTAIL:${ponytailLevel}`);
+    }
+
+    // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch
+    if (pxpipeEnabled) {
+      const pxpipeResult = await compressWithPxpipe(translatedBody, {
+        enabled: true, format: finalFormat, model: upstreamModel,
+        minChars: pxpipeMinChars, timeoutMs: pxpipeTimeoutMs, transform: pxpipeTransform,
+      });
+      pxpipeSummary = pxpipeResult.summary;
+      if (pxpipeResult.body) translatedBody = pxpipeResult.body;
+      if (pxpipeSummary?.applied) xf.push(`PXPIPE:${pxpipeSummary.imageCount}img`);
+      try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
+    }
+
+    if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));
+  } finally {
+    recordRequestPhase(requestPhases, "compression_ms", compressionStartedAt);
+  }
 
   const executor = getExecutor(provider);
   trackPendingRequest(model, provider, connectionId, true);
@@ -296,11 +305,13 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   // Execute request
   let providerResponse, providerUrl, providerHeaders, finalBody;
-  // Most executors return their registry format. Cursor AgentService is an
-  // exception: it is decoded by the executor into OpenAI-compatible output.
-  let providerResponseFormat = targetFormat;
+  let responseStartTime;
+  const dispatchStartedAt = Date.now();
+  recordRequestPhase(requestPhases, "local_before_dispatch_ms", requestStartTime, dispatchStartedAt);
   try {
-    const result = await executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions, requestId });
+    const result = await measureRequestPhase(requestPhases, "upstream_headers_ms", () =>
+      executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions, requestId }));
+    responseStartTime = Date.now();
     providerResponse = result.response;
     providerUrl = result.url;
     providerHeaders = result.headers;
@@ -308,12 +319,13 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     providerResponseFormat = result.responseFormat || targetFormat;
     reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
   } catch (error) {
+    const completedAt = Date.now();
     trackPendingRequest(model, provider, connectionId, false, true);
     appendRequestLog({ model, provider, connectionId, status: `FAILED ${error.name === "AbortError" ? 499 : HTTP_STATUS.BAD_GATEWAY}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
       id: requestId,
       provider, model, connectionId,
-      latency: { ttft: 0, total: Date.now() - requestStartTime },
+      latency: { ttft: 0, total: completedAt - requestStartTime, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
       providerRequest: translatedBody || null,
@@ -336,16 +348,26 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Handle 401/403 - try token refresh (skip for noAuth providers)
   if (!executor.noAuth && (providerResponse.status === HTTP_STATUS.UNAUTHORIZED || providerResponse.status === HTTP_STATUS.FORBIDDEN)) {
     try {
-      const newCredentials = await refreshWithRetry(() => executor.refreshCredentials(credentials, log), 3, log);
+      const newCredentials = await measureRequestPhase(requestPhases, "auth_ms", () =>
+        refreshWithRetry(() => executor.refreshCredentials(credentials, log), 3, log));
       if (newCredentials?.accessToken || newCredentials?.copilotToken) {
         if (log?.line) log.line(reqTag, "🔑", `TOKEN REFRESHED · ${provider}/${model}`);
         Object.assign(credentials, newCredentials);
         if (onCredentialsRefreshed) {
-          try { await onCredentialsRefreshed(newCredentials); } catch (e) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e.message}`); }
+          try {
+            await measureRequestPhase(requestPhases, "auth_ms", () =>
+              measureRequestPhase(requestPhases, "db_ms", () => onCredentialsRefreshed(newCredentials)));
+          } catch (e) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e.message}`); }
         }
         try {
-          const retryResult = await executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions, requestId });
-          if (retryResult.response.ok) { providerResponse = retryResult.response; providerUrl = retryResult.url; }
+          const retryResult = await measureRequestPhase(requestPhases, "upstream_headers_ms", () =>
+            executor.execute({ model, body: translatedBody, stream, credentials, signal: streamController.signal, log, proxyOptions, requestId }));
+          const retryResponseStartTime = Date.now();
+          if (retryResult.response.ok) {
+            providerResponse = retryResult.response;
+            providerUrl = retryResult.url;
+            responseStartTime = retryResponseStartTime;
+          }
         } catch { log?.warn?.("TOKEN", `${provider.toUpperCase()} | retry after refresh failed`); }
       } else {
         log?.warn?.("TOKEN", `${provider.toUpperCase()} | refresh failed`);
@@ -359,11 +381,12 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (!providerResponse.ok) {
     trackPendingRequest(model, provider, connectionId, false, true);
     const { statusCode, message, resetsAtMs } = await parseUpstreamError(providerResponse, executor);
+    const completedAt = Date.now();
     appendRequestLog({ model, provider, connectionId, status: `FAILED ${statusCode}` }).catch(() => { });
     saveRequestDetail(buildRequestDetail({
       id: requestId,
       provider, model, connectionId,
-      latency: { ttft: 0, total: Date.now() - requestStartTime },
+      latency: { ttft: 0, total: completedAt - requestStartTime, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
       request: extractRequestConfig(body, stream),
       providerRequest: finalBody || translatedBody || null,
@@ -381,7 +404,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     return createErrorResult(statusCode, errMsg, resetsAtMs);
   }
 
-  const sharedCtx = { requestId, provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
+  const sharedCtx = { requestId, provider, model, body, stream, translatedBody, finalBody, requestStartTime, responseStartTime, requestPhases, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 

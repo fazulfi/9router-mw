@@ -9,6 +9,7 @@ import { parseSSEToOpenAIResponse } from "./sseToJsonHandler.js";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
+import { finalizeRequestPhases } from "../../utils/requestTiming.js";
 
 function parseToolArguments(value) {
   if (!value) return {};
@@ -198,7 +199,7 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ requestId, providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog, pxpipe, reqTag, log }) {
+export async function handleNonStreamingResponse({ requestId, providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, responseStartTime, requestPhases, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog, pxpipe, reqTag, log }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
@@ -284,11 +285,12 @@ export async function handleNonStreamingResponse({ requestId, providerResponse, 
 
   reqLogger.logConvertedResponse(translatedResponse);
 
-  const totalLatency = Date.now() - requestStartTime;
+  const completedAt = Date.now();
+  const totalLatency = completedAt - requestStartTime;
   saveRequestDetail(buildRequestDetail({
     id: requestId,
     provider, model, connectionId,
-    latency: { ttft: totalLatency, total: totalLatency },
+    latency: { ttft: totalLatency, total: totalLatency, phases: finalizeRequestPhases(requestPhases, responseStartTime, completedAt) },
     tokens: usage || { prompt_tokens: 0, completion_tokens: 0 },
     request: extractRequestConfig(body, stream),
     providerRequest: finalBody || translatedBody || null,

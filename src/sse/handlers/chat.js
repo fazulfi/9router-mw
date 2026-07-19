@@ -22,16 +22,7 @@ import { detectFormatByEndpoint } from "open-sse/translator/formats.js";
 import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
-// F5: cross-worker resilience (Redis semaphore + circuit breaker)
-import {
-  acquireAccountSlot,
-  releaseAccountSlot,
-} from "open-sse/services/accountSemaphore.js";
-import {
-  getBreakerState,
-  recordBreakerSuccess,
-  recordBreakerFailure,
-} from "open-sse/services/circuitBreaker.js";
+import { cloneRequestTiming, measureRequestPhase } from "open-sse/utils/requestTiming.js";
 
 /**
  * Handle chat completion request
@@ -39,9 +30,10 @@ import {
  * Format detection and translation handled by translator
  */
 export async function handleChat(request, clientRawRequest = null) {
+  const requestTiming = { startedAt: Date.now(), phases: {} };
   let body;
   try {
-    body = await request.json();
+    body = await measureRequestPhase(requestTiming.phases, "ingress_ms", () => request.json());
   } catch {
     log.warn("CHAT", "Invalid JSON body");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
@@ -73,13 +65,16 @@ export async function handleChat(request, clientRawRequest = null) {
   }
 
   // Enforce API key if enabled in settings
-  const settings = await getSettings();
+  // db_ms is diagnostic and may overlap auth_ms or routing_ms for DB-backed operations.
+  const settings = await measureRequestPhase(requestTiming.phases, "auth_ms", () =>
+    measureRequestPhase(requestTiming.phases, "db_ms", () => getSettings()));
   if (settings.requireApiKey) {
     if (!apiKey) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    const valid = await isValidApiKey(apiKey);
+    const valid = await measureRequestPhase(requestTiming.phases, "auth_ms", () =>
+      measureRequestPhase(requestTiming.phases, "db_ms", () => isValidApiKey(apiKey)));
     if (!valid) {
       log.warn("AUTH", "Invalid API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
@@ -97,7 +92,8 @@ export async function handleChat(request, clientRawRequest = null) {
   if (bypassResponse) return bypassResponse.response || bypassResponse;
 
   // Check if model is a combo (has multiple models with fallback)
-  const comboModels = await getComboModels(modelStr);
+  const comboModels = await measureRequestPhase(requestTiming.phases, "routing_ms", () =>
+    measureRequestPhase(requestTiming.phases, "db_ms", () => getComboModels(modelStr)));
   if (comboModels) {
     // Check for combo-specific strategy first, fallback to global
     const comboStrategies = settings.comboStrategies || {};
@@ -115,7 +111,7 @@ export async function handleChat(request, clientRawRequest = null) {
             const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
             cleanRawReq = { ...clientRawRequest, body: cleanBody };
           }
-          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
+          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, requestTiming);
         },
         log,
         comboName: modelStr,
@@ -129,7 +125,7 @@ export async function handleChat(request, clientRawRequest = null) {
     return handleComboChat({
       body,
       models: comboModels,
-      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, requestTiming),
       log,
       comboName: modelStr,
       comboStrategy,
@@ -138,20 +134,23 @@ export async function handleChat(request, clientRawRequest = null) {
   }
 
   // Single model request
-  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey);
+  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey, requestTiming);
 }
 
 /**
  * Handle single model chat request
  */
-async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null) {
-  const modelInfo = await getModelInfo(modelStr);
+async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null, requestTiming = { startedAt: Date.now(), phases: {} }) {
+  const modelInfo = await measureRequestPhase(requestTiming.phases, "routing_ms", () =>
+    measureRequestPhase(requestTiming.phases, "db_ms", () => getModelInfo(modelStr)));
 
   // If provider is null, this might be a combo name - check and handle
   if (!modelInfo.provider) {
-    const comboModels = await getComboModels(modelStr);
+    const comboModels = await measureRequestPhase(requestTiming.phases, "routing_ms", () =>
+      measureRequestPhase(requestTiming.phases, "db_ms", () => getComboModels(modelStr)));
     if (comboModels) {
-      const chatSettings = await getSettings();
+      const chatSettings = await measureRequestPhase(requestTiming.phases, "routing_ms", () =>
+        measureRequestPhase(requestTiming.phases, "db_ms", () => getSettings()));
       // Check for combo-specific strategy first, fallback to global
       const comboStrategies = chatSettings.comboStrategies || {};
       const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
@@ -168,7 +167,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
               const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
               cleanRawReq = { ...clientRawRequest, body: cleanBody };
             }
-            return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
+            return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, requestTiming);
           },
           log,
           comboName: modelStr,
@@ -182,7 +181,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       return handleComboChat({
         body,
         models: comboModels,
-        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, requestTiming),
         log,
         comboName: modelStr,
         comboStrategy,
@@ -206,7 +205,9 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   let lastStatus = null;
 
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
+    const credentials = await measureRequestPhase(requestTiming.phases, "routing_ms", () =>
+      measureRequestPhase(requestTiming.phases, "db_ms", () =>
+        getProviderCredentials(provider, excludeConnectionIds, model)));
 
     // All accounts unavailable
     if (!credentials || credentials.allRateLimited) {
@@ -225,33 +226,76 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     }
 
     // Account selection shown in the unified "▶" line (acc:...)
-    const connId = credentials.connectionId;
-    const isNoAuth = !connId || connId === "noauth";
+    const refreshedCredentials = await measureRequestPhase(requestTiming.phases, "auth_ms", () =>
+      checkAndRefreshToken(provider, credentials));
 
-    // F5: circuit breaker — skip OPEN accounts (fail-open if Redis down)
-    if (!isNoAuth) {
-      const breaker = await getBreakerState(connId);
-      if (!breaker.allow) {
-        log.warn("BREAKER", `ACC:${credentials.connectionName || connId} OPEN → skip`);
-        excludeConnectionIds.add(connId);
-        lastError = lastError || "Account circuit open";
-        lastStatus = lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE;
-        continue;
+    // Ensure real project ID is available for providers that need it (P0 fix: cold miss)
+    if ((provider === "antigravity" || provider === "gemini-cli") && !refreshedCredentials.projectId) {
+      const pid = await measureRequestPhase(requestTiming.phases, "auth_ms", () =>
+        getProjectIdForConnection(credentials.connectionId, refreshedCredentials.accessToken));
+      if (pid) {
+        refreshedCredentials.projectId = pid;
+        // Persist to DB in background so subsequent requests have it immediately
+        updateProviderCredentials(credentials.connectionId, { projectId: pid }).catch(() => { });
       }
     }
 
-    // F5: cross-worker semaphore — claim slot before upstream call
-    let slotAcquired = false;
-    if (!isNoAuth) {
-      const slot = await acquireAccountSlot(connId);
-      if (!slot.acquired) {
-        log.warn("SEM", `ACC:${credentials.connectionName || connId} full (count=${slot.count} mode=${slot.mode}) → next`);
-        excludeConnectionIds.add(connId);
-        lastError = lastError || "Account concurrency limit";
-        lastStatus = lastStatus || HTTP_STATUS.RATE_LIMITED || 429;
-        continue;
+    // Use shared chatCore
+    const chatSettings = await measureRequestPhase(requestTiming.phases, "db_ms", () => getSettings());
+    const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
+    const result = await handleChatCore({
+      body: { ...body, model: `${provider}/${model}` },
+      modelInfo: { provider, model },
+      credentials: refreshedCredentials,
+      log,
+      clientRawRequest,
+      connectionId: credentials.connectionId,
+      userAgent,
+      apiKey,
+      ccFilterNaming: !!chatSettings.ccFilterNaming,
+      rtkEnabled: !!chatSettings.rtkEnabled,
+      headroomEnabled: !!chatSettings.headroomEnabled,
+      headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
+      headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
+      cavemanEnabled: !!chatSettings.cavemanEnabled,
+      cavemanLevel: chatSettings.cavemanLevel || "full",
+      ponytailEnabled: !!chatSettings.ponytailEnabled,
+      ponytailLevel: chatSettings.ponytailLevel || "full",
+      pxpipeEnabled: !!chatSettings.pxpipeEnabled,
+      pxpipeMinChars: chatSettings.pxpipeMinChars,
+      pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
+      // Lazily warms the in-process module on first use; null when not installed (fail-open)
+      pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
+      onPxpipeEvent: appendPxpipeEvent,
+      providerThinking,
+      requestTiming: cloneRequestTiming(requestTiming),
+      // Detect source format by endpoint + body
+      sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
+      onCredentialsRefreshed: async (newCreds) => {
+        await updateProviderCredentials(credentials.connectionId, {
+          ...newCreds,
+          existingProviderSpecificData: credentials.providerSpecificData,
+          testStatus: "active"
+        });
+      },
+      onRequestSuccess: async () => {
+        await clearAccountError(credentials.connectionId, credentials, model);
       }
-      slotAcquired = true;
+    });
+
+    if (result.success) return result.response;
+
+    // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
+    const { shouldFallback } = await measureRequestPhase(requestTiming.phases, "routing_ms", () =>
+      measureRequestPhase(requestTiming.phases, "db_ms", () =>
+        markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, result.resetsAtMs)));
+
+    if (shouldFallback) {
+      log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
+      excludeConnectionIds.add(credentials.connectionId);
+      lastError = result.error;
+      lastStatus = result.status;
+      continue;
     }
 
     try {

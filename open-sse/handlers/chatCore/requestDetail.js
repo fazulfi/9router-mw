@@ -1,6 +1,7 @@
 import { saveRequestUsage, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { COLORS } from "../../utils/stream.js";
 import { canonicalizeUsage } from "../../utils/usageTracking.js";
+import { sanitizeRequestPhases } from "../../utils/requestTiming.js";
 
 const OPTIONAL_PARAMS = [
   "temperature", "top_p", "top_k",
@@ -58,7 +59,7 @@ export function extractUsageFromResponse(responseBody) {
 }
 
 export function buildRequestDetail(base, overrides = {}) {
-  return {
+  const detail = {
     id: base.id || undefined,
     provider: base.provider || "unknown",
     model: base.model || "unknown",
@@ -73,6 +74,11 @@ export function buildRequestDetail(base, overrides = {}) {
     pxpipe: base.pxpipe || undefined,
     status: base.status || "success",
     ...overrides
+  };
+  const latency = detail.latency || { ttft: 0, total: 0 };
+  return {
+    ...detail,
+    latency: { ...latency, phases: sanitizeRequestPhases(latency.phases) }
   };
 }
 
