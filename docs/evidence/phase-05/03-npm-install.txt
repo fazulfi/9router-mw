@@ -1,0 +1,5 @@
+=== npm install ===
+npm warn deprecated prebuild-install@7.1.3: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
+
+added 585 packages in 3m
+/opt/9router-mw/releases/0.5.35-mw.3/node_modules/ioredis

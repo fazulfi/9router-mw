@@ -1,0 +1,25 @@
+● 9router-mw.service - 9router-MW production gateway
+     Loaded: loaded (/etc/systemd/system/9router-mw.service; enabled; preset: enabled)
+     Active: active (running) since Sun 2026-07-19 00:21:46 UTC; 8s ago
+       Docs: https://github.com/fazulfi/9router-mw
+   Main PID: 517441 (node)
+      Tasks: 51 (limit: 18653)
+     Memory: 357.5M (peak: 357.8M)
+        CPU: 7.206s
+     CGroup: /system.slice/9router-mw.service
+             ├─517441 /usr/bin/node --max-old-space-size=4096 custom-server.js
+             ├─517451 "next-server (v16.2.10)"
+             ├─517452 "next-server (v16.2.10)"
+             ├─517453 "next-server (v16.2.10)"
+             └─517459 "next-server (v16.2.10)"
+
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517452]: - Network:       http://127.0.0.1:20128
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517452]: ✓ Ready in 0ms
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: ▲ Next.js 16.2.10
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: - Local:         http://127.0.0.1:20128
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: - Network:       http://127.0.0.1:20128
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517459]: ✓ Ready in 0ms
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: ▲ Next.js 16.2.10
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: - Local:         http://127.0.0.1:20128
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: - Network:       http://127.0.0.1:20128
+Jul 19 00:21:47 faiz-prod-01 9router-mw[517453]: ✓ Ready in 0ms

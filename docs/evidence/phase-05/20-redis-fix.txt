@@ -1,0 +1,69 @@
+=== disk ===
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1        99G   19G   75G  21% /
+/dev/vda1        99G   19G   75G  21% /
+total 8
+drwxr-xr-x 2 router router 4096 Jul 18 23:08 .
+drwx------ 7 router router 4096 Jul 18 23:08 ..
+=== docker logs tail ===
+249:C 19 Jul 2026 00:21:59.099 # Failed opening the temp RDB file temp-249.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:21:59.199 # Background saving error
+1:M 19 Jul 2026 00:22:05.095 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:05.099 * Background saving started by pid 250
+250:C 19 Jul 2026 00:22:05.099 # Failed opening the temp RDB file temp-250.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:05.199 # Background saving error
+1:M 19 Jul 2026 00:22:11.066 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:11.067 * Background saving started by pid 251
+251:C 19 Jul 2026 00:22:11.067 # Failed opening the temp RDB file temp-251.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:11.168 # Background saving error
+1:M 19 Jul 2026 00:22:17.002 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:17.003 * Background saving started by pid 252
+252:C 19 Jul 2026 00:22:17.003 # Failed opening the temp RDB file temp-252.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:17.104 # Background saving error
+1:M 19 Jul 2026 00:22:23.042 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:23.043 * Background saving started by pid 253
+253:C 19 Jul 2026 00:22:23.043 # Failed opening the temp RDB file temp-253.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:23.143 # Background saving error
+1:M 19 Jul 2026 00:22:29.077 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:29.077 * Background saving started by pid 254
+254:C 19 Jul 2026 00:22:29.078 # Failed opening the temp RDB file temp-254.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:29.178 # Background saving error
+1:M 19 Jul 2026 00:22:35.012 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:35.013 * Background saving started by pid 255
+255:C 19 Jul 2026 00:22:35.013 # Failed opening the temp RDB file temp-255.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:35.114 # Background saving error
+1:M 19 Jul 2026 00:22:41.048 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:41.049 * Background saving started by pid 256
+256:C 19 Jul 2026 00:22:41.049 # Failed opening the temp RDB file temp-256.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:41.149 # Background saving error
+1:M 19 Jul 2026 00:22:47.083 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:47.084 * Background saving started by pid 257
+257:C 19 Jul 2026 00:22:47.084 # Failed opening the temp RDB file temp-257.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:47.185 # Background saving error
+1:M 19 Jul 2026 00:22:53.020 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:53.021 * Background saving started by pid 258
+258:C 19 Jul 2026 00:22:53.021 # Failed opening the temp RDB file temp-258.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:53.122 # Background saving error
+1:M 19 Jul 2026 00:22:59.057 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:22:59.057 * Background saving started by pid 259
+259:C 19 Jul 2026 00:22:59.057 # Failed opening the temp RDB file temp-259.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:22:59.158 # Background saving error
+1:M 19 Jul 2026 00:23:05.095 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:23:05.095 * Background saving started by pid 260
+260:C 19 Jul 2026 00:23:05.096 # Failed opening the temp RDB file temp-260.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:23:05.196 # Background saving error
+1:M 19 Jul 2026 00:23:11.030 * 1 changes in 900 seconds. Saving...
+1:M 19 Jul 2026 00:23:11.030 * Background saving started by pid 261
+261:C 19 Jul 2026 00:23:11.031 # Failed opening the temp RDB file temp-261.rdb (in server root dir /data) for saving: Permission denied
+1:M 19 Jul 2026 00:23:11.131 # Background saving error
+=== config fix ===
+OK
+ERR CONFIG SET failed (possibly related to argument 'dir') - can't set protected config
+
+OK
+=== write probe ===
+PONG
+OK
+1
+Background saving started
+1784420596

@@ -1,0 +1,9 @@
+13: *   MW_WORKER_ID         — set on workers by primary (exposed in /api/health)
+17:function resolveWorkerCount() {
+64:    MW_WORKER_ID: String(slot),
+67:  return cluster.fork(env);
+73:  const workerCount = resolveWorkerCount();
+97:  if (!process.env.MW_WORKER_ID && cluster.worker) {
+98:    process.env.MW_WORKER_ID = String(cluster.worker.id);
+101:    process.env.MW_WORKER_COUNT = String(resolveWorkerCount());
+104:    `[9router-mw] worker start id=${process.env.MW_WORKER_ID} pid=${process.pid} count=${process.env.MW_WORKER_COUNT}`

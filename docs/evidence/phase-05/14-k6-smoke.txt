@@ -1,0 +1,94 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: /tmp/k6-f5-smoke.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 20 max VUs, 45s max duration (incl. graceful stop):
+              * default: 20 looping VUs for 15s (gracefulStop: 30s)
+
+
+running (01.0s), 20/20 VUs, 430 complete and 0 interrupted iterations
+default   [   7% ] 20 VUs  01.0s/15s
+
+running (02.0s), 20/20 VUs, 849 complete and 0 interrupted iterations
+default   [  13% ] 20 VUs  02.0s/15s
+
+running (03.0s), 20/20 VUs, 1375 complete and 0 interrupted iterations
+default   [  20% ] 20 VUs  03.0s/15s
+
+running (04.0s), 20/20 VUs, 1808 complete and 0 interrupted iterations
+default   [  27% ] 20 VUs  04.0s/15s
+
+running (05.0s), 20/20 VUs, 2365 complete and 0 interrupted iterations
+default   [  33% ] 20 VUs  05.0s/15s
+
+running (06.0s), 20/20 VUs, 2871 complete and 0 interrupted iterations
+default   [  40% ] 20 VUs  06.0s/15s
+
+running (07.0s), 20/20 VUs, 3477 complete and 0 interrupted iterations
+default   [  47% ] 20 VUs  07.0s/15s
+
+running (08.0s), 20/20 VUs, 4066 complete and 0 interrupted iterations
+default   [  53% ] 20 VUs  08.0s/15s
+
+running (09.0s), 20/20 VUs, 4750 complete and 0 interrupted iterations
+default   [  60% ] 20 VUs  09.0s/15s
+
+running (10.0s), 20/20 VUs, 5443 complete and 0 interrupted iterations
+default   [  67% ] 20 VUs  10.0s/15s
+
+running (11.0s), 20/20 VUs, 6159 complete and 0 interrupted iterations
+default   [  73% ] 20 VUs  11.0s/15s
+
+running (12.0s), 20/20 VUs, 6849 complete and 0 interrupted iterations
+default   [  80% ] 20 VUs  12.0s/15s
+
+running (13.0s), 20/20 VUs, 7621 complete and 0 interrupted iterations
+default   [  87% ] 20 VUs  13.0s/15s
+
+running (14.0s), 20/20 VUs, 8449 complete and 0 interrupted iterations
+default   [  93% ] 20 VUs  14.0s/15s
+
+running (15.0s), 20/20 VUs, 9287 complete and 0 interrupted iterations
+default   [ 100% ] 20 VUs  15.0s/15s
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 37276   2480.93451/s
+    checks_succeeded...: 100.00% 37276 out of 37276
+    checks_failed......: 0.00%   0 out of 37276
+
+    ✓ status 200
+    ✓ ok true
+    ✓ has workerId
+    ✓ has redis
+
+    HTTP
+    http_req_duration..............: avg=32ms   min=5.15ms med=27.53ms max=203.49ms p(90)=54.02ms p(95)=65.11ms
+      { expected_response:true }...: avg=32ms   min=5.15ms med=27.53ms max=203.49ms p(90)=54.02ms p(95)=65.11ms
+    http_req_failed................: 0.00%  0 out of 9319
+    http_reqs......................: 9319   620.233627/s
+
+    EXECUTION
+    iteration_duration.............: avg=32.2ms min=5.29ms med=27.74ms max=203.63ms p(90)=54.26ms p(95)=65.5ms 
+    iterations.....................: 9319   620.233627/s
+    vus............................: 20     min=20        max=20
+    vus_max........................: 20     min=20        max=20
+
+    NETWORK
+    data_received..................: 12 MB  763 kB/s
+    data_sent......................: 755 kB 50 kB/s
+
+
+
+
+running (15.0s), 00/20 VUs, 9319 complete and 0 interrupted iterations
+default ✓ [ 100% ] 20 VUs  15s
