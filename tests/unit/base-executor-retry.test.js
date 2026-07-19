@@ -23,6 +23,46 @@ const creds = { apiKey: "k" };
 
 beforeEach(() => fetchMock.mockReset());
 
+describe("BaseExecutor.execute — request preparation", () => {
+  it("forwards one request id unchanged across retries", async () => {
+    const ex = makeExec({ baseUrl: "https://x/responses", retry: { 502: { attempts: 1, delayMs: 0 } } });
+    fetchMock
+      .mockResolvedValueOnce(res(502))
+      .mockResolvedValueOnce(res(200));
+
+    await ex.execute({
+      model: "m",
+      body: {},
+      stream: false,
+      credentials: creds,
+      requestId: "019f7fa1-0d8d-7000-8000-000000000001",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [, options] of fetchMock.mock.calls) {
+      expect(options.headers["x-request-id"]).toBe("019f7fa1-0d8d-7000-8000-000000000001");
+    }
+  });
+
+  it("replaces a differently-cased provider request id", async () => {
+    const ex = makeExec({ baseUrl: "https://x/responses" });
+    ex.buildHeaders = () => ({ "X-Request-ID": "provider-generated" });
+    fetchMock.mockResolvedValueOnce(res(200));
+
+    await ex.execute({
+      model: "m",
+      body: {},
+      stream: false,
+      credentials: creds,
+      requestId: "019f7fa1-0d8d-7000-8000-000000000001",
+    });
+
+    const headers = fetchMock.mock.calls[0][1].headers;
+    expect(Object.keys(headers).filter((key) => key.toLowerCase() === "x-request-id"))
+      .toEqual(["x-request-id"]);
+    expect(headers["x-request-id"]).toBe("019f7fa1-0d8d-7000-8000-000000000001");
+  });
+});
 describe("BaseExecutor.execute — retry by status (config-driven)", () => {
   it("retries 502 `attempts` times then succeeds", async () => {
     const ex = makeExec({ baseUrl: "https://x/api", retry: { 502: { attempts: 3, delayMs: 0 } } });

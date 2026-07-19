@@ -1,8 +1,11 @@
 // Guards forceStream moved from chatCore hardcode → PROVIDERS schema (#5).
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { executeMock } = vi.hoisted(() => ({
+const { executeMock, parseUpstreamErrorMock, refreshWithRetryMock, saveRequestDetailMock } = vi.hoisted(() => ({
   executeMock: vi.fn(),
+  parseUpstreamErrorMock: vi.fn(),
+  refreshWithRetryMock: vi.fn(),
+  saveRequestDetailMock: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../../open-sse/executors/index.js", () => ({
@@ -39,7 +42,7 @@ vi.mock("../../open-sse/utils/streamHandler.js", () => ({
 }));
 
 vi.mock("../../open-sse/services/tokenRefresh.js", () => ({
-  refreshWithRetry: vi.fn(),
+  refreshWithRetry: refreshWithRetryMock,
 }));
 
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
@@ -71,6 +74,8 @@ vi.mock("../../open-sse/rtk/index.js", () => ({
 vi.mock("../../open-sse/rtk/headroom.js", () => ({
   compressWithHeadroom: vi.fn(async () => null),
   formatHeadroomLog: vi.fn(() => ""),
+  formatHeadroomSizeLog: vi.fn(() => ""),
+  isHeadroomPhantomSavings: vi.fn(() => false),
 }));
 
 vi.mock("../../open-sse/providers/capabilities.js", () => ({
@@ -93,13 +98,13 @@ vi.mock("../../open-sse/handlers/chatCore/requestDetail.js", () => ({
 vi.mock("../../open-sse/utils/error.js", () => ({
   createErrorResult: vi.fn((status, message) => ({ success: false, status, error: message })),
   formatProviderError: vi.fn((error) => error.message),
-  parseUpstreamError: vi.fn(),
+  parseUpstreamError: parseUpstreamErrorMock,
 }));
 
 vi.mock("@/lib/usageDb.js", () => ({
   trackPendingRequest: vi.fn(),
   appendRequestLog: vi.fn(() => Promise.resolve()),
-  saveRequestDetail: vi.fn(() => Promise.resolve()),
+  saveRequestDetail: saveRequestDetailMock,
 }));
 
 const FORCED = ["openai", "codex", "commandcode"];
@@ -129,6 +134,10 @@ describe("forceStream provider config", () => {
   beforeEach(() => {
     executeMock.mockReset();
     executeMock.mockRejectedValue(new Error("boom"));
+    parseUpstreamErrorMock.mockReset();
+    parseUpstreamErrorMock.mockResolvedValue({ statusCode: 400, message: "bad request" });
+    refreshWithRetryMock.mockReset();
+    saveRequestDetailMock.mockClear();
   });
 
   it("only openai/codex/commandcode force streaming", async () => {
@@ -149,5 +158,49 @@ describe("forceStream provider config", () => {
 
     expect(executeMock).toHaveBeenCalledTimes(1);
     expect(executeMock.mock.calls[0][0].stream).toBe(true);
+    expect(executeMock.mock.calls[0][0].requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i);
+  });
+
+  it("uses executor request id for executor-error details", async () => {
+    const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+
+    await handleChatCore(makeOptions(false));
+
+    expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
+    expect(saveRequestDetailMock.mock.calls[0][0].id)
+      .toBe(executeMock.mock.calls[0][0].requestId);
+  });
+
+  it("uses executor request id for upstream-error details", async () => {
+    executeMock.mockResolvedValueOnce({
+      response: new Response("bad request", { status: 400 }),
+      url: "https://provider.test/v1/responses",
+      headers: {},
+      transformedBody: {},
+    });
+    const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+
+    await handleChatCore(makeOptions(false));
+
+    expect(saveRequestDetailMock).toHaveBeenCalledTimes(1);
+    expect(saveRequestDetailMock.mock.calls[0][0].id)
+      .toBe(executeMock.mock.calls[0][0].requestId);
+  });
+
+  it("reuses request id after token refresh", async () => {
+    executeMock.mockResolvedValue({
+      response: new Response("unauthorized", { status: 401 }),
+      url: "https://provider.test/v1/responses",
+      headers: {},
+      transformedBody: {},
+    });
+    refreshWithRetryMock.mockResolvedValueOnce({ accessToken: "refreshed" });
+    const { handleChatCore } = await import("../../open-sse/handlers/chatCore.js");
+
+    await handleChatCore(makeOptions(false));
+
+    expect(executeMock).toHaveBeenCalledTimes(2);
+    expect(executeMock.mock.calls[1][0].requestId)
+      .toBe(executeMock.mock.calls[0][0].requestId);
   });
 });

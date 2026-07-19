@@ -33,7 +33,7 @@ export class GithubExecutor extends BaseExecutor {
     return this.config.baseUrl;
   }
 
-  buildHeaders(credentials, stream = true) {
+  buildHeaders(credentials, stream = true, requestId = null) {
     const token = credentials.copilotToken || credentials.accessToken;
     return {
       "Authorization": `Bearer ${token}`,
@@ -44,7 +44,7 @@ export class GithubExecutor extends BaseExecutor {
       "user-agent": GITHUB_COPILOT.USER_AGENT,
       "openai-intent": "conversation-panel",
       "x-github-api-version": GITHUB_COPILOT.API_VERSION,
-      "x-request-id": crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      "x-request-id": requestId || crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       "x-vscode-user-agent-library-version": "electron-fetch",
       "X-Initiator": "user",
       // Harmless no-op on /chat/completions and /responses; required by /v1/messages.
@@ -164,9 +164,9 @@ export class GithubExecutor extends BaseExecutor {
     return result;
   }
 
-  async executeWithResponsesEndpoint({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+  async executeWithResponsesEndpoint({ model, body, stream, credentials, signal, log, proxyOptions = null, requestId }) {
     const url = this.config.responsesUrl;
-    const headers = this.buildHeaders(credentials, stream);
+    const headers = this.buildHeaders(credentials, stream, requestId);
 
     const transformedBody = openaiToOpenAIResponsesRequest(model, body, stream, credentials);
 
@@ -249,9 +249,9 @@ export class GithubExecutor extends BaseExecutor {
   // see the note in execute() above), so we translate to Anthropic-native ourselves.
   // This is what makes prepareClaudeRequest() (translator/formats/claude.js) inject
   // cache_control — /chat/completions never gets there, so it never sees cache tokens.
-  async executeWithMessagesEndpoint({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
+  async executeWithMessagesEndpoint({ model, body, stream, credentials, signal, log, proxyOptions = null, requestId }) {
     const url = this.config.messagesUrl;
-    const headers = this.buildHeaders(credentials, stream);
+    const headers = this.buildHeaders(credentials, stream, requestId);
 
     // Force stream:true upstream regardless of client preference, same as
     // executeWithResponsesEndpoint below — chatCore.js's non-streaming handler already
