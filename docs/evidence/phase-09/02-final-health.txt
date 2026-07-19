@@ -1,0 +1,26 @@
+# Final health snapshot — 2026-07-19 (finalize)
+
+## systemctl
+active
+
+## current symlink
+/opt/9router-mw/releases/0.5.35-mw.4/.next/standalone
+
+## VERSION (live release dir)
+0.5.35-mw.4
+
+## curl http://127.0.0.1:20128/api/health
+{"ok":true,"workerId":"4","pid":702107,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":13,"error":null,"connected":true,"status":"ready","lastPingMs":13,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+
+## curl https://router.budgezen.com/api/health
+HTTP 200
+{"ok":true,"workers":4,"redis":{"ok":true,...},"hotpath":{"undici":{"enabled":true,...},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+
+## DB counts (python3 sqlite readonly)
+providerConnections 13727
+providerNodes 3
+proxyPools 65
+combos 8
+apiKeys 0
+kv customModels=48 modelAliases=56
+mimo 0
