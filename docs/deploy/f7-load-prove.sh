@@ -3,37 +3,32 @@
 # Run as root on VPS. Does NOT touch foreign services.
 set -euo pipefail
 
-RELEASE_ID="${RELEASE_ID:-0.5.35-mw.4}"
+RELEASE_ID="${RELEASE_ID:-0.5.35-mw.5}"
 APP_ROOT="/opt/9router-mw"
-RELEASE_DIR="${APP_ROOT}/releases/${RELEASE_ID}"
-CURRENT_LINK="${APP_ROOT}/current"
 EVIDENCE_DIR="${EVIDENCE_DIR:-/tmp/9router-mw-f7-evidence}"
 MOCK_PORT="${MOCK_UPSTREAM_PORT:-18080}"
 MOCK_LATENCY_MS="${MOCK_LATENCY_MS:-50}"
 SOAK_DURATION="${SOAK_DURATION:-10m}"
 SOAK_VUS="${SOAK_VUS:-100}"
+REPO_URL="${REPO_URL:-https://github.com/fazulfi/9router-mw.git}"
+BRANCH="${BRANCH:-master}"
 
 mkdir -p "$EVIDENCE_DIR"
 echo "=== F7 load prove release=${RELEASE_ID} ===" | tee "$EVIDENCE_DIR/00-start.txt"
 date -u +%Y-%m-%dT%H:%M:%SZ | tee -a "$EVIDENCE_DIR/00-start.txt"
 
-# Prefer current release path for scripts
-if [[ ! -d "$RELEASE_DIR" ]]; then
-  RELEASE_DIR="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
-  RELEASE_DIR="$(dirname "$(dirname "$RELEASE_DIR")")" 2>/dev/null || true
+# Fresh shallow clone for bench scripts (no full app rebuild required)
+SCRIPTS_ROOT="${APP_ROOT}/shared/f7-scripts"
+mkdir -p "$(dirname "$SCRIPTS_ROOT")"
+if [[ -d "$SCRIPTS_ROOT/.git" ]]; then
+  chown -R router:router "$SCRIPTS_ROOT" || true
+  sudo -u router git -C "$SCRIPTS_ROOT" fetch --depth 1 origin "$BRANCH"
+  sudo -u router git -C "$SCRIPTS_ROOT" reset --hard "origin/${BRANCH}"
+else
+  rm -rf "$SCRIPTS_ROOT"
+  sudo -u router git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$SCRIPTS_ROOT"
 fi
-# scripts live in full git release
-SCRIPTS_ROOT="/opt/9router-mw/releases/${RELEASE_ID}"
-if [[ ! -f "$SCRIPTS_ROOT/scripts/mock-upstream-server.mjs" ]]; then
-  # try current's parent package if assembled differently
-  for cand in /opt/9router-mw/releases/*/; do
-    if [[ -f "${cand}scripts/mock-upstream-server.mjs" ]]; then
-      SCRIPTS_ROOT="${cand%/}"
-      break
-    fi
-  done
-fi
-echo "SCRIPTS_ROOT=$SCRIPTS_ROOT" | tee "$EVIDENCE_DIR/01-scripts-root.txt"
+echo "SCRIPTS_ROOT=$SCRIPTS_ROOT HEAD=$(sudo -u router git -C "$SCRIPTS_ROOT" rev-parse HEAD)" | tee "$EVIDENCE_DIR/01-scripts-root.txt"
 test -f "$SCRIPTS_ROOT/scripts/mock-upstream-server.mjs"
 test -f "$SCRIPTS_ROOT/docs/bench/k6-load-health-200.js"
 
