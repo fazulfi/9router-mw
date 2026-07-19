@@ -1,10 +1,12 @@
 # 9router-MW — Production Plan (Final)
 
-> **Status:** LOCKED — siap eksekusi long-run  
+> **Status:** LOCKED + **EXECUTED** — production final 2026-07-19  
 > **Produk:** `9router-mw`  
 > **Repo target:** `fazulfi/9router-mw`  
 > **Base upstream:** `decolua/9router` (+ cherry-pick resilience dari `Vanszs/VansRouter`)  
 > **Dokumen ini:** single source of truth untuk arsitektur, fase, deploy, success criteria  
+> **Final release status:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.6` · live app `0.5.35-mw.4`  
+> **Public:** https://router.budgezen.com  
 > **Bahasa kerja harian:** Indonesia | **Istilah teknis:** English OK  
 > **Peran agent:** Owner / CEO / Project Manager 9router-MW (keputusan teknis final, eksekusi, accountability)
 
