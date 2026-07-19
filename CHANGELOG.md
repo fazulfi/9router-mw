@@ -5,12 +5,14 @@
 - **Problem:** under 4 workers, dashboard RECENT REQUESTS and current-request badges flickered (“rebutan antar worker”) because `usageRepo` used per-process `global._pendingRequests` / `_recentRing`.
 - **Solution:** `open-sse/services/liveUsageState.js` — Redis keys `mw:live:cnt:*`, `mw:live:active`, `mw:live:recent` (cap 50), `mw:live:lastErr` on **:6381 only**; fail-open local Map if Redis down.
 - **Wire:** `src/lib/db/repos/usageRepo.js` → `adjustPending` / `getPendingSnapshot` / `pushRecentEntry`; `src/app/api/usage/stream/route.js` → 1.5s `livePoll` so any worker SSE sees global state.
-- **Deployed live** on production release dir (hotpatch rebuild of `0.5.35-mw.4` standalone); production soak GREEN (organic peak ~278 RPM, 5xx=0).
+- **Formal production deploy** (2026-07-19T09:25Z): release dir **`0.5.35-mw.7`** live (`current` → `.next/standalone`); `0.5.35-mw.4` kept for rollback. Prior hotpatch on mw.4 superseded.
+- Production soak GREEN (organic peak ~278 RPM, 5xx=0).
 
 ## Docs
 
 - Production soak report: `docs/bench/report-production-soak-20260719.md`
 - README enterprise Performance scoreboard (synthetic 2.53× + organic soak)
+- Phase-10 evidence: formal mw.7 deploy verify
 
 ## Prior MW line (summary)
 
@@ -20,7 +22,7 @@
 - **mw.3:** Redis semaphore + circuit breaker + 5s settings cache
 - **mw.1–2:** multi-worker cluster.fork ×4, Redis 6381, baseline deploy
 
-Full evidence: `docs/RELEASE.md`, `docs/bench/report-production-soak-20260719.md`, `docs/bench/report-mw-20260719.md`.
+Full evidence: `docs/RELEASE.md`, `docs/evidence/phase-10/`, `docs/bench/report-production-soak-20260719.md`, `docs/bench/report-mw-20260719.md`.
 
 # v0.5.35-mw.6 (2026-07-19) — 9router-MW production FINAL
 

@@ -28,7 +28,7 @@ Fork of [decolua/9router](https://github.com/decolua/9router) optimized for **st
 | **Product** | `9router-mw` — multi-worker production line of 9Router |
 | **Repo** | https://github.com/fazulfi/9router-mw |
 | **Repo version** | `0.5.35-mw.7` (`VERSION` / `package.json`) |
-| **Live binary** | `0.5.35-mw.4` release dir + **mw.7 liveUsageState hotpatch** (global RECENT / active) |
+| **Live binary** | **`0.5.35-mw.7`** formal release (`/opt/9router-mw/releases/0.5.35-mw.7/.next/standalone`) |
 | **Upstream base** | [decolua/9router](https://github.com/decolua/9router) `0.5.35` |
 | **Resilience patterns** | Account semaphore + circuit breaker + settings cache (inspired by [Vanszs/VansRouter](https://github.com/Vanszs/VansRouter)) |
 
@@ -275,10 +275,10 @@ This README intentionally does **not** duplicate the full marketing catalog or i
 | Upstream base | `decolua/9router` **0.5.35** |
 | Git tag (latest) | **`v0.5.35-mw.7`** (Redis global live usage) |
 | Repo `VERSION` / `package.json` | **0.5.35-mw.7** |
-| Live runtime release dir | **0.5.35-mw.4** + liveUsageState hotpatch |
+| Live runtime release dir | **`0.5.35-mw.7`** (formal deploy 2026-07-19; rollback: `0.5.35-mw.4`) |
 
 Scheme: `0.5.35-mw.N` = upstream base + multi-worker production line.  
-**mw.7** fixes multi-worker dashboard flicker (`mw:live:*`). Runtime multi-worker features have been live since mw.4; mw.6 was docs/ops FINAL.
+**mw.7** is live in production: Redis global live usage (`mw:live:*`) + all multi-worker hot path. Rollback path: `0.5.35-mw.4` kept on disk.
 
 ---
 
