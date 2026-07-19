@@ -52,16 +52,39 @@ async function trySqlJs() {
   }
 }
 
+/**
+ * F6: production multi-worker must use native SQLite (better-sqlite3 / node:sqlite).
+ * sql.js is banned when MW_REQUIRE_NATIVE_SQLITE is not "0" (default on in production).
+ */
+function requireNativeSqlite() {
+  if (process.env.MW_REQUIRE_NATIVE_SQLITE === "0") return false;
+  if (process.env.MW_REQUIRE_NATIVE_SQLITE === "1") return true;
+  return process.env.NODE_ENV === "production";
+}
+
 async function initAdapter() {
   ensureDirs();
+  const nativeOnly = requireNativeSqlite();
   // Order per runtime:
-  //   Bun:  bun:sqlite → sql.js
-  //   Node: better-sqlite3 → node:sqlite (≥22.5) → sql.js
+  //   Bun:  bun:sqlite → (sql.js only if native not required)
+  //   Node: better-sqlite3 → node:sqlite (≥22.5) → (sql.js only if native not required)
   let adapter = await tryBunSqlite();
   if (!adapter) adapter = await tryBetterSqlite();
   if (!adapter) adapter = await tryNodeSqlite();
-  if (!adapter) adapter = await trySqlJs();
-  if (!adapter) throw new Error("[DB] No SQLite driver available (bun/better/node/sql.js all failed)");
+  if (!adapter && !nativeOnly) adapter = await trySqlJs();
+  if (!adapter) {
+    if (nativeOnly) {
+      throw new Error(
+        "[DB] better-sqlite3/native SQLite required in production multi-worker " +
+          "(set MW_REQUIRE_NATIVE_SQLITE=0 only for emergency local debug; sql.js banned)",
+      );
+    }
+    throw new Error("[DB] No SQLite driver available (bun/better/node/sql.js all failed)");
+  }
+
+  if (nativeOnly && adapter.driver === "sql.js") {
+    throw new Error("[DB] sql.js is banned in production multi-worker (MW_REQUIRE_NATIVE_SQLITE)");
+  }
 
   if (!state.logged) {
     console.log(`[DB] Driver: ${adapter.driver} | file: ${DATA_FILE}`);
