@@ -1,0 +1,37 @@
+# Formal mw.7 deploy verify — 2026-07-19T09:25Z+
+
+HEAD=a892527f32f7564101d809d5f0b73f27b7e1a079
+VERSION=0.5.35-mw.7
+current=/opt/9router-mw/releases/0.5.35-mw.7/.next/standalone
+systemd=active
+
+liveUsageState.js: OK (7393 bytes)
+usageRepo liveUsageState import: OK
+stream livePoll: OK
+webpack chunk mw:live:: OK (.next/server/chunks/3148.js)
+
+redis KEYS mw:live:*:
+  mw:live:lastErr
+  mw:live:recent
+recent_llen=50
+
+public health: 200 ok workers=4 redis ok undici better-sqlite3 wal
+
+worker rotation sample: 3,1,2,4,3,1,2,4
+
+db counts:
+  connections=13727 nodes=3 proxies=65 combos=8 mimo=0
+
+foreign:
+  9router-mw-redis :6381
+  ggl-redis :6379 (untouched)
+  app-redis :6380 (untouched)
+
+rollback: 0.5.35-mw.4 standalone OK
+
+f6 health analysis:
+  samples 20 unique_workerIds 1,2,3,4
+  PASS_MULTI PASS_FOUR PASS_REDIS PASS_UNDICI PASS_NATIVE_SQLITE PASS_WAL
+
+k6 smoke (from f6):
+  20 VUs 15s 9171 reqs 0% fail checks 100%
