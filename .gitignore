@@ -51,6 +51,8 @@ source/*
 .cursor/*
 docs/*
 !docs/ARCHITECTURE.md
+!docs/ARCHITECTURE-MW.md
+!docs/RELEASE.md
 # 9router-mw production docs (tracked; plan SSOT + evidence)
 !docs/plans/
 !docs/plans/**
