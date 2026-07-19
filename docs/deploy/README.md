@@ -2,8 +2,8 @@
 
 Deployment artifacts and templates (no live secrets).
 
-**Final status:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.6`  
-**Live app release:** `0.5.35-mw.4` under `/opt/9router-mw/releases/`
+**Final status:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.7`  
+**Live app release:** `0.5.35-mw.7` under `/opt/9router-mw/releases/` (rollback: `0.5.35-mw.4`)
 
 ## Targets
 

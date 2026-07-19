@@ -2,7 +2,7 @@
 
 Operational procedures for production gateway.
 
-**Final release:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.6`  
+**Final release:** [`docs/RELEASE.md`](../RELEASE.md) · tag `v0.5.35-mw.7`  
 **Public:** https://router.budgezen.com
 
 | Runbook | Purpose |
@@ -19,4 +19,4 @@ Operational procedures for production gateway.
 | Listen | `127.0.0.1:20128` (systemd User=router) |
 | Redis | `127.0.0.1:6381` only |
 | Workers | always 4 via `cluster.fork` |
-| Live app | `0.5.35-mw.4` |
+| Live app | **`0.5.35-mw.7`** (rollback: `0.5.35-mw.4`) |

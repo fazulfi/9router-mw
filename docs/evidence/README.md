@@ -3,7 +3,7 @@
 Machine-captured proofs per phase. Prefer raw command output over narrative.
 
 **Final release status:** [`docs/RELEASE.md`](../RELEASE.md)  
-**Final tag (docs/ops):** `v0.5.35-mw.6` · **Live app:** `0.5.35-mw.4`
+**Git tag:** `v0.5.35-mw.7` · **Live app:** **`0.5.35-mw.7`**
 
 ## Layout
 
@@ -19,6 +19,7 @@ docs/evidence/
   phase-07/   # load prove — DONE GREEN
   phase-08/   # production harden / public HTTPS go-live — DONE
   phase-09/   # operate + data migration finalize — DONE
+  phase-10/   # formal deploy 0.5.35-mw.7 — DONE
 ```
 
 ## Naming
@@ -31,4 +32,5 @@ docs/evidence/
 
 | Phase | Status |
 | ----- | ------ |
-| 00–09 | **COMPLETE** (see each phase README) |
+| 00–09 | **COMPLETE** |
+| 10 | **COMPLETE** — formal live `0.5.35-mw.7` |
