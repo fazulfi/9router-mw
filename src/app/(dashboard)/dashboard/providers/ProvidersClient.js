@@ -287,6 +287,14 @@ export default function ProvidersClient({ initialConnections, initialNodes }) {
     ),
     "apikey",
   );
+  const webCookieEntries = sortByPriority(
+    Object.entries(WEB_COOKIE_PROVIDERS).filter(
+      ([, info]) =>
+        !info.hidden &&
+        matchSearch(info.name),
+    ),
+    "cookie",
+  );
   const isApikeySearching = !!searchQuery.trim();
   const visibleApikeyEntries =
     isApikeySearching || showAllApikey
@@ -308,6 +316,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }) {
     freeEntries.length > 0 ||
     freeTierEntries.length > 0 ||
     apikeyEntries.length > 0 ||
+    webCookieEntries.length > 0 ||
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
 
@@ -364,6 +373,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }) {
         freeTierEntries={freeTierEntries}
         apikeyEntries={apikeyEntries}
         visibleApikeyEntries={visibleApikeyEntries}
+        webCookieEntries={webCookieEntries}
         isApikeySearching={isApikeySearching}
         showAllApikey={showAllApikey}
         hiddenApikeyCount={hiddenApikeyCount}
@@ -399,7 +409,7 @@ export default function ProvidersClient({ initialConnections, initialNodes }) {
   );
 }
 
-function FreeAndApiKeySections({ freeEntries, freeTierEntries, apikeyEntries, visibleApikeyEntries, isApikeySearching, showAllApikey, hiddenApikeyCount, testingMode, getProviderStats, handleBatchTest, handleToggleProvider, onShowAll }) {
+function FreeAndApiKeySections({ freeEntries, freeTierEntries, apikeyEntries, visibleApikeyEntries, webCookieEntries, isApikeySearching, showAllApikey, hiddenApikeyCount, testingMode, getProviderStats, handleBatchTest, handleToggleProvider, onShowAll }) {
   return (
     <>
       {(freeEntries.length > 0 || freeTierEntries.length > 0) && (
@@ -435,6 +445,19 @@ function FreeAndApiKeySections({ freeEntries, freeTierEntries, apikeyEntries, vi
               Show all {apikeyEntries.length} providers
             </button>
           )}
+        </div>
+      )}
+      {webCookieEntries.length > 0 && (
+        <div className="flex flex-col gap-4 mt-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">Web Cookie Providers</h2>
+            <TestAllButton category="cookie" testingMode={testingMode} onTest={handleBatchTest} label="Cookie" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {webCookieEntries.map(([key, info]) => (
+              <ApiKeyProviderCard key={key} providerId={key} provider={info} stats={getProviderStats(key, "cookie")} authType="cookie" onToggle={(active) => handleToggleProvider(key, "cookie", active)} />
+            ))}
+          </div>
         </div>
       )}
     </>

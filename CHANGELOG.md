@@ -1,3 +1,14 @@
+# v0.9.56 (2026-07-19)
+
+VansRouter 0.9.56 restores the visibility of Web Cookie providers in the dashboard, allowing users to configure Meta AI Muse Spark Web cookie-based authentication, and rebases local customizations cleanly onto the latest upstream branch.
+
+## Added
+- **Web Cookie Section in Dashboard** — Added a dedicated "Web Cookie Providers" section to the main dashboard providers layout to display cookie-based providers (like Meta AI Muse Spark Web).
+- **Muse Spark Web Support** — Restored local integration for Meta AI Muse Spark Web including provider definitions, executor routes, and thinking model selectors.
+
+## Fixed
+- **Rebase Customizations** — Resolved git branch conflicts by rebasing local commits onto origin/main, keeping `dompurify` dependencies, custom brand styling, and layout features intact.
+
 # v0.9.55 (2026-07-19)
 
 VansRouter 0.9.55 restores the CLI package scripts for NPM publishing, adopts upstream commits for Kimi dual-auth/flow animations/asset caching, and resolves packaging lints.
