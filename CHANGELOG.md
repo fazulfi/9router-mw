@@ -1,3 +1,15 @@
+# v0.9.5 (2026-07-19)
+
+VansRouter 0.9.5 resolves React-Doctor build diagnostics, optimizes page accessibility contrast, and aligns Docker volume persistence tests.
+
+## Added
+- **Database Paths Verification Test** — unit test validation for the `.9router` data directory fallback and `9router-data` Docker volume mapping.
+
+## Fixed
+- **React-Doctor Diagnostic Errors** — resolved useEffect cleanup missing on Connection timers, eliminated impure state updates inside localStorage hooks, and wrapped server-side global document references in client-mounted lifecycle guards.
+- **Language Switcher & Promo Modal SSR** — prevented NextJS server-render crashes by mounting elements safely before rendering portals.
+- **Page Accessibility Contrast** — optimized `/masuk` login page text color and landmark roles to satisfy Lighthouse AAA requirements.
+
 # v0.9.4 (2026-07-16)
 
 VansRouter 0.9.4 fixes source-clone version detection and preserves Docker SQLite data across updates.
