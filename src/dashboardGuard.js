@@ -197,12 +197,6 @@ export async function proxy(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // MW dashboard API: JWT-only fail-closed (no requireLogin=false bypass; SPA /mw/ stays public)
-  if (pathname.startsWith("/mw/api")) {
-    if (await hasValidToken(request)) return NextResponse.next();
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   if (isPublicLlmApi(pathname)) {
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
