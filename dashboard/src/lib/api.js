@@ -76,7 +76,7 @@ export function mapResponseStatus(status, body) {
     return {
       kind: "unauthenticated",
       message:
-        "Sign-in required. Open the main 9router dashboard, sign in there, then return here. This page does not collect credentials.",
+        "Sign-in required. Open the main 9router dashboard, sign in there, then return to this companion view. This page does not collect credentials.",
       status: 401,
     };
   }
@@ -144,9 +144,7 @@ export function isDegradedPayload(resource, data) {
   if (!data || typeof data !== "object") return false;
   if (resource === "workers") {
     return (
-      data.availability === "degraded" ||
-      data.availability === "partial" ||
-      data.availability === "unavailable"
+      data.availability === "degraded" || data.availability === "unavailable"
     );
   }
   if (resource === "redis" || resource === "providers") {
@@ -156,7 +154,6 @@ export function isDegradedPayload(resource, data) {
     return (
       data.redis?.mode === "degraded" ||
       data.workers?.availability === "degraded" ||
-      data.workers?.availability === "partial" ||
       data.workers?.availability === "unavailable"
     );
   }
@@ -217,7 +214,7 @@ export async function mwGet(resource, options = {}) {
       ok: false,
       status: 0,
       kind: "error",
-      message: "Network error — the API could not be reached. Check your connection and retry.",
+      message: "Network error — could not reach companion API",
       data: null,
       empty: true,
       degraded: false,

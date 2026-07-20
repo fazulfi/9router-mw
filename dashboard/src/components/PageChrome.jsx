@@ -6,7 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 export function PageChrome({
   title,
   description,
-  kicker = "Operator view · read-only",
+  kicker = "Companion · read-only",
   actions,
   children,
 }) {

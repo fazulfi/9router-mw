@@ -11,10 +11,10 @@ export function mapWorkerAvailability(availability) {
   const value = String(availability || "unavailable").toLowerCase();
   if (value === "degraded") {
     return {
-      label: "Partial",
+      label: "Degraded",
       tone: "warning",
       detail:
-        "Worker observability is partial. Process IDs, hostnames, and live load metrics are not reported here.",
+        "Worker observability is partial. No process IDs or live metrics are available in Phase 1.",
     };
   }
   if (value === "ok" || value === "available" || value === "healthy") {
@@ -28,7 +28,7 @@ export function mapWorkerAvailability(availability) {
     label: "Unavailable",
     tone: "danger",
     detail:
-      "Worker observability is unavailable. This view does not invent process IDs, hostnames, or load metrics — only what the backend reports is shown.",
+      "Worker observability is unavailable. This companion does not invent PIDs, hostnames, or fake load metrics.",
   };
 }
 
@@ -143,24 +143,6 @@ export function formatCount(value) {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(Math.round(n));
-}
-
-/**
- * Central connection state labels for SSE and dashboard status.
- * Maps internal state keys to human-readable labels.
- * @param {string|null|undefined} state
- * @returns {string}
- */
-export function mapConnectionLabel(state) {
-  const map = {
-    idle: "Starting",
-    connecting: "Connecting",
-    open: "Live",
-    error: "Reconnecting",
-    closed: "Offline",
-    unauthenticated: "Sign in",
-  };
-  return map[String(state).toLowerCase()] || String(state);
 }
 
 /**

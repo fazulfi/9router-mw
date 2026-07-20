@@ -10,10 +10,10 @@ export function AppShell() {
             <div className="brand-orb" aria-hidden="true" />
             <div className="brand-copy">
               <p className="brand-title">9router MW</p>
-              <p className="brand-sub">Operator dashboard · read-only</p>
+              <p className="brand-sub">Phase 1 companion · observation only</p>
             </div>
           </div>
-          <span className="badge badge-neutral" title="No mutations from this dashboard">
+          <span className="badge badge-neutral" title="No mutations in Phase 1">
             Read-only
           </span>
         </div>
