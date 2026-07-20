@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cursor live model catalog fetcher.
  *
  * Cursor exposes the account-specific model picker through the AgentService

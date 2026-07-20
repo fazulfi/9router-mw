@@ -83,6 +83,7 @@ export default function ModelSelectModal({
         }));
       })
       .catch((error) => {
+        // Do not hide the static fallback when the account catalog is unavailable.
         console.warn("Unable to load Cursor models for selector:", error);
         if (!cancelled) setCursorModels([]);
       });

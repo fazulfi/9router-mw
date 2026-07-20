@@ -71,6 +71,11 @@ function textFromContent(content) {
 }
 
 function isAgentTextRequest(body) {
+  // Many compatible clients always attach their built-in tool schemas, even
+  // for a normal text turn. Cursor's retired ChatService rejects those
+  // requests; AgentService can still answer the text turn, so ignore schemas
+  // here. A real tool-call/result conversation is kept on the legacy path
+  // until its AgentService tool protocol is implemented.
   return Array.isArray(body?.messages) && body.messages.every((message) => {
     if (message?.tool_calls?.length || message?.role === "tool") return false;
     return typeof message?.content === "string"
@@ -81,6 +86,8 @@ function isAgentTextRequest(body) {
 function encodeHistoryMessage(message) {
   const content = textFromContent(message?.content);
   if (!content) return null;
+
+  // ConversationHistoryMessage.user / .assistant -> repeated content -> text.
   const text = agentString(1, content);
   if (message.role === "assistant") {
     return agentMessage(2, agentMessage(1, agentMessage(1, text)));
@@ -103,6 +110,7 @@ function buildAgentRunFrame(messages, model) {
     .filter(Boolean);
   const userText = textFromContent(current?.content) || "Continue.";
 
+  // agent.v1.UserMessageAction.user_message and its optional history.
   const userMessage = concatBuffers(
     agentString(1, userText),
     agentString(2, crypto.randomUUID()),
@@ -117,11 +125,13 @@ function buildAgentRunFrame(messages, model) {
   const conversationAction = agentMessage(1, userAction);
   const requestedModel = concatBuffers(agentString(1, model), agentBool(7, true));
   const runRequest = concatBuffers(
+    // An empty ConversationStateStructure starts a fresh local agent session.
     agentMessage(1, new Uint8Array()),
     agentMessage(2, conversationAction),
     ...(system ? [agentString(8, system)] : []),
     agentMessage(9, requestedModel),
   );
+  // agent.v1.AgentClientMessage.run_request.
   return wrapConnectRPCFrame(agentMessage(1, runRequest));
 }
 
@@ -147,6 +157,8 @@ function decodeAgentFrames(buffer, onFrame) {
 }
 
 function createRequestContextResponse() {
+  // AgentService asks every run for client context. 9router has no IDE file
+  // context, so acknowledge with an empty RequestContext.
   const requestContextSuccess = agentMessage(1, new Uint8Array());
   const requestContextResult = agentMessage(1, requestContextSuccess);
   const execClientMessage = agentMessage(10, requestContextResult);
@@ -515,6 +527,9 @@ export class CursorExecutor extends BaseExecutor {
       };
     }
 
+    // The Claude SSE translator derives Anthropic's message ID by stripping
+    // `chatcmpl-`. Keep the remaining ID in Anthropic's required `msg_` form
+    // so strict clients such as Claude Code accept the completed stream.
     const responseId = `chatcmpl-msg_${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
     let pending = Buffer.alloc(0);
@@ -529,18 +544,26 @@ export class CursorExecutor extends BaseExecutor {
           pending = decodeAgentFrames(pending, (payload) => {
             const serverMessage = decodeMessage(payload);
 
+            // agent.v1.AgentServerMessage.interaction_update
             if (serverMessage.has(1)) {
               const update = decodeMessage(serverMessage.get(1)[0].value);
               if (update.has(1)) {
                 const textDelta = extractAgentString(decodeMessage(update.get(1)[0].value), 1);
                 if (textDelta) onEvent({ type: "text", value: textDelta });
               }
+              // Cursor's AgentService emits internal reasoning without the
+              // cryptographic signature required by Anthropic thinking blocks.
+              // Forwarding it makes strict Anthropic clients (Claude Code)
+              // discard or wait on an otherwise complete response. Keep the
+              // reasoning upstream-only and emit the normal answer text.
               if (update.has(14)) {
                 finished = true;
                 onEvent({ type: "done" });
               }
             }
 
+            // AgentService requests IDE context before producing a response.
+            // Return an empty context; 9router is not coupled to an editor.
             if (serverMessage.has(2)) {
               const execRequest = decodeMessage(serverMessage.get(2)[0].value);
               if (execRequest.has(10)) {

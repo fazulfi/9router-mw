@@ -9,7 +9,7 @@
 Fork of [decolua/9router](https://github.com/decolua/9router) optimized for **stable throughput at ~200 concurrent** on a bare-metal Linux VPS.
 
 [![Release](https://img.shields.io/github/v/release/fazulfi/9router-mw?label=release&color=0B6E4F)](https://github.com/fazulfi/9router-mw/releases/latest)
-[![Upstream](https://img.shields.io/badge/upstream-decolua%2F9router%200.5.35-555)](https://github.com/decolua/9router)
+[![Upstream](https://img.shields.io/badge/upstream-decolua%2F9router%200.5.40-555)](https://github.com/decolua/9router)
 [![Status](https://img.shields.io/badge/status-PRODUCTION%20FINAL-0B6E4F)](./docs/RELEASE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
@@ -27,9 +27,9 @@ Fork of [decolua/9router](https://github.com/decolua/9router) optimized for **st
 | --- | --- |
 | **Product** | `9router-mw` — multi-worker production line of 9Router |
 | **Repo** | https://github.com/fazulfi/9router-mw |
-| **Repo version** | `0.5.35-mw.8` (`VERSION` / `package.json`) |
-| **Live binary** | **`0.5.35-mw.7`** formal release (`/opt/9router-mw/releases/0.5.35-mw.7/.next/standalone`) |
-| **Upstream base** | [decolua/9router](https://github.com/decolua/9router) `0.5.35` |
+| **Repo version** | `0.5.40-mw.2` (`VERSION` / `package.json`) — ancestry-merge of upstream/master |
+| **Live binary** | **`0.5.40-mw.1`** formal release (`/opt/9router-mw/releases/0.5.40-mw.1/.next/standalone`) — current production |
+| **Upstream base** | [decolua/9router](https://github.com/decolua/9router) `0.5.40` (ancestry merged) |
 | **Resilience patterns** | Account semaphore + circuit breaker + settings cache (inspired by [Vanszs/VansRouter](https://github.com/Vanszs/VansRouter)) |
 
 **Not** the npm package `9router` and **not** Docker Hub `decolua/9router`. This fork is private-ops / source deploy. For the general consumer product, install upstream.
@@ -108,6 +108,7 @@ Cluster is **capacity**, not **multiplication**. The kernel / Node cluster deliv
 5. Bind **localhost**; public only via Nginx
 6. **No secrets in git**
 7. **No double-request** semantics
+8. **Upstream ancestry** is real (no `--theirs` wholesale); merge resolves per-file with MW invariants taking precedence on production-affecting files
 
 ---
 
@@ -128,6 +129,7 @@ Enterprise evidence pack: synthetic k6 gates **plus** production organic soak on
 | Full restart | systemd | **~2.8 s** ready | **PASS** |
 | **Production organic** | real `/v1` traffic | **~166 RPM avg** · peak **~278 RPM** · **0× 5xx** | **GREEN** |
 | Live dashboard aggregate | Redis `mw:live:*` | global recent/pending across 4 workers (no flicker) | **PASS** |
+| **Ancestry-merge gate** | `git merge --no-ff upstream/master` | 13/13 commits folded, 0 behind upstream | **GREEN** |
 
 > **Units:** synthetic tables use **RPS** (requests/second, health path). Organic tables use **RPM** (requests/minute from nginx `/v1` deltas). Do not mix when quoting.
 
@@ -274,6 +276,8 @@ Everything you expect from 9Router remains available on this fork:
 - Account rotation, combos, quota-aware fallback
 - **RTK** token saver and related pre-dispatch hooks
 - Web dashboard for providers, proxies, combos, usage
+- **Cursor HTTP/2 AgentService** (upstream 3.12.17) — live model catalog, `responseFormat: FORMATS.OPENAI` MW hotfix
+- **i18n** Khmer (km) — folded from upstream 9ba8f374
 
 Deep product guides, provider setup videos, and consumer install paths live upstream:
 
@@ -288,13 +292,14 @@ This README intentionally does **not** duplicate the full marketing catalog or i
 
 | Artifact | Version |
 | -------- | ------- |
-| Upstream base | `decolua/9router` **0.5.35** |
-| Git tag (latest) | **`v0.5.35-mw.8`** (upstream sync: kimi dual-auth, dashboard UI, flow animation) |
-| Repo `VERSION` / `package.json` | **0.5.35-mw.8** |
-| Live runtime release dir | **`0.5.35-mw.7`** (formal deploy 2026-07-19; rollback: `0.5.35-mw.4`) |
+| Upstream base | `decolua/9router` **0.5.40** (ancestry-merged) |
+| Git tag (latest) | **`v0.5.40-mw.2`** (ancestry-merge of upstream/master; 0 behind) |
+| Repo `VERSION` / `package.json` | **0.5.40-mw.2** |
+| Live runtime release dir | **`0.5.40-mw.1`** (formal deploy; rollback: `0.5.35-mw.7`) |
 
-Scheme: `0.5.35-mw.N` = upstream base + multi-worker production line.
-**mw.7** is live in production: Redis global live usage (`mw:live:*`) + all multi-worker hot path. **mw.8** = upstream sync tag (kimi dual-auth, dashboard UI fix, flow animation); live binary unchanged.
+Scheme: `0.5.X-mw.N` = upstream base + multi-worker production line.
+**mw.1** was the Cursor `responseFormat: FORMATS.OPENAI` hotfix (live at d9702c68).
+**mw.2** is the upstream ancestry-merge (real `git merge --no-ff upstream/master`, 13/13 commits folded, MW invariants preserved).
 
 ---
 
@@ -307,11 +312,14 @@ Scheme: `0.5.35-mw.N` = upstream base + multi-worker production line.
 | Production organic soak | **GREEN** — ~166 RPM avg · peak ~278 · 0× 5xx |
 | Live usage (dashboard) | **GLOBAL** Redis `mw:live:*` (no worker flicker) |
 | Public HTTPS | **LIVE** |
+| Upstream ancestry | **0 commits behind** (mw.2 merge folded all 13) |
 | Provider data | Migrated non-mimo connections + custom nodes + proxy pools + combos + model kv |
 | `apiKeys` | Not auto-migrated — create on dashboard if needed |
 | MITM | **OFF** |
 
 Operational residual checklist (optional): real provider smoke at low QPS, 24–48h watch, monthly upstream sync via [`docs/runbooks/upstream-sync.md`](./docs/runbooks/upstream-sync.md).
+
+Set `X-9Router-Token-Saver: off` to bypass all token savers for one chat request.
 
 ---
 
@@ -339,6 +347,8 @@ Please do not open PRs that reintroduce:
 - Redis on 6379/6380 for this product
 - Secrets, production env files, or private keys in git
 - `WORKERS=1` as a production default
+- Wholesale acceptance of upstream marketing/README into the MW surface
+- Resurrection of the canceled `/mw` independent dashboard
 
 ---
 
@@ -358,8 +368,8 @@ Please do not open PRs that reintroduce:
 
 <div align="center">
 
-**9router-MW** · PRODUCTION FINAL · `v0.5.35-mw.8`
-**2.53×** synthetic · **~166 RPM** organic · **0%** 5xx under peak
+**9router-MW** · PRODUCTION FINAL · `v0.5.40-mw.2`
+**2.53×** synthetic · **~166 RPM** organic · **0%** 5xx under peak · **0 commits behind** upstream
 Built on [decolua/9router](https://github.com/decolua/9router) · High-concurrency production routing
 
 </div>

@@ -516,9 +516,9 @@ function convertMessages(messages, tools, model) {
  *    `reasoning_effort` natively. The only way to enable reasoning is to
  *    inject `<thinking_mode>enabled</thinking_mode>` into the user content
  *    sent upstream. Detection covers Anthropic-Beta header, Claude API
-  *    `thinking`, OpenAI `reasoning_effort`, AMP/Cursor magic tags, and model
-  *    name hints. Supported models receive Kiro's schema-specific effort fields;
-  *    legacy prompt tags remain only for models that need them.
+ *    `thinking`, OpenAI `reasoning_effort`, AMP/Cursor magic tags, and model
+ *    name hints. Supported models receive Kiro's schema-specific effort fields;
+ *    legacy prompt tags remain only for models that need them.
  */
 export function openaiToKiroRequest(model, body, stream, credentials) {
   const messages = body.messages || [];
