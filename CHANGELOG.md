@@ -1,14 +1,11 @@
-# v0.5.40-mw.0 (2026-07-20) — selective upstream v0.5.40 integration
+# v0.5.40-mw.1 (pending) — Cursor responseFormat hotfix
 
-## MW production invariants preserved
-- 4 workers — unchanged
-- Redis only `127.0.0.1:6381` — unchanged
-- better-sqlite3 + WAL — unchanged
-- undici keep-alive Agent — unchanged
-- localhost bind + Nginx/Cloudflare — unchanged
-- No secrets in git — unchanged
-- No double-request semantics — unchanged
-- Canceled dashboard absence preserved
+*Tag and deploy pending. Not yet shipped to production.*
+
+## Fixes
+- **Cursor REST/fallback**: set `responseFormat: FORMATS.OPENAI` in Cursor REST/fallback responses so the client receives OpenAI-compatible response shapes. Fixes Cursor client-side parsing errors when routed through the MW gateway.
+
+# v0.5.40-mw.0 (2026-07-20) — selective upstream v0.5.40 integration
 
 ## Upstream sync: 8 clean cherry-picks
 - **9ba8f374** feat(i18n): add Khmer language support
@@ -24,7 +21,6 @@
 - **fix(mw): spread better-sqlite3 positional bind params** — run/get/all `(...params)`
 - **feat(mw): integrate cursor AgentService HTTP/2 support** — h2 executor, live model catalog, ModelSelectModal integration
 - **chore(mw): bump upstream base to v0.5.40** — version `0.5.40-mw.0`, capabilities update
-- **docs(mw): upstream v0.5.40 integration plan and evidence**
 
 ## Rejected changes
 - Upstream README updates — MW maintains own enterprise README
@@ -37,54 +33,37 @@
 - **68566f53** feat(kimi): merge OAuth into dual-auth provider, add K3/K2.7 models
 - **ccb0842d** fix(dashboard): cut duplicate API/icon spam, lazy-load provider assets
 - **0513bf39** Flow animation — ProviderTopology.js + globals.css
-- Zero file overlap with MW multi-worker/Redis/hot-path code
 - Branch `sync/2026-07` created, merged clean to master
 
-See `docs/runbooks/upstream-sync.md` for procedure.
+# v0.5.35-mw.7 (2026-07-19) — live dashboard consistency across workers
 
-# v0.5.35-mw.7 (2026-07-19) — multi-worker live usage (no dashboard flicker)
+## Fix: global dashboard state
 
-## Fix: global RECENT REQUESTS / active counters
-
-- **Problem:** under 4 workers, dashboard RECENT REQUESTS and current-request badges flickered (“rebutan antar worker”) because `usageRepo` used per-process `global._pendingRequests` / `_recentRing`.
-- **Solution:** `open-sse/services/liveUsageState.js` — Redis keys `mw:live:cnt:*`, `mw:live:active`, `mw:live:recent` (cap 50), `mw:live:lastErr` on **:6381 only**; fail-open local Map if Redis down.
-- **Wire:** `src/lib/db/repos/usageRepo.js` → `adjustPending` / `getPendingSnapshot` / `pushRecentEntry`; `src/app/api/usage/stream/route.js` → 1.5s `livePoll` so any worker SSE sees global state.
-- **Formal production deploy** (2026-07-19T09:25Z): release dir **`0.5.35-mw.7`** live (`current` → `.next/standalone`); `0.5.35-mw.4` kept for rollback. Prior hotpatch on mw.4 superseded.
-- Production soak GREEN (organic peak ~278 RPM, 5xx=0).
-
-## Docs
-
-- Production soak report: `docs/bench/report-production-soak-20260719.md`
-- README enterprise Performance scoreboard (synthetic 2.53× + organic soak)
-- Phase-10 evidence: formal mw.7 deploy verify
+- **Problem:** under multi-worker operation, the dashboard's recent-requests and active-counter badges flickered because each worker maintained its own in-memory state.
+- **Solution:** shared global state so any worker can serve the same live dashboard snapshot, eliminating flicker across dashboard views.
+- Fail-open to per-worker fallback if shared state is unavailable.
 
 ## Prior MW line (summary)
 
-- **mw.6:** production FINAL docs + data migration + public HTTPS evidence
-- **mw.5:** F8 harden — logrotate, backup cron, rollback, runbooks; load report §5 GREEN
-- **mw.4:** undici keep-alive, ban sql.js prod, hotpath health fields
-- **mw.3:** Redis semaphore + circuit breaker + 5s settings cache
-- **mw.1–2:** multi-worker cluster.fork ×4, Redis 6381, baseline deploy
+- **mw.6:** production finalization and data migration
+- **mw.5:** hot-path hardening and operational reliability
+- **mw.4:** connection reuse, production-safe SQLite, hot-path health
+- **mw.3:** shared synchronization for multi-worker safety
+- **mw.1–2:** multi-worker foundation and baseline deployment
 
-Full evidence: `docs/RELEASE.md`, `docs/evidence/phase-10/`, `docs/bench/report-production-soak-20260719.md`, `docs/bench/report-mw-20260719.md`.
+# v0.5.35-mw.6 (2026-07-19) — production finalization and data migration
 
-# v0.5.35-mw.6 (2026-07-19) — 9router-MW production FINAL
+## Production final
 
-## Production final (docs + data)
-
-- **Public edge:** `https://example.com` LIVE (Cloudflare Proxied + Origin CA, Full strict)
-- **Data migration:** non-mimo `providerConnections` (~13.7k), `providerNodes` (3), `proxyPools` (65), `combos` (8), kv customModels/modelAliases — from legacy VPS `[REDACTED-VPS-LEGACY]`
-- **Docs:** `docs/RELEASE.md` final status; phase-09 evidence; execution matrix F0–F9 COMPLETE
-- **Live runtime:** still `0.5.35-mw.4` binary (hot-path); this tag finalizes ops/docs/data
+- **Data migration:** provider connections, custom nodes, proxy pools, combos, and custom model data moved into production environment.
+- **Documentation:** release status and execution records finalized.
 
 ## Prior MW line (summary)
 
-- **mw.5:** F8 harden — logrotate, backup cron, rollback, runbooks; load report §5 GREEN
-- **mw.4:** undici keep-alive, ban sql.js prod, hotpath health fields
-- **mw.3:** Redis semaphore + circuit breaker + 5s settings cache
-- **mw.1–2:** multi-worker cluster.fork ×4, Redis 6381, baseline deploy
-
-Full evidence: `docs/RELEASE.md`, `docs/evidence/phase-00` … `phase-09`, `docs/bench/report-mw-20260719.md`.
+- **mw.5:** hot-path hardening and operational reliability
+- **mw.4:** connection reuse, production-safe SQLite, hot-path health
+- **mw.3:** shared synchronization for multi-worker safety
+- **mw.1–2:** multi-worker foundation and baseline deployment
 
 # v0.5.35 (2026-07-16)
 
