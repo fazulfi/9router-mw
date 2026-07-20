@@ -77,19 +77,13 @@ export async function getMwUsageStats(period) {
 
 /**
  * Strip secrets / raw rows from usage stats for MW dashboard.
- *
- * totalTokens is derived from totalPromptTokens + totalCompletionTokens so
- * the projection works against the existing getUsageStats() aggregate
- * (which exposes prompt/completion but not a pre-summed total).
  */
 export function projectUsageStats(raw, period = "24h") {
   const source = raw && typeof raw === "object" ? raw : {};
-  const prompt = Number(source.totalPromptTokens) || 0;
-  const completion = Number(source.totalCompletionTokens) || 0;
   return {
     period,
     totalRequests: Number(source.totalRequests) || 0,
-    totalTokens: prompt + completion,
+    totalTokens: Number(source.totalTokens) || 0,
     successCount: Number(source.successCount) || 0,
     errorCount: Number(source.errorCount) || 0,
   };

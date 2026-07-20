@@ -510,43 +510,12 @@ export async function getUsageStats(period = "all") {
       }
     }
 
-    // Overlay precise lastUsed timestamps from history.
-    // status is also read here so we can derive successCount / errorCount
-    // from the same bounded UTC window the period defines (the daily
-    // summary does not store per-row status).  No raw row data is
-    // exposed — only counts.
-    //
-    // CRITICAL: The overlay cutoff MUST use the same local-midnight
-    // boundary as loadDaysInRange() above (which computes dateKey from
-    // local YYYY-MM-DD).  A rolling Date.now() - N*86400000 can fall in
-    // a different UTC day than the local-midnight daily-summary boundary,
-    // causing successCount+errorCount to count rows that the daily
-    // summary excluded (or vice versa).  The local-midnight computation
-    // is replicated here so the two queries are guaranteed to see the
-    // same set of rows.
-    const todayMidnight = new Date();
-    const midnightBoundary = new Date(
-      todayMidnight.getFullYear(),
-      todayMidnight.getMonth(),
-      todayMidnight.getDate() - (maxDays || 0) + 1,
-    );
-    const overlayCutoff = maxDays ? midnightBoundary.getTime() : 0;
+    // Overlay precise lastUsed timestamps from history
+    const overlayCutoff = maxDays ? Date.now() - maxDays * 86400000 : 0;
     const histRows = db.all(
-      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, status FROM usageHistory WHERE timestamp >= ?`,
+      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint FROM usageHistory WHERE timestamp >= ?`,
       [new Date(overlayCutoff).toISOString()]
     );
-
-    // Bounded success/error aggregate for 7d/30d.  Counts only the two
-    // known status values; everything else is ignored.  Must use the
-    // exact `ok` / `error` literals the dashboard contract requires.
-    let successCount = 0;
-    let errorCount = 0;
-    for (const e of histRows) {
-      if (e.status === "ok") successCount++;
-      else if (e.status === "error") errorCount++;
-    }
-    stats.successCount = successCount;
-    stats.errorCount = errorCount;
     for (const e of histRows) {
       const ts = e.timestamp;
       const modelKey = e.provider ? `${e.model} (${e.provider})` : e.model;
@@ -578,12 +547,9 @@ export async function getUsageStats(period = "all") {
       cutoff = new Date(Date.now() - PERIOD_MS["24h"]).toISOString();
     }
     const filtered = db.all(
-      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, tokens, status FROM usageHistory WHERE timestamp >= ?`,
+      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ?`,
       [cutoff]
     );
-
-    let successCount = 0;
-    let errorCount = 0;
 
     for (const r of filtered) {
       const tokens = parseJson(r.tokens, {}) || {};
@@ -592,9 +558,6 @@ export async function getUsageStats(period = "all") {
       const cachedTokens = tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
       const entryCost = r.cost || 0;
       const providerDisplayName = providerNodeNameMap[r.provider] || r.provider;
-
-      if (r.status === "ok") successCount++;
-      else if (r.status === "error") errorCount++;
 
       stats.totalPromptTokens += promptTokens;
       stats.totalCompletionTokens += completionTokens;
@@ -662,9 +625,6 @@ export async function getUsageStats(period = "all") {
       epe.requests++; epe.promptTokens += promptTokens; epe.completionTokens += completionTokens; epe.cachedTokens += cachedTokens; epe.cost += entryCost;
       if (new Date(r.timestamp) > new Date(epe.lastUsed)) epe.lastUsed = r.timestamp;
     }
-
-    stats.successCount = successCount;
-    stats.errorCount = errorCount;
   }
 
   stats.totalRequests = Object.values(stats.byProvider).reduce((sum, p) => sum + (p.requests || 0), 0);
