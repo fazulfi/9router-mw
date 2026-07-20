@@ -2,23 +2,23 @@ import { PageChrome } from "../components/PageChrome.jsx";
 import { StateBanner, StatusBadge } from "../components/StateBanner.jsx";
 
 /**
- * Settings is intentionally read-only in Phase 1.
+ * Settings is intentionally read-only.
  * No password fields, login forms, or mutation controls.
+ * This page is the operator's guide to what the dashboard reads, how it
+ * authenticates, and what it does not change.
  */
 export default function SettingsPage() {
-  const base = import.meta.env.BASE_URL || "/mw/";
-
   return (
     <PageChrome
       title="Settings"
-      description="Phase 1 companion configuration is informational only. Authentication reuses the existing main dashboard session cookie."
+      description="Operator guide for the read-only dashboard. Authentication reuses the existing main dashboard session cookie. No mutations are made from these pages."
       actions={<StatusBadge tone="info">Read-only</StatusBadge>}
     >
       <div className="stack-lg">
         <StateBanner
           tone="info"
           title="No mutations here"
-          message="This companion does not change passwords, API keys, worker counts, or Redis configuration. Use the main 9router dashboard for account and provider management."
+          message="This dashboard never changes passwords, API keys, worker counts, Redis configuration, or any other setting. Use the main 9router dashboard for account and provider management."
         />
 
         <section className="panel panel-elevated" aria-labelledby="auth-heading">
@@ -29,61 +29,58 @@ export default function SettingsPage() {
             <div className="kv-row">
               <p className="kv-key">Session</p>
               <p className="kv-val">
-                Existing cookie session from the main dashboard (auth_token JWT).
-                This SPA never stores tokens in localStorage or sessionStorage.
+                Same cookie session as the main dashboard. This dashboard never
+                stores tokens in localStorage or sessionStorage.
               </p>
             </div>
             <div className="kv-row">
               <p className="kv-key">Sign-in</p>
               <p className="kv-val">
                 If APIs return 401, open the main dashboard, sign in there, then
-                return to this companion. No password field is shown on these pages.
+                return here. No password field is shown on these pages.
               </p>
             </div>
             <div className="kv-row">
               <p className="kv-key">Shell</p>
               <p className="kv-val">
-                The HTML shell under {base} is public; JSON APIs under /mw/api/v1/*
-                require the same-origin session cookie.
+                The dashboard pages load publicly, but JSON data requires a valid
+                same-origin session cookie from the main dashboard.
               </p>
             </div>
           </div>
         </section>
 
-        <section className="panel" aria-labelledby="api-heading">
-          <h2 id="api-heading" className="panel-title">
-            API surface
+        <section className="panel" aria-labelledby="data-heading">
+          <h2 id="data-heading" className="panel-title">
+            How data reaches the dashboard
           </h2>
           <div className="kv-grid">
             <div className="kv-row">
-              <p className="kv-key">Base</p>
-              <p className="kv-val">/mw/api/v1/</p>
-            </div>
-            <div className="kv-row">
-              <p className="kv-key">Methods</p>
-              <p className="kv-val">GET only · credentials: include</p>
-            </div>
-            <div className="kv-row">
-              <p className="kv-key">Stream</p>
+              <p className="kv-key">Source</p>
               <p className="kv-val">
-                EventSource → /mw/api/v1/stream (never /api/usage/stream)
+                Same backend cluster; requests are read-only and carry the same
+                session cookie used by the main dashboard.
               </p>
             </div>
             <div className="kv-row">
-              <p className="kv-key">Vite base</p>
-              <p className="kv-val">{base}</p>
+              <p className="kv-key">Live stream</p>
+              <p className="kv-val">
+                Active and recent Redis counters refresh automatically while this
+                dashboard is open.
+              </p>
             </div>
           </div>
         </section>
 
-        <section className="panel" aria-labelledby="phase-heading">
-          <h2 id="phase-heading" className="panel-title">
-            Phase 1 scope
+        <section className="panel" aria-labelledby="scope-heading">
+          <h2 id="scope-heading" className="panel-title">
+            Operator scope
           </h2>
           <ul className="prose-list">
             <li>Observation of Redis live snapshots, usage aggregates, and worker availability.</li>
             <li>Secret fields (apiKey, accessToken, credential, password, internalSecret) are stripped client-side as a second line of defense.</li>
             <li>No KEYS, no provider secret inventory, no deploy or process controls.</li>
+            <li>No data is written back to the cluster from this dashboard.</li>
           </ul>
         </section>
       </div>

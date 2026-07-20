@@ -11,6 +11,7 @@ import {
 import {
   formatCount,
   formatLastError,
+  mapConnectionLabel,
   mapRedisMode,
   mapWorkerAvailability,
 } from "../lib/state.js";
@@ -29,7 +30,7 @@ export default function OverviewPage() {
   return (
     <PageChrome
       title="Overview"
-      description="Bounded multi-worker health: Redis live counts and honest worker availability. No secrets, no mutations."
+      description="Multi-worker health: Redis live counts and honest worker availability. No secrets, no mutations."
     >
       {view.phase === "loading" ? <LoadingBlock label="Loading overview" /> : null}
 
@@ -92,17 +93,19 @@ export default function OverviewPage() {
             </h2>
             <div className="stack">
               <div className="data-row-main">
-                <p className="data-primary">SSE · /mw/api/v1/stream</p>
+                <p className="data-primary">Dashboard stream</p>
                 <StatusBadge
                   tone={
                     connection === "open"
                       ? "ok"
-                      : connection === "error"
+                      : connection === "error" || connection === "closed"
                         ? "danger"
-                        : "neutral"
+                        : connection === "unauthenticated"
+                          ? "warning"
+                          : "neutral"
                   }
                 >
-                  {connection}
+                  {mapConnectionLabel(connection)}
                 </StatusBadge>
               </div>
               {errorMessage ? (
