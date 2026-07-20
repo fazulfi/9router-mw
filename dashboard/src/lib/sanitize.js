@@ -124,110 +124,23 @@ export function sanitizeRedisSnapshot(raw) {
   };
 }
 
-/** Allowlisted per-worker fields (sanitizer / projection contract). */
-export const WORKER_PER_WORKER_FIELDS = Object.freeze([
-  "workerId",
-  "status",
-  "observedAt",
-  "ageMs",
-]);
-
-/** Allowlisted aggregate workers DTO fields. */
-export const WORKER_AGGREGATE_FIELDS = Object.freeze([
-  "availability",
-  "expectedCount",
-  "freshCount",
-  "schemaVersion",
-  "missingWorkerIds",
-]);
-
-function coerceNonNegativeInt(v) {
-  const n = Number(v);
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return Math.trunc(n);
-}
-
-function sanitizePerWorkerItem(item) {
-  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
-  const cleaned = stripSecrets(item);
-  const safe = {};
-  for (const key of WORKER_PER_WORKER_FIELDS) {
-    if (!Object.prototype.hasOwnProperty.call(cleaned, key)) continue;
-    const v = cleaned[key];
-    if (key === "workerId" || key === "status") {
-      if (typeof v !== "string" || v === "") continue;
-      safe[key] = v;
-    } else {
-      // observedAt / ageMs must be numbers
-      const n = Number(v);
-      if (!Number.isFinite(n)) continue;
-      safe[key] = n;
-    }
-  }
-  // Require all four allowlisted fields to be valid
-  if (
-    typeof safe.workerId !== "string" ||
-    typeof safe.status !== "string" ||
-    typeof safe.observedAt !== "number" ||
-    typeof safe.ageMs !== "number"
-  ) {
-    return null;
-  }
-  return safe;
-}
-
 /**
- * Project workers DTO — per-worker cards contract.
- *
- * Always returns an object with `availability` and the allowlisted
- * fields.  Per-worker entries (`workers[]`) only contain
- *   workerId · status · observedAt · ageMs
- * Aggregate fields: `expectedCount`, `freshCount`, `schemaVersion`.
- * `missingWorkerIds` is a string array.
- *
+ * Project workers DTO — availability text only; never invent PIDs/metrics.
  * @param {unknown} raw
- * @returns {{
- *   availability: 'unavailable'|'degraded'|'partial'|'ok'|string,
- *   expectedCount: number,
- *   freshCount: number,
- *   schemaVersion?: unknown,
- *   workers?: Array<{ workerId: string, status: string, observedAt: number, ageMs: number }>,
- *   missingWorkerIds?: string[]
- * }}
+ * @returns {{ availability: 'unavailable'|'degraded'|string, schemaVersion?: unknown }}
  */
 export function sanitizeWorkersDto(raw) {
   const source =
     raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   const cleaned = stripSecrets(source);
-
-  const out = {
-    availability:
-      typeof cleaned.availability === "string" && cleaned.availability
-        ? cleaned.availability
-        : "unavailable",
-    expectedCount: coerceNonNegativeInt(cleaned.expectedCount),
-    freshCount: coerceNonNegativeInt(cleaned.freshCount),
-  };
-
+  const availability =
+    typeof cleaned.availability === "string" && cleaned.availability
+      ? cleaned.availability
+      : "unavailable";
+  const out = { availability };
   if (cleaned.schemaVersion != null) {
     out.schemaVersion = cleaned.schemaVersion;
   }
-
-  if (Array.isArray(cleaned.workers) && cleaned.workers.length > 0) {
-    const projected = [];
-    for (const item of cleaned.workers) {
-      const safe = sanitizePerWorkerItem(item);
-      if (safe) projected.push(safe);
-    }
-    if (projected.length > 0) out.workers = projected;
-  }
-
-  if (Array.isArray(cleaned.missingWorkerIds)) {
-    out.missingWorkerIds = cleaned.missingWorkerIds.filter(
-      (v) => typeof v === "string",
-    );
-  }
-
   return out;
 }
 
