@@ -1,3 +1,35 @@
+# v0.5.40-mw.0 (2026-07-20) — selective upstream v0.5.40 integration
+
+## MW production invariants preserved
+- 4 workers — unchanged
+- Redis only `127.0.0.1:6381` — unchanged
+- better-sqlite3 + WAL — unchanged
+- undici keep-alive Agent — unchanged
+- localhost bind + Nginx/Cloudflare — unchanged
+- No secrets in git — unchanged
+- No double-request semantics — unchanged
+- Canceled dashboard absence preserved
+
+## Upstream sync: 8 clean cherry-picks
+- **9ba8f374** feat(i18n): add Khmer language support
+- **55628eea** fix(alicode-intl): split into Coding Plan + Model Studio providers
+- **e0ba6674** feat(cli-tools): configure Grok Build subagent models
+- **c97963c4** fix(translator): pass `service_tier` through OpenAI → Responses conversion
+- **cef5dd4d** fix(kiro): map GPT-5.6 reasoning effort fields
+- **d587b2a4** fix(codex): current `client_version` + refresh-aware model sync
+- **7c7fae39** fix(kiro): validate terminal streams before emitting output
+- **eb00222c** skipped (superseded by cef5dd4d)
+
+## MW commits (selective patches)
+- **fix(mw): spread better-sqlite3 positional bind params** — run/get/all `(...params)`
+- **feat(mw): integrate cursor AgentService HTTP/2 support** — h2 executor, live model catalog, ModelSelectModal integration
+- **chore(mw): bump upstream base to v0.5.40** — version `0.5.40-mw.0`, capabilities update
+- **docs(mw): upstream v0.5.40 integration plan and evidence**
+
+## Rejected changes
+- Upstream README updates — MW maintains own enterprise README
+- Dashboard page from cursor commit — canceled dashboard absence preserved
+
 # v0.5.35-mw.8 (2026-07-19) — upstream sync (kimi dual-auth + dashboard UI)
 
 ## Upstream sync: 3 commits from decolua/9router
@@ -58,7 +90,7 @@ Full evidence: `docs/RELEASE.md`, `docs/evidence/phase-00` … `phase-09`, `docs
 
 ## Features
 - **xAI**: Grok Imagine video generation (`/v1/videos`) + CLI
-- **CLI tools**: Grok Build setup — writes `[model.9router]` to `~/.grok/config.toml`
+- **CLI tools**: Grok Build setup — choose separate main/general-purpose/explore/plan models and preserve each model's context window
 - **GitHub Copilot**: route Claude models through Copilot's native `/v1/messages`
 - **Kiro**: add GPT-5.6 model family (#2596)
 - **RTK**: `X-9Router-Token-Saver` header to bypass token savers per request
