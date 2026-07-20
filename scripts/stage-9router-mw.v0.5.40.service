@@ -1,0 +1,28 @@
+[Unit]
+Description=9router-MW STAGING gateway (v0.5.40 integration test)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=router
+Group=router
+WorkingDirectory=/opt/9router-mw-staging/current
+EnvironmentFile=/etc/9router-mw-staging/env
+ExecStart=/usr/bin/node --max-old-space-size=2048 custom-server.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+KillSignal=SIGTERM
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/9router-mw-staging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=9router-mw-staging
+
+[Install]
+WantedBy=multi-user.target
