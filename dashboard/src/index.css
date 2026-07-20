@@ -287,6 +287,16 @@ a {
   stroke-width: 2.1;
 }
 
+.tab-link .tab-label {
+  display: none;
+}
+
+@media (min-width: 380px) {
+  .tab-link .tab-label {
+    display: inline;
+  }
+}
+
 @media (min-width: 768px) {
   .tabbar {
     padding-bottom: calc(var(--safe-bottom) + 0.75rem);
