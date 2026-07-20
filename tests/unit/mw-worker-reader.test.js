@@ -23,7 +23,8 @@ describe("Phase 1 worker observability projection", () => {
 
   it("does not fabricate per-worker metrics when the cross-worker heartbeat is unavailable", async () => {
     const redis = {
-      get: vi.fn().mockResolvedValue(null),
+      mget: vi.fn().mockResolvedValue([null, null, null, null]),
+      get: vi.fn(),
       scan: vi.fn(),
       keys: vi.fn(),
     };
@@ -31,10 +32,11 @@ describe("Phase 1 worker observability projection", () => {
     const dto = await readWorkerObservability(redis, { now: 1_700_000_000_000 });
 
     expect(dto.availability).toBe("unavailable");
-    expect(dto).not.toHaveProperty("workers");
+    expect(dto.workers).toEqual([]);
     expect(dto).not.toHaveProperty("metrics");
     expect(redis.scan).not.toHaveBeenCalled();
     expect(redis.keys).not.toHaveBeenCalled();
+    expect(redis.get).not.toHaveBeenCalled();
   });
 
   it("does not claim hot-path instrumentation from a heartbeat-only projection", () => {
