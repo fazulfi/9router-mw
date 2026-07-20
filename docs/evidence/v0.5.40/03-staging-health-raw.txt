@@ -1,0 +1,10 @@
+{"ok":true,"workerId":"4","pid":2769179,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":1,"error":null,"connected":true,"status":"ready","lastPingMs":1,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+
+{"ok":true,"workerId":"1","pid":2769171,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":1,"error":null,"connected":true,"status":"ready","lastPingMs":1,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+
+{"ok":true,"workerId":"3","pid":2769173,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":1,"error":null,"connected":true,"status":"ready","lastPingMs":1,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+
+{"ok":true,"workerId":"2","pid":2769172,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":1,"error":null,"connected":true,"status":"ready","lastPingMs":1,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+
+{"ok":true,"workerId":"4","pid":2769179,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":1,"error":null,"connected":true,"status":"ready","lastPingMs":1,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+
