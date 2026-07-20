@@ -49,21 +49,15 @@ data/
 logs/*
 source/*
 .cursor/*
+
+# Internal operating records (local-only; never publish)
+# - Repo boundary: only public docs are tracked (see allowlist below).
+# - Everything else under docs/* stays on disk but out of the Git index.
+# - These paths are local-only operating evidence/runbooks/deploy plans.
 docs/*
 !docs/ARCHITECTURE.md
 !docs/ARCHITECTURE-MW.md
 !docs/RELEASE.md
-# 9router-mw production docs (tracked; plan SSOT + evidence)
-!docs/plans/
-!docs/plans/**
-!docs/execution/
-!docs/execution/**
-!docs/evidence/
-!docs/evidence/**
-!docs/runbooks/
-!docs/runbooks/**
-!docs/deploy/
-!docs/deploy/**
 !docs/bench/
 !docs/bench/**
 test/*
@@ -94,6 +88,7 @@ open-sse.old/
 graphify-out/*
 
 # Local-only working dirs (notes, vendored repos, scripts, skills)
+.sisyphus/
 .claude/
 .docs/
 .repo/

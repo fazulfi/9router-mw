@@ -1,2 +1,0 @@
-HEAD=a5da773e937ea8e1f9c3473f3caca6fd765ce0ef
-a5da773 docs(evidence): scaffold phase-03 multi-worker checklist

@@ -1,4 +1,0 @@
-HEAD=196cfc80e2d5a22275c03e510e1990c7a2cc6f54
-196cfc8 feat(mw): add v0.5.40 staging provision/smoke/cleanup scripts
----
-0.5.40-mw.0  "version": "0.5.40-mw.0",

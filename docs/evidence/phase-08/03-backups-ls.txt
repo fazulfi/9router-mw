@@ -1,4 +1,0 @@
-total 16K
-drwx------ 2 router router 4.0K Jul 19 01:00 .
-drwx------ 7 router router 4.0K Jul 18 23:08 ..
--rw-r--r-- 1 root   root   4.2K Jul 19 01:00 9router-mw-20260719T010030Z.tgz

@@ -1,1 +1,0 @@
-{"currentVersion":"0.5.35-mw.0","latestVersion":"0.5.35","hasUpdate":false}

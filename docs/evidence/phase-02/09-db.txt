@@ -1,7 +1,0 @@
-total 216
-drwxr-xr-x 3 router router   4096 Jul 18 23:26 .
-drwx------ 7 router router   4096 Jul 18 23:08 ..
-drwxr-xr-x 2 router router   4096 Jul 18 23:26 backups
--rw-r--r-- 1 router router 176128 Jul 18 23:27 data.sqlite
--rw-r--r-- 1 router router  32768 Jul 18 23:29 data.sqlite-shm
--rw-r--r-- 1 router router      0 Jul 18 23:29 data.sqlite-wal

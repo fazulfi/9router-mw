@@ -1,7 +1,0 @@
-=== Stage provision release=0.5.40-mw.0 branch=integration/v0.5.40 ===
-2026-07-20T14:23:31Z
-REDIS_CONTAINER=9router-mw-redis-staging
-APP_PORT=20129
-REDIS_PORT=6382
-REPO_URL=https://github.com/fazulfi/9router-mw.git
-BRANCH=integration/v0.5.40

@@ -1,1 +1,0 @@
-9router-mw-redis Up About an hour 127.0.0.1:6381->6379/tcp

@@ -1,8 +1,0 @@
-﻿total 28
-drwx------  7 router router 4096 Jul 18 23:08 .
-drwxr-xr-x 55 root   root   4096 Jul 18 23:08 ..
-drwxr-xr-x  2 router router 4096 Jul 18 23:08 backups
-drwxr-xr-x  2 router router 4096 Jul 18 23:08 db
-drwxr-xr-x  2 router router 4096 Jul 18 23:08 logs
-drwxr-xr-x  2 router router 4096 Jul 18 23:08 redis
-drwxr-xr-x  2 router router 4096 Jul 18 23:08 tokens

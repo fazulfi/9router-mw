@@ -1,1 +1,0 @@
-STANDALONE=/opt/9router-mw/releases/0.5.35-mw.1/.next/standalone

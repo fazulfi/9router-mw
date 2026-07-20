@@ -1,6 +1,0 @@
-8:const SETTINGS_CACHE_TTL_MS = Math.max(
-88:export function invalidateSettingsCache() {
-93:  if (SETTINGS_CACHE_TTL_MS > 0 && _settingsCache) {
-95:    if (age < SETTINGS_CACHE_TTL_MS) {
-101:  if (SETTINGS_CACHE_TTL_MS > 0) {
-120:  invalidateSettingsCache();

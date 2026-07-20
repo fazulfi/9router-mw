@@ -1,7 +1,0 @@
-57: * sql.js is banned when MW_REQUIRE_NATIVE_SQLITE is not "0" (default on in production).
-59:function requireNativeSqlite() {
-60:  if (process.env.MW_REQUIRE_NATIVE_SQLITE === "0") return false;
-61:  if (process.env.MW_REQUIRE_NATIVE_SQLITE === "1") return true;
-67:  const nativeOnly = requireNativeSqlite();
-79:          "(set MW_REQUIRE_NATIVE_SQLITE=0 only for emergency local debug; sql.js banned)",
-86:    throw new Error("[DB] sql.js is banned in production multi-worker (MW_REQUIRE_NATIVE_SQLITE)");

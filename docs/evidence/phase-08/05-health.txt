@@ -1,2 +1,0 @@
-{"ok":true,"workerId":"3","pid":559547,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":27,"error":null,"connected":true,"status":"ready","lastPingMs":27,"lastError":null},"hotpath":{"undici":{"enabled":true,"connections":32,"pipelining":1,"keepAliveTimeout":30000,"keepAliveMaxTimeout":60000},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
-workers=4

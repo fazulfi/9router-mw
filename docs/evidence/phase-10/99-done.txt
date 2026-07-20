@@ -1,4 +1,0 @@
-phase-10 formal deploy 0.5.35-mw.7 DONE
-2026-07-19T09:25:21Z F6 deploy complete
-current -> /opt/9router-mw/releases/0.5.35-mw.7/.next/standalone
-public https://example.com/api/health 200

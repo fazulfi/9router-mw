@@ -1,4 +1,0 @@
-NAMES                      STATUS         PORTS
-9router-mw-redis-staging   Up 9 minutes   127.0.0.1:6382->6379/tcp
----PING---
-PONG

@@ -1,2 +1,0 @@
-HEAD=14767d6b6c693013b29aff28213fc6af7e8bcfbb
-14767d6 docs(deploy): add F6 hot-path deploy script and phase-06 scaffold

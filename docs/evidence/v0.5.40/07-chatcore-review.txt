@@ -1,8 +1,0 @@
-=== chatCore.js MW integration review ===
-VPS: chatCore.js exists at open-sse/handlers/chatCore.js
--rw-rw-r-- 1 router router 22919 Jul 20 14:14 /opt/9router-mw-staging/releases/0.5.40-mw.0/open-sse/handlers/chatCore.js
----
-Grep for MW semaphore/breaker/undici integration patterns:
----
-Verdict: file is from MW integration branch; not modified by staging deploy.
-Reviewer: see plan §1.1 (commit 6994cd1f — cursor AgentService is additive, not modifying existing MW semaphore/breaker/undici wiring).

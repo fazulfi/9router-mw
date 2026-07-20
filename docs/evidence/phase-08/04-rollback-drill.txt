@@ -1,6 +1,0 @@
-CURRENT=/opt/9router-mw/releases/0.5.35-mw.4/.next/standalone
-PREV_CANDIDATE=0.5.35-mw.3
-PREV=/opt/9router-mw/releases/0.5.35-mw.4/.next/standalone
-DEST=/opt/9router-mw/releases/0.5.35-mw.3/.next/standalone
-ROLLBACK_OK_MS=2770
-{"ok":true,"workerId":"3","pid":559423,"workers":4,"redis":{"ok":true,"mode":"redis","latencyMs":17,"error":null,"connected":true,"status":"ready","lastPingMs":17,"lastError":null}}

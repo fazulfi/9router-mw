@@ -1,4 +1,0 @@
-mock_requests 24444
-k6_http_reqs 24444
-upstream_per_client 1.0
-PASS_NO_DOUBLE
