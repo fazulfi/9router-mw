@@ -1,0 +1,64 @@
+=== STAGING CLEANUP v0.5.40 — 2026-07-20 UTC ===
+Cleanup script: scripts/stage-cleanup-v0.5.40.sh (existing, inspected before execution)
+Target: <REDACTED-HOSTNAME> (<REDACTED-IPV4>)
+
+=== PRE-CLEANUP STATE ===
+Production: 9router-mw active, symlink /opt/9router-mw/releases/0.5.40-mw.0/.next/standalone
+Workers: 4, Redis 6381, undici enabled, better-sqlite3/wal
+Staging: 9router-mw-staging active (pid 2769160)
+Staging ports: 20129 (node), 6382 (docker-proxy)
+Staging container: 9router-mw-redis-staging Up 59 min
+Staging paths: /opt/9router-mw-staging, /var/lib/9router-mw-staging, /etc/9router-mw-staging all present
+
+=== CLEANUP EXECUTION ===
+systemctl stop 9router-mw-staging  -> OK
+systemctl disable 9router-mw-staging -> OK
+rm -f /etc/systemd/system/9router-mw-staging.service -> OK
+systemctl daemon-reload -> OK
+docker stop 9router-mw-redis-staging -> OK
+docker rm 9router-mw-redis-staging -> OK
+rm -rf /opt/9router-mw-staging -> OK
+rm -rf /var/lib/9router-mw-staging -> OK
+rm -rf /etc/9router-mw-staging -> OK
+
+=== POST-CLEANUP VERIFICATION (ALL PASS) ===
+1. Production health: systemctl is-active 9router-mw -> active
+2. Production health endpoint: HTTP 200, {"ok":true,"workers":4,"redis":{"ok":true},"hotpath":{"undici":{"enabled":true},"sqlite":{"driver":"better-sqlite3","journalMode":"wal"}}}
+3. Production workers: 4 (pid 2820061-2820078)
+4. Production listener: 127.0.0.1:20128 (node)
+5. Production Redis: 127.0.0.1:6381 (docker-proxy), PONG
+6. Production symlink: /opt/9router-mw/releases/0.5.40-mw.0/.next/standalone (unchanged)
+7. Staging systemd: inactive/absent — unit file list shows 0 entries
+8. Staging unit file on disk: absent
+9. Staging listeners on 20129/6382: none
+10. Staging container 9router-mw-redis-staging: absent
+11. Staging path /opt/9router-mw-staging: absent
+12. Staging path /var/lib/9router-mw-staging: absent
+13. Staging path /etc/9router-mw-staging: absent
+14. Foreign ggl-redis (6379): Up 4 days healthy (untouched)
+15. Foreign app-redis-1 (6380): Up 5 days healthy (untouched)
+16. Foreign ggl-postgres, ggl-grafana, etc: all intact (untouched)
+
+=== LINE-OF-SIGHT TABLE ===
+Check                              | Pre        | Post       | Pass
+-----------------------------------|------------|------------|------
+Production service active          | yes        | yes        | PASS
+Production symlink to 0.5.40-mw.0 | confirmed  | unchanged  | PASS
+Production workers=4               | 4          | 4          | PASS
+Production Redis 6381              | up         | up (PONG)  | PASS
+Production port 20128              | listening  | listening  | PASS
+Undici/sqlite hotpath              | enabled    | enabled    | PASS
+Staging service active/idle        | active     | inactive   | PASS
+Staging unit file                  | enabled    | absent     | PASS
+Staging container (redis 6382)     | up 59m     | absent     | PASS
+Staging app/data/config paths      | present    | absent     | PASS
+Staging port 20129 listener        | node       | absent     | PASS
+Staging port 6382 listener         | docker-proxy| absent    | PASS
+Foreign Redis 6379 (ggl-redis)     | untouched  | untouched  | PASS
+Foreign Redis 6380 (app-redis-1)   | untouched  | untouched  | PASS
+Foreign containers (ggl-*, app-*)  | intact     | intact     | PASS
+No global docker prune             | N/A        | not run    | PASS
+
+=== PRIVACY-SAFE EVIDENCE BUNDLE ===
+This file (09-staging-cleanup.txt) — no IPs/domains/secrets.
+Can be committed as-is.
