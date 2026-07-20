@@ -640,6 +640,7 @@ export class CursorExecutor extends BaseExecutor {
           url: `${PROVIDER_OAUTH.cursor?.agentEndpoint || ""}${AGENT_RUN_PATH}`,
           headers: {},
           transformedBody: body,
+          responseFormat: FORMATS.OPENAI,
         };
       }
     }
@@ -666,14 +667,14 @@ export class CursorExecutor extends BaseExecutor {
           status: response.status,
           headers: { "Content-Type": "application/json" }
         });
-        return { response: errorResponse, url, headers, transformedBody: body };
+        return { response: errorResponse, url, headers, transformedBody: body, responseFormat: FORMATS.OPENAI };
       }
 
       const transformedResponse = stream !== false
         ? this.transformProtobufToSSE(response.body, model, body)
         : this.transformProtobufToJSON(response.body, model, body);
 
-      return { response: transformedResponse, url, headers, transformedBody: body };
+      return { response: transformedResponse, url, headers, transformedBody: body, responseFormat: FORMATS.OPENAI };
     } catch (error) {
       const errorResponse = new Response(JSON.stringify({
         error: {
@@ -685,7 +686,7 @@ export class CursorExecutor extends BaseExecutor {
         status: HTTP_STATUS.SERVER_ERROR,
         headers: { "Content-Type": "application/json" }
       });
-      return { response: errorResponse, url, headers, transformedBody: body };
+      return { response: errorResponse, url, headers, transformedBody: body, responseFormat: FORMATS.OPENAI };
     }
   }
 
