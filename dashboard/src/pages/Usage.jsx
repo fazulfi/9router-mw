@@ -19,7 +19,7 @@ export default function UsagePage() {
   return (
     <PageChrome
       title="Usage"
-      description="Aggregated request and token totals for the selected window. Periods: 24h, 7d, 30d. Zero values mean no traffic."
+      description="Aggregated request and token totals for the selected window. Periods are allowlisted: 24h, 7d, 30d."
     >
       <div className="chip-row" role="group" aria-label="Usage period">
         {USAGE_PERIODS.map((p) => (
@@ -83,7 +83,7 @@ export default function UsagePage() {
             <div style={{ marginTop: "1rem" }}>
               <EmptyBlock
                 title="No usage in this window"
-                message="All aggregate counters are zero for the selected period. A zero value means quiet traffic — the data is real, not missing."
+                message="All aggregate counters are zero for the selected period. That may simply mean quiet traffic."
               />
             </div>
           ) : null}
