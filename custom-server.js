@@ -1,5 +1,6 @@
 const cluster = require("cluster");
 const http = require("http");
+const { createSlotTracker } = require("./src/lib/mw/slotTracker.js");
 
 /**
  * 9router-mw multi-worker entry (Fase 3).
@@ -75,17 +76,30 @@ if (isPrimary) {
     `[9router-mw] primary pid=${process.pid} forking workers=${workerCount} (WORKERS=${process.env.WORKERS || "default"})`
   );
 
+  const slotTracker = createSlotTracker(workerCount);
+
   for (let i = 1; i <= workerCount; i++) {
-    forkWorker(i, workerCount);
+    const slot = slotTracker.reserve();
+    if (slot == null) break;
+    const worker = forkWorker(slot, workerCount);
+    slotTracker.assign(worker.id, slot);
   }
 
-  let nextSlot = workerCount + 1;
   cluster.on("exit", (worker, code, signal) => {
-    const slot = nextSlot++;
+    // Free the exited worker's slot — bounded 1..workerCount only.
+    slotTracker.freeSlot(worker.id);
+    const slot = slotTracker.reserve();
+    if (slot == null) {
+      console.error(
+        `[9router-mw] worker id=${worker.id} pid=${worker.process.pid} exited code=${code} signal=${signal}; no bounded slot available (refusing to over-allocate)`
+      );
+      return;
+    }
     console.error(
       `[9router-mw] worker id=${worker.id} pid=${worker.process.pid} exited code=${code} signal=${signal}; forking replacement slot=${slot}`
     );
-    forkWorker(slot, workerCount);
+    const replacement = forkWorker(slot, workerCount);
+    slotTracker.assign(replacement.id, slot);
   });
 
   cluster.on("online", (worker) => {
@@ -111,5 +125,26 @@ if (isPrimary) {
     `[9router-mw] worker start id=${process.env.MW_WORKER_ID} pid=${process.pid} count=${process.env.MW_WORKER_COUNT}`
   );
   installRealIpWrapper();
+
+  // Start per-worker heartbeat producer (fail-closed/safely).
+  (() => {
+    const workerId = process.env.MW_WORKER_ID;
+    if (!workerId) return;
+    import("./open-sse/services/redisClient.js")
+      .then(({ getRedis }) => getRedis())
+      .then((redis) => {
+        if (!redis) return;
+        return import("./src/lib/mw/heartbeatProducer.js")
+          .then(({ createWorkerHeartbeat }) => {
+            const hb = createWorkerHeartbeat(redis, { workerId });
+            hb.start();
+            process.once("SIGTERM", () => hb.stop());
+            process.once("SIGINT", () => hb.stop());
+          })
+          .catch(() => { /* fail-closed: no heartbeat */ });
+      })
+      .catch(() => { /* fail-closed: no heartbeat */ });
+  })();
+
   require("./server.js");
 }
