@@ -121,9 +121,15 @@ describe("mw-spa stripSecrets hostile fixtures", () => {
 
 describe("mw-spa DTO sanitizers", () => {
   it("sanitizeWorkersDto defaults to unavailable", () => {
-    expect(sanitizeWorkersDto(null)).toEqual({ availability: "unavailable" });
+    expect(sanitizeWorkersDto(null)).toEqual({
+      availability: "unavailable",
+      expectedCount: 0,
+      freshCount: 0,
+    });
     expect(sanitizeWorkersDto({ availability: "degraded", pid: 9 })).toEqual({
       availability: "degraded",
+      expectedCount: 0,
+      freshCount: 0,
     });
   });
 
