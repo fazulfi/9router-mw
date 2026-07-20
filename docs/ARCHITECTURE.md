@@ -2,9 +2,9 @@
 
 _Last updated: 2026-02-06 (upstream stock)_
 
-> **Production multi-worker topology (9router-MW):** see **[`docs/ARCHITECTURE-MW.md`](./ARCHITECTURE-MW.md)**.  
-> This file describes the **upstream / stock** product model (often a single local process + legacy storage names).  
-> Live deploy uses Cloudflare → Nginx → `cluster.fork` (4 workers) → Redis `:6381` + SQLite WAL — **not** the single-process diagram below as the production runtime.
+> **Production multi-worker topology (9router-MW):** see **[`docs/ARCHITECTURE-MW.md`](./ARCHITECTURE-MW.md)**.
+> This file describes the **upstream / stock** product model (single local process + legacy storage names).
+> The MW production runtime is a different topology with a multi-worker cluster, a shared coordination store, and durable state via SQLite WAL — **not** the single-process diagram below.
 
 ## Executive Summary
 
@@ -46,8 +46,8 @@ Primary runtime model:
 
 ## High-Level System Context
 
-> **Stock / upstream product map** (single local process). For **production MW**, use [`ARCHITECTURE-MW.md`](./ARCHITECTURE-MW.md).  
-> Storage labels `db.json` / `usage.json` below are historical upstream names; MW production uses **SQLite WAL** + **Redis**.
+> **Stock / upstream product map** (single local process). For **production MW**, use [`ARCHITECTURE-MW.md`](./ARCHITECTURE-MW.md).
+> Storage labels `db.json` / `usage.json` below are historical upstream names; MW production uses different storage backends as described in that file.
 
 ```mermaid
 flowchart LR
