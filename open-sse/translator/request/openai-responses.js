@@ -145,7 +145,9 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       result.messages.push({
         role: ROLE.TOOL,
         tool_call_id: item.call_id,
-        content: stringifyWireValue(item.output)
+        content: itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT
+          ? (typeof item.output === "string" ? item.output : JSON.stringify(item.output))
+          : stringifyWireValue(item.output)
       });
     }
     else if (itemType === RESPONSES_ITEM.REASONING) {

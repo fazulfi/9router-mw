@@ -83,6 +83,10 @@ describe("Responses custom tool request translation", () => {
           call_id: "call_read",
           output: "contents",
         },
+        {
+          type: "function_call_output",
+          call_id: "call_missing",
+        },
       ],
       tools: [{
         type: "function",
@@ -113,6 +117,7 @@ describe("Responses custom tool request translation", () => {
         }],
       },
       { role: "tool", tool_call_id: "call_read", content: "contents" },
+      { role: "tool", tool_call_id: "call_missing", content: undefined },
     ]);
     expect(out._customToolNames).toEqual(new Set());
   });
@@ -144,5 +149,30 @@ describe("Responses custom tool request translation", () => {
       { role: "tool", tool_call_id: "call_object", content: "{\"ok\":true}" },
       { role: "tool", tool_call_id: "call_missing", content: "null" },
     ]);
+  });
+
+  it("falls back to null strings when custom values cannot be serialized", () => {
+    const out = translate({
+      input: [
+        {
+          type: "custom_tool_call",
+          call_id: "call_bigint",
+          name: "apply_patch",
+          input: 1n,
+        },
+        {
+          type: "custom_tool_call_output",
+          call_id: "call_bigint",
+          output: 2n,
+        },
+      ],
+    });
+
+    expect(out.messages[0].tool_calls[0].function.arguments).toBe("{\"input\":\"null\"}");
+    expect(out.messages[1]).toEqual({
+      role: "tool",
+      tool_call_id: "call_bigint",
+      content: "null",
+    });
   });
 });
