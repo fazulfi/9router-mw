@@ -218,6 +218,12 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       })
       .filter(Boolean);
   }
+  if (body.tool_choice && typeof body.tool_choice === "object") {
+    const name = body.tool_choice.name || body.tool_choice.function?.name;
+    const hasTool = typeof name === "string" && result.tools?.some(tool => tool.function?.name === name);
+    if (hasTool) result.tool_choice = { type: OPENAI_BLOCK.FUNCTION, function: { name } };
+    else delete result.tool_choice;
+  }
   result._customToolNames = customToolNames;
 
   // Cleanup Responses API specific fields
