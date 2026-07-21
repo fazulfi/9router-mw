@@ -13,6 +13,15 @@ import { ROLE, OPENAI_BLOCK, RESPONSES_ITEM } from "../schema/index.js";
 const MAX_CALL_ID_LEN = 64;
 const clampCallId = (id) => (typeof id === "string" && id.length > MAX_CALL_ID_LEN ? id.substring(0, MAX_CALL_ID_LEN) : id);
 
+function stringifyWireValue(value) {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value) ?? "null";
+  } catch {
+    return "null";
+  }
+}
+
 /**
  * Convert OpenAI Responses API request to OpenAI Chat Completions format
  */
@@ -96,7 +105,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       }
       result.messages.push(msg);
     }
-    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL) {
+    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL) {
       // Start or append to assistant message with tool_calls
       if (!currentAssistantMsg) {
         currentAssistantMsg = {
@@ -113,11 +122,13 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
         type: OPENAI_BLOCK.FUNCTION,
         function: {
           name: item.name,
-          arguments: item.arguments
+          arguments: itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL
+            ? JSON.stringify({ input: stringifyWireValue(item.input) })
+            : item.arguments
         }
       });
     }
-    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT) {
+    else if (itemType === RESPONSES_ITEM.FUNCTION_CALL_OUTPUT || itemType === RESPONSES_ITEM.CUSTOM_TOOL_CALL_OUTPUT) {
       // Flush assistant message first if exists
       if (currentAssistantMsg) {
         result.messages.push(currentAssistantMsg);
@@ -134,7 +145,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       result.messages.push({
         role: ROLE.TOOL,
         tool_call_id: item.call_id,
-        content: typeof item.output === "string" ? item.output : JSON.stringify(item.output)
+        content: stringifyWireValue(item.output)
       });
     }
     else if (itemType === RESPONSES_ITEM.REASONING) {
@@ -166,9 +177,27 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
   // explicit `name` field and cannot be represented as Chat Completions function declarations.
   // Filter them out to avoid sending nameless functionDeclarations to downstream providers
   // such as Gemini, which strictly validates function names.
+  const customToolNames = new Set();
   if (body.tools && Array.isArray(body.tools)) {
     result.tools = body.tools
       .map(tool => {
+        if (tool.type === RESPONSES_ITEM.CUSTOM) {
+          const name = tool.name;
+          if (!name || typeof name !== "string" || name.trim() === "") return null;
+          customToolNames.add(name);
+          return {
+            type: OPENAI_BLOCK.FUNCTION,
+            function: {
+              name,
+              description: String(tool.description || ""),
+              parameters: {
+                type: "object",
+                properties: { input: { type: "string" } },
+                required: ["input"]
+              }
+            }
+          };
+        }
         // Already in Chat Completions format: { type: "function", function: { name, ... } }
         if (tool.function) return tool;
         // Responses API function tool: { type: "function", name, description, parameters }
@@ -187,6 +216,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       })
       .filter(Boolean);
   }
+  result._customToolNames = customToolNames;
 
   // Cleanup Responses API specific fields
   // Map Responses-only max_output_tokens to Chat max_tokens (avoid leaking unknown field upstream)
