@@ -153,6 +153,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   let translatedBody;
   let toolNameMap;
   let translationError = null;
+  let customToolNames = new Set();
   const translationStartedAt = requestNow();
   try {
     // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
@@ -161,7 +162,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       if (stripUnsupportedModalities(body, sourceFormat, caps)) {
         log?.debug?.("MODALITY", `stripped unsupported media for ${provider}/${model}`);
       }
-      // Convert remote image URLs to base64 for targets that can't fetch URLs.
       try {
         const n = await prefetchRemoteImages(body, sourceFormat, targetFormat, { signal: undefined });
         if (n > 0) log?.debug?.("MODALITY", `prefetched ${n} remote image(s) for ${targetFormat}`);
@@ -171,15 +171,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     if (passthrough) {
       log?.debug?.("PASSTHROUGH", `${clientTool} → ${provider} | native lossless`);
       translatedBody = { ...body, model: stripThinkingSuffix(upstreamModel) };
-      // Normalize newer Cowork/CC beta shapes (adaptive thinking, mid-conversation system) the API rejects
       if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
     } else {
       translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
-      if (translatedBody) {
-        toolNameMap = translatedBody._toolNameMap;
-        delete translatedBody._toolNameMap;
-        translatedBody.model = stripThinkingSuffix(upstreamModel);
+      if (!translatedBody) {
+        trackPendingRequest(model, provider, connectionId, false, true);
+        return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
       }
+      toolNameMap = translatedBody._toolNameMap;
+      delete translatedBody._toolNameMap;
+      translatedBody.model = stripThinkingSuffix(upstreamModel);
     }
   } catch (error) {
     translationError = error;
@@ -206,6 +207,10 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     if (translationError) throw translationError;
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Failed to translate request for ${sourceFormat} → ${targetFormat}`);
   }
+  if (translatedBody._customToolNames instanceof Set) {
+    customToolNames = translatedBody._customToolNames;
+  }
+  delete translatedBody._customToolNames;
 
   // Dedupe duplicate built-in tools when equivalent MCP tools are present (Claude clients only).
   if (clientTool === "claude" && Array.isArray(translatedBody.tools)) {
@@ -449,7 +454,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     return createErrorResult(statusCode, errMsg, resetsAtMs);
   }
 
-  const sharedCtx = { requestId, correlationId: requestCorrelationId, provider, model, body, stream, translatedBody, finalBody, requestTiming: timing, responseStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
+  const sharedCtx = { requestId, correlationId: requestCorrelationId, provider, model, body, stream, translatedBody, finalBody, requestTiming: timing, responseStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, customToolNames, reqTag, log };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 

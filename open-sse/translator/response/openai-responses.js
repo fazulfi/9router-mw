@@ -267,70 +267,146 @@ function closeMessage(state, emit, idx) {
   }
 }
 
+export function unwrapCustomToolArguments(value) {
+  let raw;
+  try {
+    raw = typeof value === "string" ? value : JSON.stringify(value ?? {});
+  } catch {
+    raw = String(value ?? "");
+  }
+  if (typeof raw !== "string") raw = String(raw ?? "");
+  try {
+    const wrapped = JSON.parse(raw);
+    return wrapped && !Array.isArray(wrapped) && typeof wrapped.input === "string"
+      ? wrapped.input
+      : raw;
+  } catch {
+    return raw;
+  }
+}
+
+function startToolCall(state, emit, idx, force = false) {
+  if (state.funcItemAdded[idx]) return false;
+  const callId = state.funcCallIds[idx];
+  const name = state.funcNames[idx] || "";
+  if (!callId || (!force && state.customToolNames.size > 0 && !name)) return false;
+
+  const isCustom = state.customToolNames.has(name);
+  const outputIndex = state.nextOutputIndex++;
+  const itemId = `${isCustom ? "ctc" : "fc"}_${callId}`;
+  state.funcIsCustom[idx] = isCustom;
+  state.funcOutputIndexes[idx] = outputIndex;
+  state.funcItemAdded[idx] = true;
+
+  emit("response.output_item.added", {
+    type: "response.output_item.added",
+    output_index: outputIndex,
+    item: isCustom
+      ? {
+          id: itemId,
+          type: RESPONSES_ITEM.CUSTOM_TOOL_CALL,
+          input: "",
+          call_id: callId,
+          name,
+        }
+      : {
+          id: itemId,
+          type: RESPONSES_ITEM.FUNCTION_CALL,
+          arguments: "",
+          call_id: callId,
+          name,
+        }
+  });
+  return true;
+}
+
+function emitPendingFunctionArgumentDeltas(state, emit, idx) {
+  if (!state.funcItemAdded[idx] || state.funcIsCustom[idx]) return;
+  const callId = state.funcCallIds[idx];
+  for (const delta of state.funcArgDeltas[idx] || []) {
+    emit("response.function_call_arguments.delta", {
+      type: "response.function_call_arguments.delta",
+      item_id: `fc_${callId}`,
+      output_index: state.funcOutputIndexes[idx],
+      delta
+    });
+  }
+  state.funcArgDeltas[idx] = [];
+}
+
 function emitToolCall(state, emit, tc) {
   const tcIdx = tc.index ?? 0;
   const newCallId = tc.id;
   const funcName = tc.function?.name;
 
   if (funcName) state.funcNames[tcIdx] = funcName;
-
-  if (!state.funcCallIds[tcIdx] && newCallId) {
-    state.funcCallIds[tcIdx] = newCallId;
-    state.funcOutputIndexes[tcIdx] = state.nextOutputIndex++;
-    
-    emit("response.output_item.added", {
-      type: "response.output_item.added",
-      output_index: state.funcOutputIndexes[tcIdx],
-      item: {
-        id: `fc_${newCallId}`,
-        type: RESPONSES_ITEM.FUNCTION_CALL,
-        arguments: "",
-        call_id: newCallId,
-        name: state.funcNames[tcIdx] || ""
-      }
-    });
-  }
+  if (!state.funcCallIds[tcIdx] && newCallId) state.funcCallIds[tcIdx] = newCallId;
 
   if (!state.funcArgsBuf[tcIdx]) state.funcArgsBuf[tcIdx] = "";
+  if (!state.funcArgDeltas[tcIdx]) state.funcArgDeltas[tcIdx] = [];
 
   if (tc.function?.arguments) {
-    const refCallId = state.funcCallIds[tcIdx] || newCallId;
-    if (refCallId) {
-      emit("response.function_call_arguments.delta", {
-        type: "response.function_call_arguments.delta",
-        item_id: `fc_${refCallId}`,
-        output_index: state.funcOutputIndexes[tcIdx],
-        delta: tc.function.arguments
-      });
-    }
     state.funcArgsBuf[tcIdx] += tc.function.arguments;
+    state.funcArgDeltas[tcIdx].push(tc.function.arguments);
   }
+
+  startToolCall(state, emit, tcIdx);
+  emitPendingFunctionArgumentDeltas(state, emit, tcIdx);
 }
 
 function closeToolCall(state, emit, idx) {
   const callId = state.funcCallIds[idx];
   if (callId && !state.funcItemDone[idx]) {
     const args = state.funcArgsBuf[idx] || "{}";
+    startToolCall(state, emit, idx, true);
+    emitPendingFunctionArgumentDeltas(state, emit, idx);
     const outputIndex = state.funcOutputIndexes[idx];
-    
-    emit("response.function_call_arguments.done", {
-      type: "response.function_call_arguments.done",
-      item_id: `fc_${callId}`,
-      output_index: outputIndex,
-      arguments: args
-    });
 
-    emit("response.output_item.done", {
-      type: "response.output_item.done",
-      output_index: outputIndex,
-      item: {
-        id: `fc_${callId}`,
-        type: RESPONSES_ITEM.FUNCTION_CALL,
-        arguments: args,
-        call_id: callId,
-        name: state.funcNames[idx] || ""
-      }
-    });
+    if (state.funcIsCustom[idx]) {
+      const input = unwrapCustomToolArguments(args);
+      emit("response.custom_tool_call_input.delta", {
+        type: "response.custom_tool_call_input.delta",
+        item_id: `ctc_${callId}`,
+        output_index: state.funcOutputIndexes[idx],
+        delta: input
+      });
+      emit("response.custom_tool_call_input.done", {
+        type: "response.custom_tool_call_input.done",
+        item_id: `ctc_${callId}`,
+        output_index: state.funcOutputIndexes[idx],
+        input
+      });
+      emit("response.output_item.done", {
+        type: "response.output_item.done",
+        output_index: state.funcOutputIndexes[idx],
+        item: {
+          id: `ctc_${callId}`,
+          type: RESPONSES_ITEM.CUSTOM_TOOL_CALL,
+          input,
+          call_id: callId,
+          name: state.funcNames[idx] || ""
+        }
+      });
+    } else {
+      emit("response.function_call_arguments.done", {
+        type: "response.function_call_arguments.done",
+        item_id: `fc_${callId}`,
+        output_index: outputIndex,
+        arguments: args
+      });
+
+      emit("response.output_item.done", {
+        type: "response.output_item.done",
+        output_index: outputIndex,
+        item: {
+          id: `fc_${callId}`,
+          type: RESPONSES_ITEM.FUNCTION_CALL,
+          arguments: args,
+          call_id: callId,
+          name: state.funcNames[idx] || ""
+        }
+      });
+    }
 
     state.funcItemDone[idx] = true;
     state.funcArgsDone[idx] = true;

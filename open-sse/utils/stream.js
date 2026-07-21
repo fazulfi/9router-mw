@@ -85,6 +85,7 @@ function formatTranslatedStreamError(error, sourceFormat) {
  * @param {object} options.body - Request body (for input token estimation)
  * @param {function} options.onStreamComplete - Callback when stream completes (content, usage)
  * @param {string} options.apiKey - API key for usage tracking
+ * @param {Set<string>} options.customToolNames - Responses custom tool names for this request
  */
 export function createSSEStream(options = {}) {
   const {
@@ -99,7 +100,8 @@ export function createSSEStream(options = {}) {
     body = null,
     onStreamComplete = null,
     apiKey = null,
-    responsesAccumulator = null
+    responsesAccumulator = null,
+    customToolNames = null
   } = options;
 
   let buffer = "";
@@ -108,7 +110,7 @@ export function createSSEStream(options = {}) {
   // Per-stream decoder with stream:true to correctly handle multi-byte chars split across chunks
   const decoder = new TextDecoder("utf-8", { fatal: false });
 
-  const state = mode === STREAM_MODE.TRANSLATE ? { ...initState(sourceFormat), provider, toolNameMap, model } : null;
+  const state = mode === STREAM_MODE.TRANSLATE ? { ...initState(sourceFormat, customToolNames), provider, toolNameMap, model } : null;
 
   let totalContentLength = 0;
   let accumulatedContent = "";
@@ -596,7 +598,7 @@ export function createSSEStream(options = {}) {
   return transformStream;
 }
 
-export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider = null, reqLogger = null, toolNameMap = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, responsesAccumulator = null) {
+export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, provider = null, reqLogger = null, toolNameMap = null, model = null, connectionId = null, body = null, onStreamComplete = null, apiKey = null, responsesAccumulator = null, customToolNames = null) {
   return createSSEStream({
     mode: STREAM_MODE.TRANSLATE,
     targetFormat,
@@ -609,7 +611,8 @@ export function createSSETransformStreamWithLogger(targetFormat, sourceFormat, p
     body,
     onStreamComplete,
     apiKey,
-    responsesAccumulator
+    responsesAccumulator,
+    customToolNames
   });
 }
 
