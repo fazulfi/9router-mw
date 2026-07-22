@@ -1,3 +1,20 @@
+# v0.5.40-mw.7 — fix(db): encrypt provider connection secrets at rest (AES-256-GCM)
+
+Cherry-pick from upstream PR #2776 (author: imran).
+
+## Security
+
+- **provider connections**: secrets at rest are now encrypted with AES-256-GCM.
+  `SECRET_ENCRYPTION_KEY` env var (32-byte hex) required for production. Falls
+  back to plain JSON if key is absent (graceful degradation).
+
+## Changes
+
+- `src/lib/db/helpers/secretCol.js` — new encryption/decryption helpers.
+- `index.js`, `migrate.js`, `connectionsRepo.js` — `parseJson`/`stringifyJson`
+  replaced with `decryptSecretJson`/`encryptSecretJson` for connection data.
+- MW additions (settings cache, backup, dedup) fully preserved.
+
 # v0.5.40-mw.6 — fix(cursor): implement real OAuth flow
 
 Cherry-pick from upstream PR #2755 (author: dyntech).
