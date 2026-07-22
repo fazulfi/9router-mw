@@ -1,3 +1,16 @@
+# v0.5.40-mw.5 — feat(gemini): Gemini 3.6 Flash and 3.5 Flash Lite
+
+Merge from upstream PR #2779 (author: hmacderm).
+
+## Features
+
+- **gemini**: add Gemini 3.6 Flash and 3.5 Flash Lite models to provider registry,
+  update API endpoints to daily-cloudcode-pa, add Cloud Code endpoint isolation
+  and tier routing verification.
+- **projectId**: pass explicit `provider` to `getProjectIdForConnection` for
+  correct antigravity/gemini-cli project ID resolution.
+- **antigravity**: retry hook and integration tests.
+
 # v0.5.40-mw.4 — fix(server): bootstrap init services after listen
 
 Cherry-pick from upstream PR #2764 (author: ryanngit).
