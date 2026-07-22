@@ -1,3 +1,16 @@
+# v0.5.40-mw.6 — fix(cursor): implement real OAuth flow
+
+Cherry-pick from upstream PR #2755 (author: dyntech).
+
+## Features
+
+- **cursor**: implement real PKCE OAuth login flow replacing the prior token
+  provisioning approach. OAuth modal, callback route, import flow, and
+  credential persistence. Machine ID validation removed (non-blocking).
+- **OAuth**: shared provider OAuth infrastructure (`src/lib/oauth/*`) with
+  provider-specific strategy pattern.
+- **token refresh**: C-compatible token refresh wiring for Cursor credentials.
+
 # v0.5.40-mw.5 — feat(gemini): Gemini 3.6 Flash and 3.5 Flash Lite
 
 Merge from upstream PR #2779 (author: hmacderm).
