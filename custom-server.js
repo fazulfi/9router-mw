@@ -54,7 +54,15 @@ function installRealIpWrapper() {
       if (viaProxy) req.headers["x-9r-via-proxy"] = "1";
       return handler(req, res);
     };
-    return origCreate(...rest, wrapped);
+    const server = origCreate(...rest, wrapped);
+    server.once("listening", () => {
+      const address = server.address();
+      const port = address && typeof address === "object" ? address.port : process.env.PORT;
+      if (!port) return;
+      const request = http.get(`http://127.0.0.1:${port}/api/init`, (response) => response.resume());
+      request.on("error", (error) => console.warn(`[Bootstrap] init probe failed: ${error.message}`));
+    });
+    return server;
   };
 }
 
