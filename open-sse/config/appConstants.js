@@ -136,8 +136,8 @@ export const ANTIGRAVITY_HEADERS = {
 
 // Cloud Code Assist API
 export const CLOUD_CODE_API = {
-  loadCodeAssist: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
-  onboardUser: "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
+  loadCodeAssist: "https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+  onboardUser: "https://daily-cloudcode-pa.googleapis.com/v1internal:onboardUser",
 };
 
 export const LOAD_CODE_ASSIST_HEADERS = {

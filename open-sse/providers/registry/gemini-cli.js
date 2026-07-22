@@ -19,13 +19,13 @@ export default {
   },
   category: "free",
   transport: {
-    baseUrl: "https://cloudcode-pa.googleapis.com/v1internal",
+    baseUrl: "https://daily-cloudcode-pa.googleapis.com/v1internal",
     format: "gemini-cli",
     cliVersion: "0.34.0",
     apiClient: "google-genai-sdk/1.41.0 gl-node/v22.19.0",
     usage: {
-      quotaUrl: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
-      loadCodeAssistUrl: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+      quotaUrl: "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota",
+      loadCodeAssistUrl: "https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
     },
     clientId: "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
     clientSecret: "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",
