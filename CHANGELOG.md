@@ -1,3 +1,13 @@
+# v0.5.40-mw.4 — fix(server): bootstrap init services after listen
+
+Cherry-pick from upstream PR #2764 (author: ryanngit).
+
+## Enhancement
+
+- **custom-server**: fire `GET /api/init` once after the worker starts listening.
+  Enables bootstrap of runtime services (Redis connection validation, semaphore
+  warming, usage-buffer flush timer) asynchronously without blocking `.start()`.
+
 # v0.5.40-mw.3 — fix(cli): clean staged Next build before compiling
 
 Cherry-pick from upstream PR #2748 (author: ryanngit).
