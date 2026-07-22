@@ -1,3 +1,13 @@
+# v0.5.40-mw.3 — fix(cli): clean staged Next build before compiling
+
+Cherry-pick from upstream PR #2748 (author: ryanngit).
+
+## Bug fix
+
+- **cli/build**: clean staged Next build cache before running compile step.
+  Prevents stale `.next/` artifacts from corrupting production CLI builds
+  when the build directory already exists from a prior run.
+
 # v0.5.40-mw.2 (pending) — ancestry-merge of upstream/master (79918c78)
 
 *Tag and deploy pending. Not yet shipped to production.*
