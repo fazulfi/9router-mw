@@ -134,10 +134,16 @@ export const ANTIGRAVITY_HEADERS = {
   "User-Agent": ANTIGRAVITY_IDE_USER_AGENT
 };
 
-// Cloud Code Assist API
+// Cloud Code Assist API endpoints differ by client ecosystem.
 export const CLOUD_CODE_API = {
-  loadCodeAssist: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
-  onboardUser: "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
+  "gemini-cli": {
+    loadCodeAssist: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+    onboardUser: "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
+  },
+  antigravity: {
+    loadCodeAssist: "https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+    onboardUser: "https://daily-cloudcode-pa.googleapis.com/v1internal:onboardUser",
+  },
 };
 
 export const LOAD_CODE_ASSIST_HEADERS = {

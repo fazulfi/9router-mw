@@ -239,6 +239,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         continue;
       }
     }
+      }
+    }
 
     // F5: cross-worker semaphore — claim slot before upstream call
     let slotAcquired = false;
