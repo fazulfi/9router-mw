@@ -1,3 +1,13 @@
+# v0.5.40-mw.13 — fix: show MW release history in the dashboard
+
+## Fixes
+
+- **dashboard changelog**: load the immutable `CHANGELOG.md` from the running
+  `fazulfi/9router-mw` release tag instead of upstream `decolua/9router` master.
+  This makes the in-app modal show mw.10–mw.13 entries and prevents future MW
+  releases from silently displaying an unrelated upstream changelog.
+- **release metadata**: align the app, CLI, and `VERSION` marker on mw.13.
+
 # v0.5.40-mw.12 — batch: Responses translator fixes (2 PRs, 7 commits)
 
 Cherry-picks from upstream PRs #2713, #2747 (authors: Edison42, ryanngit).
