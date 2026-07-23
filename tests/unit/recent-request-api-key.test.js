@@ -23,7 +23,7 @@ afterAll(() => {
 });
 
 describe("recent request API key attribution", () => {
-  it("resolves the API key name from usage history", async () => {
+  it("resolves the API key name from usage history (REST path)", async () => {
     const apiKey = await db.createApiKey("Production SDK", "test-machine");
     await db.saveRequestUsage({
       provider: "opencode-go",
@@ -37,5 +37,24 @@ describe("recent request API key attribution", () => {
     const stats = await db.getUsageStats("24h");
 
     expect(stats.recentRequests[0].apiKeyName).toBe("Production SDK");
+  });
+
+  it("resolves the API key name from active requests (SSE/livePoll path)", async () => {
+    const apiKey = await db.createApiKey("SSE Key", "sse-machine");
+    await db.saveRequestUsage({
+      provider: "opencode-go",
+      model: "deepseek-v4-flash",
+      apiKey: apiKey.key,
+      tokens: { prompt_tokens: 80, completion_tokens: 20 },
+      endpoint: "/v1/chat/completions",
+      status: "ok",
+    });
+
+    const { recentRequests } = await db.getActiveRequests();
+    const match = recentRequests.find((r) => r.apiKeyName === "SSE Key");
+
+    expect(match).toBeTruthy();
+    expect(match.apiKeyName).toBe("SSE Key");
+    expect(match.apiKey).toBeUndefined();
   });
 });

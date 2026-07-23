@@ -219,7 +219,27 @@ export async function getActiveRequests() {
     await ensureRingInitialized();
     ringItems = recentRing.items;
   }
+
+  // Load API key names so live-poll / SSE path also resolves apiKeyName
+  const { getApiKeys } = await import("./apiKeysRepo.js");
+  let allApiKeys = [];
+  try { allApiKeys = await getApiKeys(); } catch {}
+  const apiKeyMap = {};
+  for (const k of allApiKeys) apiKeyMap[k.key] = k.name;
+
   const recentRequests = mapRecentToUi(ringItems);
+  // Resolve apiKeyName from the original ring items without exposing raw keys
+  const keyLookup = {};
+  for (const ri of ringItems) {
+    const id = `${ri.timestamp}|${ri.model}|${ri.provider}`;
+    keyLookup[id] = ri.apiKey;
+  }
+  for (const rr of recentRequests) {
+    const id = `${rr.timestamp}|${rr.model}|${rr.provider}`;
+    const rawKey = keyLookup[id];
+    rr.apiKeyName = (rawKey && apiKeyMap[rawKey]) || null;
+  }
+
   const errorProvider = (await getLastErrorProvider()) || "";
   return { activeRequests, recentRequests, errorProvider };
 }
