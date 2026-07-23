@@ -1,3 +1,17 @@
+# v0.5.40-mw.8 — batch: 6 upstream PRs (azure, capabilities, combo, requestLogger, bind)
+
+Cherry-picks from upstream PRs #2691, #2697, #2689, #2709, #2725 (authors: various).
+
+## Changes
+
+- **azure** (PR #2691): preserve explicit `max_completion_tokens` for gpt-5/o-series reasoning deployments.
+- **capabilities** (PR #2697): support bare Kimi K3 upstream id.
+- **combo** (PR #2689): add 11 unit tests for empty 200 response fallback.
+- **requestLogger** (PR #2709): redact sensitive headers in logs (`maskSensitiveHeaders` already existed in MW).
+- **cli** (PR #2699): IPv4-first DNS resolution (`--dns-result-order=ipv4first`) — already in MW. Skipped.
+- **bind** (PR #2725): `--hostname 127.0.0.1` in dev/start scripts + `HOSTNAME=127.0.0.1` in `.env.example`.
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix) fully preserved.
+
 # v0.5.40-mw.7 — fix(db): encrypt provider connection secrets at rest (AES-256-GCM)
 
 Cherry-pick from upstream PR #2776 (author: imran).
