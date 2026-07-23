@@ -177,19 +177,14 @@ export async function handleForcedSSEToJson({ requestId, correlationId, provider
       saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, silent: true });
       if (log?.line) log.line(reqTag, "📊", formatDoneLine({ usage, latency: { total: elapsedRequestMilliseconds(requestTiming.requestStartedAt) } }));
 
-<<<<<<< HEAD
-      const { textContent } = pickAssistantMessageForChatCompletion(jsonResponse.output);
+// both-sides resolution: PR #2783 JSON fence unwrapping + HEAD timing/detail
+      const { msgItem, textContent: rawTextContent } = pickAssistantMessageForChatCompletion(jsonResponse.output);
+      const textContent = wantsJsonOutput(body) ? stripJsonFence(rawTextContent) : rawTextContent;
       const diagnostic = responsesDiagnostic(jsonResponse);
       const responseContent = `${textContent || ""}${diagnostic}`;
       const responseFinish = responsesFinishReason(jsonResponse);
       const completedAt = requestNow();
       const requestTotal = elapsedRequestMilliseconds(requestTiming.requestStartedAt, completedAt);
-=======
-      const { msgItem, textContent: rawTextContent } = pickAssistantMessageForChatCompletion(jsonResponse.output);
-      // JSON mode: drop a ```json fence the provider added around the object
-      const textContent = wantsJsonOutput(body) ? stripJsonFence(rawTextContent) : rawTextContent;
-      const totalLatency = Date.now() - requestStartTime;
->>>>>>> 0d2a3bb454
 
       saveRequestDetail(buildRequestDetail({
         ...ctx,
