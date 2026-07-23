@@ -33,7 +33,6 @@ import {
 } from "open-sse/utils/requestTiming.js";
 import { annotateDirectResponse } from "open-sse/services/routeAttribution.js";
 import { parseJsonBody } from "@/shared/utils/parseJsonBody.js";
->>>>>>> f9756255e (fix(api): decompress Content-Encoding on request JSON bodies)
 
 /**
  * Handle chat completion request
