@@ -1,3 +1,20 @@
+# v0.5.40-mw.12 — batch: Responses translator fixes (2 PRs, 7 commits)
+
+Cherry-picks from upstream PRs #2713, #2747 (authors: Edison42, ryanngit).
+
+## Changes
+
+- **responses terminal** (PR #2713): reconstruct reliable terminal output with
+  one per-request reducer across streaming and forced non-stream assembly,
+  including alias-safe tool reconstruction, terminal repair, and exactly-once
+  failure finalization. New `responsesAccumulator.js` concern. Addresses P0
+  review regressions with safe incremental tool deltas and passthrough fix.
+- **custom tools** (PR #2747): preserve forced tool choices, round-trip
+  custom tool requests and responses, keep translated output indexes unique.
+  New test files for custom tool roundtrip and transformer item index.
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix)
+  fully preserved.
+
 # v0.5.40-mw.11 — batch: Headroom fix + request observability (2 PRs)
 
 Cherry-picks from upstream PRs #2698, #2710 (authors: hobart9527, ryanngit).
