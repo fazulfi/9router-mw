@@ -8,7 +8,7 @@ import {
   isValidApiKey,
 } from "../services/auth.js";
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
-import { getSettings } from "@/lib/localDb";
+import { getSettings, getApiKeys } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
@@ -69,9 +69,16 @@ export async function handleChat(request, clientRawRequest = null) {
   // Log API key (masked)
   const authHeader = request.headers.get("Authorization");
   const apiKey = extractApiKey(request);
+  let apiKeyName = null;
   if (authHeader && apiKey) {
     const masked = log.maskKey(apiKey);
     log.debug("AUTH", `API Key: ${masked}`);
+    // Look up API key name from DB for dashboard display
+    try {
+      const keys = await getApiKeys();
+      const found = keys.find(k => k.key === apiKey);
+      if (found) apiKeyName = found.name || null;
+    } catch {}
   } else {
     log.debug("AUTH", "No API key provided (local mode)");
   }
@@ -271,7 +278,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       connectionId: credentials.connectionId,
       userAgent,
       apiKey,
-      apiKeyName: null,
+      apiKeyName,
       ccFilterNaming: !!chatSettings.ccFilterNaming,
       rtkEnabled: !!chatSettings.rtkEnabled,
       headroomEnabled: !!chatSettings.headroomEnabled,
@@ -357,6 +364,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         connectionId: connId,
         userAgent,
         apiKey,
+        apiKeyName,
         ccFilterNaming: !!chatSettings.ccFilterNaming,
         rtkEnabled: !!chatSettings.rtkEnabled,
         headroomEnabled: !!chatSettings.headroomEnabled,
