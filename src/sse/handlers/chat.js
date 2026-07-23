@@ -31,6 +31,7 @@ import {
   requestNow,
   snapshotRequestTiming,
 } from "open-sse/utils/requestTiming.js";
+import { annotateDirectResponse } from "open-sse/services/routeAttribution.js";
 
 /**
  * Handle chat completion request
@@ -301,7 +302,12 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       }
     });
 
-    if (result.success) return result.response;
+    if (result.success) {
+      return annotateDirectResponse({
+        requestedModel: modelStr,
+        resolvedModel: `${provider}/${model}`,
+      }, result.response);
+    }
 
     // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
     const fallbackStartedAt = requestNow();
@@ -382,7 +388,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         if (!isNoAuth) {
           recordBreakerSuccess(connId).catch(() => { });
         }
-        return result.response;
+        return annotateDirectResponse({
+          requestedModel: modelStr,
+          resolvedModel: `${provider}/${model}`,
+        }, result.response);
       }
 
       // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
@@ -401,7 +410,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         continue;
       }
 
-      return result.response;
+      return annotateDirectResponse({
+        requestedModel: modelStr,
+        resolvedModel: `${provider}/${model}`,
+      }, result.response);
     } finally {
       if (slotAcquired) {
         releaseAccountSlot(connId).catch(() => { });
