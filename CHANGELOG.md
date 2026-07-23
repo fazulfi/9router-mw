@@ -1,3 +1,13 @@
+# v0.5.40-mw.9 — batch: Minimax thinking sig + Grok daily meter (2 PRs)
+
+Cherry-picks from upstream PRs #2706/#2705 (minimax), #2724/#2723 (grok usage).
+
+## Changes
+
+- **minimax** (PR #2706/2705): normalize unsigned Anthropic thinking block starts by injecting required empty signature field. New test file `minimax-thinking-signature.test.js`.
+- **grok** (PR #2724/2723): add daily request meter endpoint and usage tracking. New test file `grok-daily-usage-route.test.js`.
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix) fully preserved.
+
 # v0.5.40-mw.8 — batch: 6 upstream PRs (azure, capabilities, combo, requestLogger, bind)
 
 Cherry-picks from upstream PRs #2691, #2697, #2689, #2709, #2725 (authors: various).
