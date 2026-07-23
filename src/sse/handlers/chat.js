@@ -22,6 +22,7 @@ import { detectFormatByEndpoint } from "open-sse/translator/formats.js";
 import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
+import { annotateDirectResponse } from "open-sse/services/routeAttribution.js";
 
 /**
  * Handle chat completion request
@@ -269,7 +270,12 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       }
     });
 
-    if (result.success) return result.response;
+    if (result.success) {
+      return annotateDirectResponse({
+        requestedModel: modelStr,
+        resolvedModel: `${provider}/${model}`,
+      }, result.response);
+    }
 
     // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
     const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, result.resetsAtMs);
@@ -282,6 +288,9 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       continue;
     }
 
-    return result.response;
+    return annotateDirectResponse({
+      requestedModel: modelStr,
+      resolvedModel: `${provider}/${model}`,
+    }, result.response);
   }
 }
