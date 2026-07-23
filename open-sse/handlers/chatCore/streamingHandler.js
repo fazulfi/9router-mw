@@ -45,7 +45,7 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
 /**
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestTiming, correlationId, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamError, streamDetailId, pxpipe, reqTag, log }) {
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestTiming, correlationId, connectionId, apiKey, apiKeyName, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, onStreamError, streamDetailId, pxpipe, reqTag, log }) {
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
@@ -102,7 +102,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     id: streamDetailId,
     attemptId: streamDetailId,
     correlationId,
-    provider, model, connectionId,
+    provider, model, connectionId, apiKey, apiKeyName,
     latency: buildRequestLatency(requestTiming, { terminal: false }),
     tokens: { prompt_tokens: 0, completion_tokens: 0 },
     request: extractRequestConfig(body, stream),
@@ -124,7 +124,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 /**
  * Build onStreamComplete callback for streaming usage tracking.
  */
-export function buildOnStreamComplete({ requestId, correlationId, provider, model, connectionId, apiKey, requestTiming, responseStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
+export function buildOnStreamComplete({ requestId, correlationId, provider, model, connectionId, apiKey, apiKeyName, requestTiming, responseStartTime, body, stream, finalBody, translatedBody, clientRawRequest, pxpipe, reqTag, log }) {
   const streamDetailId = requestId || `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   let detailFinalized = false;
 
@@ -135,7 +135,7 @@ export function buildOnStreamComplete({ requestId, correlationId, provider, mode
       id: streamDetailId,
       attemptId: streamDetailId,
       correlationId,
-      provider, model, connectionId,
+      provider, model, connectionId, apiKey, apiKeyName,
       request: extractRequestConfig(body, stream),
       providerRequest: finalBody || translatedBody || null,
       pxpipe,

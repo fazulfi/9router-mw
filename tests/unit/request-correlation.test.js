@@ -334,6 +334,62 @@ describe("request correlation and terminal timing", () => {
       .not.toHaveProperty("response_ms");
   });
 
+  it("persists API key attribution for in-progress and terminal stream details", async () => {
+    const apiKey = "sk-fake-stream-key";
+    const apiKeyName = "Production SDK";
+    const terminal = buildOnStreamComplete({
+      requestId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+      provider: "github",
+      model: "test-model",
+      connectionId: "test-connection",
+      apiKey,
+      apiKeyName,
+      requestTiming: requestTiming(),
+      responseStartTime: 1_000,
+      body: {},
+      translatedBody: {},
+    });
+
+    terminal.onStreamComplete({ content: "OK" }, { prompt_tokens: 1, completion_tokens: 1 }, 1_050);
+
+    expect(saveRequestDetailMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      apiKey,
+      apiKeyName,
+    }));
+
+    saveRequestDetailMock.mockClear();
+    await handleStreamingResponse({
+      providerResponse: new Response("data: [DONE]\n\n", {
+        headers: { "content-type": "text/event-stream" },
+      }),
+      provider: "github",
+      model: "test-model",
+      sourceFormat: FORMATS.OPENAI,
+      targetFormat: FORMATS.OPENAI,
+      userAgent: "test",
+      body: { messages: [] },
+      stream: true,
+      translatedBody: {},
+      requestTiming: requestTiming(),
+      responseStartTime: 1_000,
+      connectionId: "test-connection",
+      apiKey,
+      apiKeyName,
+      reqLogger: {},
+      streamController: { signal: undefined, handleError: vi.fn() },
+      onStreamComplete: vi.fn(),
+      onStreamError: vi.fn(),
+      streamDetailId: ATTEMPT_ID,
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(saveRequestDetailMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      apiKey,
+      apiKeyName,
+    }));
+  });
+
   it("notifies terminal persistence callback for AbortError", () => {
     const onError = vi.fn();
     const controller = createStreamController({
