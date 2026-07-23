@@ -130,7 +130,7 @@ export async function handleChat(request, clientRawRequest = null) {
             const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
             cleanRawReq = { ...clientRawRequest, body: cleanBody };
           }
-          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, cloneRequestTiming(requestTiming), correlationId);
+          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, apiKeyName, cloneRequestTiming(requestTiming), correlationId);
         },
         log,
         comboName: modelStr,
@@ -144,7 +144,7 @@ export async function handleChat(request, clientRawRequest = null) {
     return handleComboChat({
       body,
       models: comboModels,
-      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, cloneRequestTiming(requestTiming), correlationId),
+      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, apiKeyName, cloneRequestTiming(requestTiming), correlationId),
       log,
       comboName: modelStr,
       comboStrategy,
@@ -153,13 +153,13 @@ export async function handleChat(request, clientRawRequest = null) {
   }
 
   // Single model request
-  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey, requestTiming, correlationId);
+  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey, apiKeyName, requestTiming, correlationId);
 }
 
 /**
  * Handle single model chat request
  */
-async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null, requestTiming = createRequestTiming(), correlationId = globalThis.crypto.randomUUID()) {
+async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null, apiKeyName = null, requestTiming = createRequestTiming(), correlationId = globalThis.crypto.randomUUID()) {
   const modelInfo = await measureRequestPhase(requestTiming.phases, "routing_total_ms", () =>
     measureRequestPhase(requestTiming.phases, "db_overlap_ms", () => getModelInfo(modelStr)));
 
@@ -186,7 +186,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
               const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
               cleanRawReq = { ...clientRawRequest, body: cleanBody };
             }
-            return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, cloneRequestTiming(requestTiming), correlationId);
+            return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, apiKeyName, cloneRequestTiming(requestTiming), correlationId);
           },
           log,
           comboName: modelStr,
@@ -200,7 +200,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       return handleComboChat({
         body,
         models: comboModels,
-        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, cloneRequestTiming(requestTiming), correlationId),
+        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, apiKeyName, cloneRequestTiming(requestTiming), correlationId),
         log,
         comboName: modelStr,
         comboStrategy,

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSettings: vi.fn(),
+  getApiKeys: vi.fn(),
+  extractApiKey: vi.fn(() => null),
   isValidApiKey: vi.fn(),
   getProviderCredentials: vi.fn(),
   markAccountUnavailable: vi.fn(),
@@ -19,14 +21,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock("open-sse/index.js", () => ({}));
 
 vi.mock("../../src/sse/services/auth.js", () => ({
-  extractApiKey: vi.fn(() => null),
+  extractApiKey: mocks.extractApiKey,
   getProviderCredentials: mocks.getProviderCredentials,
   isValidApiKey: mocks.isValidApiKey,
   markAccountUnavailable: mocks.markAccountUnavailable,
   clearAccountError: mocks.clearAccountError,
 }));
 
-vi.mock("@/lib/localDb", () => ({ getSettings: mocks.getSettings }));
+vi.mock("@/lib/localDb", () => ({
+  getSettings: mocks.getSettings,
+  getApiKeys: mocks.getApiKeys,
+}));
 
 vi.mock("../../src/sse/services/model.js", () => ({
   getModelInfo: mocks.getModelInfo,
@@ -56,6 +61,9 @@ vi.mock("open-sse/config/runtimeConfig.js", () => ({
   },
 }));
 vi.mock("open-sse/translator/formats.js", () => ({ detectFormatByEndpoint: vi.fn(() => "openai") }));
+vi.mock("open-sse/services/routeAttribution.js", () => ({
+  annotateDirectResponse: vi.fn((_route, response) => response),
+}));
 vi.mock("../../src/sse/utils/logger.js", () => ({
   debug: vi.fn(), info: vi.fn(), warn: vi.fn(), maskKey: vi.fn(() => "masked"),
 }));
@@ -94,6 +102,8 @@ describe("chat request phase timing", () => {
     monotonicNow = 1_000;
     vi.spyOn(globalThis.performance, "now").mockImplementation(() => monotonicNow);
     mocks.getSettings.mockResolvedValue({ requireApiKey: false });
+    mocks.getApiKeys.mockResolvedValue([]);
+    mocks.extractApiKey.mockReturnValue(null);
     mocks.getComboModels.mockResolvedValue(null);
     mocks.getModelInfo.mockResolvedValue({ provider: "github", model: "gpt-test" });
     mocks.getProviderCredentials.mockResolvedValue({
@@ -111,6 +121,22 @@ describe("chat request phase timing", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it("propagates the matched API key name to chat core", async () => {
+    mocks.extractApiKey.mockReturnValue("named-key-value");
+    mocks.getApiKeys.mockResolvedValue([{ name: "Production SDK", key: "named-key-value" }]);
+
+    const request = makeRequest({ model: "github/gpt-test", messages: [] });
+    request.headers.set("Authorization", "Bearer named-key-value");
+
+    const response = await handleChat(request);
+
+    expect(response.status).toBe(200);
+    expect(mocks.handleChatCore).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: "named-key-value",
+      apiKeyName: "Production SDK",
+    }));
   });
 
   it("propagates auth and routing timings with overlapping diagnostic DB timing", async () => {
