@@ -97,4 +97,21 @@ penggantinya.
 - 10 primary + 7 secondary (unik) + 6 cross-client (unik) + 4 built-in = 27
 - 3 di antaranya ditandai deprecated
 
-**Pembaruan terakhir:** 2026-07-18
+**Pembaruan terakhir:** 2026-07-23
+
+## Audit Trail — Upstream PR Integration
+
+Setiap PR dari upstream (decolua/9router) diaudit untuk kelayakan integrasi
+sebelum digabung. Hasil audit disimpan di `.sisyphus/audits/`.
+
+| PR | SHA | Topik | Berkas Audit |
+|----|-----|-------|-------------|
+| #2796 | 3a668524bb | fix(codex): strip content from additional_tools passthrough | `.sisyphus/audits/pr-2796-additional-tools.md` |
+| #2794 | 660552583f | fix(usage): record exact embedding tokens | `.sisyphus/audits/pr-2794-embedding-tokens.md` |
+| #2793 | b9b1fee1f2 | feat(combo): expose route attribution | `.sisyphus/audits/pr-2793-route-attribution.md` |
+| #2792 | 72e7a54ccf | fix: recover Jina Reader after transient errors | `.sisyphus/audits/pr-2792-jina-reader.md` |
+| #2789 | 2446f323ec | fix(kiro): normalize dashboard thinking intensity models | `.sisyphus/audits/pr-2789-kiro-thinking.md` |
+| #2787 | 94eaf25b56 | fix(codex): preserve GPT-5.6 max reasoning | `.sisyphus/audits/pr-2787-gpt56-max.md` |
+| #2786 | f3705be229 | feat(v1/models): add OpenCode and OpenAI-compatible provider model resolution | `.sisyphus/audits/pr-2786-v1-models.md` |
+| #2784 | 08edf14df5 | fix: fail over on network connection errors | `.sisyphus/audits/pr-2784-failover.md` |
+| #2783 | 0d2a3bb454 | fix(chatCore): unwrap ```json fences when the client asked for JSON | `.sisyphus/audits/pr-2783-json-fences.md` |

@@ -4,13 +4,14 @@
 
 import { getCapabilitiesForModel } from "../../providers/capabilities.js";
 import { PROVIDERS } from "../../providers/index.js";
+import { supportsThinkingLevel } from "../../providers/thinkingLevels.js";
 import { LEVEL_TO_BUDGET, budgetToLevel, effortToBudget, effortToThinkingLevel } from "./thinking.js";
 
 // Map a target wire-format to its native thinking format (when capability has none).
 const FORMAT_TO_NATIVE = {
   openai: "openai",
-  "openai-responses": "openai",
-  "openai-response": "openai",
+  "openai-responses": "openai-responses",
+  "openai-response": "openai-responses",
   codex: "openai",
   claude: "claude-budget",
   gemini: "gemini-budget",
@@ -106,10 +107,12 @@ export const captureThinking = extractThinking;
 // Resolve thinking format: provider override > capability > derive(targetFormat).
 function resolveFormat(targetFormat, model, provider) {
   const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
-  if (providerFmt) return providerFmt;
   const caps = getCapabilitiesForModel(provider, model);
-  if (caps.thinkingFormat) return caps.thinkingFormat;
-  return FORMAT_TO_NATIVE[targetFormat] || "openai";
+  const format = providerFmt || caps.thinkingFormat || FORMAT_TO_NATIVE[targetFormat] || "openai";
+  if (format === "openai" && (targetFormat === "openai-responses" || targetFormat === "openai-response")) {
+    return "openai-responses";
+  }
+  return format;
 }
 
 // Convert unified config to a budget number (for budget-based formats).
@@ -213,7 +216,7 @@ function stripAll(body) {
 }
 
 // Apply unified thinking config to body in the resolved provider-native format.
-function applyFormat(fmt, body, cfg, caps) {
+function applyFormat(fmt, body, cfg, caps, provider, model) {
   const none = cfg.mode === "none";
   const canDisable = caps.thinkingCanDisable !== false;
   // Model cannot disable thinking → clamp "none" to minimal effort instead.
@@ -223,8 +226,13 @@ function applyFormat(fmt, body, cfg, caps) {
     case "openai": {
       if (none && canDisable) { body.reasoning_effort = "none"; break; }
       const level = toLevel(eff);
-      // OpenAI reasoning_effort enum caps at "xhigh" (no "max"); clamp Claude Code's "max".
-      if (level) body.reasoning_effort = level === "max" ? "xhigh" : level;
+      // OpenAI-format support is model-specific; older models still reject max.
+      if (level) body.reasoning_effort = level === "max" && !supportsThinkingLevel(provider, model, "max") ? "xhigh" : level;
+      break;
+    }
+    case "openai-responses": {
+      const level = none && canDisable ? "none" : toLevel(eff);
+      if (level) body.reasoning = { effort: level === "max" ? "xhigh" : level };
       break;
     }
     case "claude-adaptive": {
@@ -330,6 +338,6 @@ export function applyThinking(targetFormat, model, body, provider = null, intent
 
   const fmt = resolveFormat(targetFormat, cleanModel, provider);
   stripAll(body);
-  applyFormat(fmt, body, cfg, caps);
+  applyFormat(fmt, body, cfg, caps, provider, cleanModel);
   return body;
 }

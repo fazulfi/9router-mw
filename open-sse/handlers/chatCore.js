@@ -171,6 +171,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     if (passthrough) {
       log?.debug?.("PASSTHROUGH", `${clientTool} → ${provider} | native lossless`);
       translatedBody = { ...body, model: stripThinkingSuffix(upstreamModel) };
+
+      // Strip content from additional_tools items for Codex (API rejects oversized content)
+      if (provider === "codex" && Array.isArray(translatedBody.input)) {
+        translatedBody.input = translatedBody.input.map((item) => {
+          if (item?.type !== "additional_tools") return item;
+          const { content, ...normalizedItem } = item;
+          return normalizedItem;
+        });
+      }
+
       if (clientTool === "claude") normalizeClaudePassthrough(translatedBody, translatedBody.model);
     } else {
       translatedBody = translateRequest(sourceFormat, targetFormat, upstreamModel, body, stream, credentials, provider, reqLogger, stripList, connectionId, clientTool);
