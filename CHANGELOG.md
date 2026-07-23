@@ -1,3 +1,20 @@
+# v0.5.40-mw.10 — batch: Kiro consolidation + stream error normalization (3 PRs)
+
+Cherry-picks from upstream PRs #2731, #2681, #2688 (authors: kiro, various).
+
+## Changes
+
+- **kiro** (PR #2731): keep terminal integrity — transport-only patch without
+  leaking internal process state to upstream response.
+- **stream** (PR #2681): normalize upstream SSE errors into format-specific
+  framing (`response.failed` for OpenAI Responses, `event: error` for Claude,
+  generic error objects). New `normalizeStreamError` and
+  `formatTranslatedStreamError` helpers.
+- **kiro tests** (PR #2681/#2688): add unit tests for tool-call validation and
+  one-shot repair-all, closing coverage gap for already-merged kiro features.
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix)
+  fully preserved.
+
 # v0.5.40-mw.9 — batch: Minimax thinking sig + Grok daily meter (2 PRs)
 
 Cherry-picks from upstream PRs #2706/#2705 (minimax), #2724/#2723 (grok usage).
