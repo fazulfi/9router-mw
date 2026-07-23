@@ -1,3 +1,20 @@
+# v0.5.40-mw.11 — batch: Headroom fix + request observability (2 PRs)
+
+Cherry-picks from upstream PRs #2698, #2710 (authors: hobart9527, ryanngit).
+
+## Changes
+
+- **headroom** (PR #2698): move headroom compression before request translation
+  so all output formats (commandcode, ollama, gemini, etc.) are covered —
+  previously non-OpenAI/Claude formats silently skipped compression.
+- **observability** (PR #2710): correlate provider requests across phases —
+  record request phase timings (translation, compression, upstream, auth),
+  isolate request attempt timings, and preserve executor header contracts.
+  New `requestTiming.js` utility with phase measurement helpers. New test
+  files for request timing, request correlation, and timing contracts.
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix)
+  fully preserved.
+
 # v0.5.40-mw.10 — batch: Kiro consolidation + stream error normalization (3 PRs)
 
 Cherry-picks from upstream PRs #2731, #2681, #2688 (authors: kiro, various).
