@@ -83,13 +83,12 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     };
   }
 
-  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, responsesAccumulator, customToolNames });
   // Responses passthrough: synthesize response.failed + [DONE] if the stream aborts/stalls before a terminal event
   const isResponsesPassthrough = sourceFormat === FORMATS.OPENAI_RESPONSES && targetFormat === FORMATS.OPENAI_RESPONSES;
   const responsesAccumulator = targetFormat === FORMATS.OPENAI_RESPONSES
     ? createResponsesAccumulator({ model })
     : null;
-  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, responsesAccumulator });
+  const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, model, connectionId, body, onStreamComplete, apiKey, responsesAccumulator, customToolNames });
   let onAbortTerminal = null;
   if (isResponsesPassthrough) {
     onAbortTerminal = () => buildAbortedResponsesTerminalBytes(responsesAccumulator);
