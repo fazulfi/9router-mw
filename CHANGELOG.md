@@ -1,63 +1,84 @@
 # v0.5.40-mw.13 — fix: show MW release history in the dashboard
 
-## Fixes
+**Before**: Dashboard Change Log modal always fetches
+`decolua/9router` CHANGELOG.md from upstream master. MW release entries
+(mw.10+) never appear, regardless of which version is running.
 
-- **dashboard changelog**: load the immutable `CHANGELOG.md` from the running
-  `fazulfi/9router-mw` release tag instead of upstream `decolua/9router` master.
-  This makes the in-app modal show mw.10–mw.13 entries and prevents future MW
-  releases from silently displaying an unrelated upstream changelog.
+**After**: Dashboard fetches the running MW release tag's CHANGELOG.md
+from `fazulfi/9router-mw` — the in-app modal now shows mw.10–mw.13
+entries and future MW releases will display their own changelog
+automatically.
+
+## Implementation
+
+- `GITHUB_CONFIG.changelogUrl` in `src/shared/constants/config.js` now
+  resolves to the immutable per-release URL using the app's
+  `APP_CONFIG.version`.
 - **release metadata**: align the app, CLI, and `VERSION` marker on mw.13.
+- New regression test `changelog-source.test.js` verifies the URL points
+  to `fazulfi/9router-mw` tag (not `decolua/9router` master).
 
 # v0.5.40-mw.12 — batch: Responses translator fixes (2 PRs, 7 commits)
 
 Cherry-picks from upstream PRs #2713, #2747 (authors: Edison42, ryanngit).
 
-## Changes
+**Before**: Responses API terminal output is unreliable — streaming and
+forced-non-stream paths diverge, producing truncated or broken terminal
+arrays. Custom tool choices (e.g. `tool_choice: { function: "search" }`)
+are lost during translation. Round-trip custom tool request/response
+indexes collide, causing mismatched tool results.
 
-- **responses terminal** (PR #2713): reconstruct reliable terminal output with
-  one per-request reducer across streaming and forced non-stream assembly,
-  including alias-safe tool reconstruction, terminal repair, and exactly-once
-  failure finalization. New `responsesAccumulator.js` concern. Addresses P0
-  review regressions with safe incremental tool deltas and passthrough fix.
-- **custom tools** (PR #2747): preserve forced tool choices, round-trip
-  custom tool requests and responses, keep translated output indexes unique.
-  New test files for custom tool roundtrip and transformer item index.
-- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix)
-  fully preserved.
+**After**: A single per-request reducer (`responsesAccumulator.js`)
+reliably reconstructs terminal output for both streaming and
+forced-non-stream assembly, with alias-safe tool reconstruction and
+exactly-once failure finalization. Forced `tool_choice` values are
+preserved end-to-end. Custom tool requests and responses round-trip
+with unique, non-colliding indexes. Two new test files guard custom
+tool roundtrip and transformer item-index uniqueness.
+
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor
+  hotfix) fully preserved.
 
 # v0.5.40-mw.11 — batch: Headroom fix + request observability (2 PRs)
 
 Cherry-picks from upstream PRs #2698, #2710 (authors: hobart9527, ryanngit).
 
-## Changes
+**Before**: Headroom compression runs *after* request translation, so it
+only applies to OpenAI/Claude output formats. Non-standard formats
+(commandcode, ollama, gemini, etc.) silently skip compression, wasting
+upstream capacity. Request phases (translation, compression, upstream
+call, auth) are opaque — no per-phase timing or correlation exists,
+making performance debugging guesswork.
 
-- **headroom** (PR #2698): move headroom compression before request translation
-  so all output formats (commandcode, ollama, gemini, etc.) are covered —
-  previously non-OpenAI/Claude formats silently skipped compression.
-- **observability** (PR #2710): correlate provider requests across phases —
-  record request phase timings (translation, compression, upstream, auth),
-  isolate request attempt timings, and preserve executor header contracts.
-  New `requestTiming.js` utility with phase measurement helpers. New test
-  files for request timing, request correlation, and timing contracts.
-- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix)
-  fully preserved.
+**After**: Headroom compression runs *before* translation, covering all
+output formats equally. Request phases are timed and correlated per
+provider request via `requestTiming.js`: each phase's duration is
+isolated, logged, and preserved in the executor header contract.
+New test files verify timing measurement, request correlation, and
+timing contract adherence.
+
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor
+  hotfix) fully preserved.
 
 # v0.5.40-mw.10 — batch: Kiro consolidation + stream error normalization (3 PRs)
 
 Cherry-picks from upstream PRs #2731, #2681, #2688 (authors: kiro, various).
 
-## Changes
+**Before**: Kiro terminal state leaks into the upstream response —
+internal process fields are exposed to the client. Upstream SSE stream
+errors are delivered raw, unformatted, leaving each client format to
+parse unstructured error content.
 
-- **kiro** (PR #2731): keep terminal integrity — transport-only patch without
-  leaking internal process state to upstream response.
-- **stream** (PR #2681): normalize upstream SSE errors into format-specific
-  framing (`response.failed` for OpenAI Responses, `event: error` for Claude,
-  generic error objects). New `normalizeStreamError` and
-  `formatTranslatedStreamError` helpers.
-- **kiro tests** (PR #2681/#2688): add unit tests for tool-call validation and
-  one-shot repair-all, closing coverage gap for already-merged kiro features.
-- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor hotfix)
-  fully preserved.
+**After**: Kiro is a transport-only patch — no internal state leaks to
+the client response. Upstream SSE errors are normalized per consumer
+format: `event: response.failed` payloads for OpenAI Responses API,
+`event: error` frames for Claude, and generic error objects for all
+other formats. New helpers `normalizeStreamError` and
+`formatTranslatedStreamError`. Unit tests added for tool-call
+validation and one-shot repair-all.
+
+- MW invariants (cluster, Redis, undici, WAL, liveUsageState, Cursor
+  hotfix) fully preserved.
 
 # v0.5.40-mw.9 — batch: Minimax thinking sig + Grok daily meter (2 PRs)
 
