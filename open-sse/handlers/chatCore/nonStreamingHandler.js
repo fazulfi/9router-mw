@@ -10,6 +10,7 @@ import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, sav
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
 import { buildRequestLatency, elapsedRequestMilliseconds, requestNow } from "../../utils/requestTiming.js";
+import { unfenceJsonChoices } from "../../utils/jsonFence.js";
 
 function parseToolArguments(value) {
   if (!value) return {};
@@ -300,6 +301,9 @@ export async function handleNonStreamingResponse({ requestId, correlationId, pro
       }
     }
   }
+
+  // JSON mode: drop a ```json fence the provider added around the object
+  unfenceJsonChoices(body, translatedResponse);
 
   reqLogger.logConvertedResponse(translatedResponse);
 
