@@ -1,9 +1,42 @@
-# Unreleased
+# v0.5.40-mw.14 — batch: integrate 9 upstream PRs (stable, failover, models, fixes)
+
+Integrates 9 upstream decolua/9router PRs covering failover resilience,
+model resolution, route attribution, Kiro thinking model normalization,
+embedding token accounting, and targeted fixes across chatCore, codex,
+Jina Reader, and JSON fence unwrapping.
 
 ## Fixes
-- **Codex/OpenAI**: preserve GPT-5.6 `max` reasoning effort instead of downgrading it to `xhigh`
 
+- **Failover**: recover from transient network connection errors in
+  executors with automatic retry; preserve native Responses API request
+  fields during fallback (upstream #2784)
+- **ChatCore**: unwrap triple-backtick json fences when the client asked
+  for JSON responses, avoiding parse failures (upstream #2783)
+- **Codex/OpenAI**: preserve GPT-5.6 `max` reasoning effort instead of
+  downgrading it to `xhigh` (upstream #2787)
+- **Codex/OpenAI**: strip content from additional_tools passthrough to
+  prevent duplicate tool body injection (upstream #2796)
+- **Embeddings**: record exact embedding input tokens instead of
+  approximating or omitting usage (upstream #2794)
+- **Jina Reader**: recover from transient fetch errors with automatic
+  retry and account-clearing on success (upstream #2792)
+- **Kiro**: normalize dashboard thinking intensity model mapping so
+  UI-facing model names match expected thinking levels (upstream #2789)
 
+## Features
+
+- **Combo/Route Attribution**: expose downstream route/upstream identity
+  in combo responses for observability and debugging (upstream #2793)
+- **v1/Models**: resolve OpenCode and OpenAI-compatible provider model
+  lists, enabling dynamic model selection (upstream #2786)
+
+## Implementation
+
+- 9 upstream PRs cherry-picked and merged via PR #4 into fazulfi/9router-mw.
+- Conflicts resolved additive in: chat.js, CHANGELOG.md, default.js,
+  thinkingUnified.js, chatCore.js, base-executor-retry.test.js.
+- Each PR individually audited in .sisyphus/audits/ with integration
+  feasibility confirmed before merge.
 
 # v0.5.40-mw.13 — fix: show MW release history in the dashboard
 
