@@ -13,10 +13,26 @@ export default defineConfig({
     // own copies of the test files but lack an installed node_modules (open-sse,
     // etc.), which makes provider imports fail during collection.
     exclude: ["**/node_modules/**", "**/.claude/**", "**/dist/**"],
+    // forks prevents test isolation issues (module caching, shared state)
+    pool: "forks",
     // Allow many it.concurrent cases (real provider smoke runs ~50 providers in parallel)
     maxConcurrency: 60,
     // Suppress noisy console output from handlers under test
     silent: false,
+    // Generous timeout for SQLite-backed tests (lock contention, WAL checkpoints)
+    testTimeout: 30000,
+  },
+  coverage: {
+    provider: "v8",
+    reporter: ["text", "text-summary", "lcov"],
+    include: ["src/**", "open-sse/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/*.test.js",
+      "**/*.config.*",
+      "**/dist/**",
+    ],
+    reportsDirectory: "./coverage",
   },
   resolve: {
     // Use array form so subpath aliases (e.g. "@/lib/db/index.js") resolve correctly.

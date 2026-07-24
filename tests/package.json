@@ -9,6 +9,7 @@
     "test:watch": "NODE_PATH=/tmp/node_modules /tmp/node_modules/.bin/vitest --reporter=verbose"
   },
   "devDependencies": {
+    "lowdb": "^7.0.1",
     "vitest": "^4.0.0"
   },
   "engines": {
