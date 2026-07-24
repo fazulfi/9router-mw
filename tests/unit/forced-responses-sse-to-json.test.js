@@ -29,6 +29,7 @@ function streamFromEvents(events) {
 }
 
 async function forceJson(sourceFormat, events) {
+  const now = Date.now();
   const result = await handleForcedSSEToJson({
     providerResponse: new Response(streamFromEvents(events), {
       headers: { "content-type": "text/event-stream" }
@@ -38,7 +39,7 @@ async function forceJson(sourceFormat, events) {
     model: "gpt-5.3-codex",
     body: { model: "gpt-5.3-codex", messages: [] },
     stream: false,
-    requestStartTime: Date.now(),
+    requestTiming: { requestStartedAt: now, responseStartedAt: now },
     connectionId: "test-connection",
     clientRawRequest: { endpoint: "/v1/chat/completions" },
     trackDone: vi.fn(),

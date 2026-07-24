@@ -12,6 +12,16 @@ const originalDataDir = process.env.DATA_DIR;
 let tempSqlite, tempLowdb;
 let sqliteDb, lowDb;
 
+// On Windows, SQLite's WAL journal files may still be open when we try to
+// remove the temp directory. Don't block the hook — warn and move on.
+function rmDirRetry(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`[cleanup] Could not remove ${dir}: ${e.code} — process exit will release handles`);
+  }
+}
+
 function fmt(ms) { return `${ms.toFixed(2)}ms`; }
 
 async function bench(label, fn) {
@@ -43,8 +53,8 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  if (tempSqlite) fs.rmSync(tempSqlite, { recursive: true, force: true });
-  if (tempLowdb) fs.rmSync(tempLowdb, { recursive: true, force: true });
+  if (tempSqlite) rmDirRetry(tempSqlite);
+  if (tempLowdb) rmDirRetry(tempLowdb);
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });

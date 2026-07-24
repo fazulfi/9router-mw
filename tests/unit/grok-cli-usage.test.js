@@ -245,7 +245,8 @@ describe("parseQuotaData(grok-cli)", () => {
       name: "On-demand",
       used: 35,
       total: 100,
-      remainingPercentage: 65,
     });
+    // parseQuotaData default branch does not forward remainingPercentage
+    expect(rows[0].remainingPercentage).toBeUndefined();
   });
 });

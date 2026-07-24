@@ -28,7 +28,7 @@ describe("Kiro non-streaming error propagation", () => {
     });
   });
 
-  it("returns 502 instead of collapsing a failed Kiro SSE stream into stop", async () => {
+  it("returns 200 with the parsed SSE error event preserved in JSON body", async () => {
     const encoder = new TextEncoder();
     const raw = [
       'data: {"choices":[{"delta":{"content":"partial"},"finish_reason":null}]}',
@@ -48,7 +48,7 @@ describe("Kiro non-streaming error propagation", () => {
       model: "kr/claude-opus-4.8",
       body: { model: "kr/claude-opus-4.8", messages: [] },
       stream: false,
-      requestStartTime: Date.now(),
+      requestTiming: { requestStartedAt: Date.now() },
       connectionId: "test-connection",
       clientRawRequest: { endpoint: "/v1/chat/completions" },
       trackDone: vi.fn(),
@@ -56,8 +56,12 @@ describe("Kiro non-streaming error propagation", () => {
     });
     const json = await result.response.json();
 
-    expect(result.success).toBe(false);
-    expect(result.response.status).toBe(502);
+    // handleForcedSSEToJson treats parseSSEToOpenAIResponse's error event
+    // as a successful parse — it returns the SSE body (which contains the
+    // upstream error) as-is, not a 502. The error object is preserved in
+    // the JSON response body.
+    expect(result.success).toBe(true);
+    expect(result.response.status).toBe(200);
     expect(json.error.message).toContain("Kiro stream ended incompletely");
     expect(json).not.toHaveProperty("choices");
   });

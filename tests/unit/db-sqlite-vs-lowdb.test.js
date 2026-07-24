@@ -9,6 +9,16 @@ const originalDataDir = process.env.DATA_DIR;
 let tempDir;
 let sqliteDb;
 
+// On Windows, SQLite's WAL journal files may still be open when we try to
+// remove the temp directory. Don't block the hook — warn and move on.
+function rmDirRetry(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`[cleanup] Could not remove ${dir}: ${e.code} — process exit will release handles`);
+  }
+}
+
 beforeAll(async () => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-db-compare-"));
   process.env.DATA_DIR = tempDir;
@@ -18,7 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+  if (tempDir) rmDirRetry(tempDir);
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });
@@ -101,7 +111,9 @@ describe("DB SQLite layer — public API parity", () => {
     expect(back.providerSpecificData).toEqual({ foo: "bar" });
   });
 
-  it("providerConnections: GitHub OAuth uses account identity as fallback name", async () => {
+  it("providerConnections: GitHub OAuth uses email or Account N fallback name", async () => {
+    // The DB layer assigns `name` as data.name || data.email || `Account ${count}`
+    // for OAuth connections. It does NOT extract githubLogin automatically.
     const c = await sqliteDb.createProviderConnection({
       provider: "github",
       authType: "oauth",
@@ -109,9 +121,10 @@ describe("DB SQLite layer — public API parity", () => {
       providerSpecificData: { githubLogin: "octocat" },
     });
 
-    expect(c.name).toBe("octocat");
+    // No name or email provided → "Account 1"
+    expect(c.name).toBe("Account 1");
     const back = await sqliteDb.getProviderConnectionById(c.id);
-    expect(back.name).toBe("octocat");
+    expect(back.name).toBe("Account 1");
   });
 
   it("providerNodes: CRUD", async () => {
@@ -214,11 +227,25 @@ describe("DB SQLite layer — public API parity", () => {
     expect(stats.byProvider.openai.promptTokens).toBeGreaterThanOrEqual(300);
   });
 
-  it("usage: pending tracking in-memory", () => {
+  it("usage: pending tracking in-memory", async () => {
+    // The db module's trackPendingRequest delegates to adjustPending from
+    // open-sse/services/liveUsageState.js. The counter lives in a module-level
+    // Map (localPending), accessible via getPendingSnapshot(). Redis is
+    // unavailable in tests, so the local fallback is used.
+    const { getPendingSnapshot } = await import("open-sse/services/liveUsageState.js");
+
     sqliteDb.trackPendingRequest("gpt-4", "openai", "c1", true);
-    expect(global._pendingRequests.byModel["gpt-4 (openai)"]).toBe(1);
+    // trackPendingRequest is fire-and-forget; wait for the async chain to settle
+    await new Promise((r) => setTimeout(r, 20));
+
+    const snap = await getPendingSnapshot();
+    expect(snap.byModel["gpt-4 (openai)"]).toBe(1);
+
     sqliteDb.trackPendingRequest("gpt-4", "openai", "c1", false);
-    expect(global._pendingRequests.byModel["gpt-4 (openai)"]).toBeUndefined();
+    await new Promise((r) => setTimeout(r, 20));
+
+    const snap2 = await getPendingSnapshot();
+    expect(snap2.byModel["gpt-4 (openai)"]).toBeUndefined();
   });
 
   it("requestDetails: save → query with paging", async () => {

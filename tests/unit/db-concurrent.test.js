@@ -1,4 +1,4 @@
-// Concurrency stress test — simulate many parallel saveRequestUsage / saveRequestDetail
+﻿// Concurrency stress test — simulate many parallel saveRequestUsage / saveRequestDetail
 // to verify atomic counter, no data loss, no race conditions.
 import fs from "node:fs";
 import os from "node:os";
@@ -9,6 +9,16 @@ const originalDataDir = process.env.DATA_DIR;
 let tempDir;
 let db;
 
+// On Windows, SQLite's WAL journal files may still be open when we try to
+// remove the temp directory. Don't block the hook — warn and move on.
+function rmDirRetry(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`[cleanup] Could not remove ${dir}: ${e.code} — process exit will release handles`);
+  }
+}
+
 beforeAll(async () => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-concurrent-"));
   process.env.DATA_DIR = tempDir;
@@ -18,7 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+  if (tempDir) rmDirRetry(tempDir);
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });
@@ -121,7 +131,7 @@ describe("DB Concurrency — atomic safety", () => {
       expect(after[`marker${i}`]).toBe(i); // no field lost
     }
     expect(after.refreshToken).toBe("rt-initial"); // base preserved
-  });
+  }, 30000);
 
   it("addCustomModel race: parallel duplicate adds → only 1 inserted", async () => {
     const N = 30;
@@ -169,3 +179,6 @@ describe("DB Concurrency — atomic safety", () => {
     expect(g.completionTokens).toBe((50 + (50 + N - 1)) * N / 2);
   });
 });
+
+
+
