@@ -287,6 +287,9 @@ assemble_artifact() {
   [[ ! -d "${source}/scripts" ]] || cp -a "${source}/scripts" "${artifact}/scripts"
   cp -a "${source}/package.json" "${artifact}/package.json"
   [[ ! -f "${source}/VERSION" ]] || cp -a "${source}/VERSION" "${artifact}/VERSION"
+  # Copy dedicated writer (forked by custom-server.js, not in Next.js bundle graph)
+  [[ ! -f "${source}/primary-writer.mjs" ]] || cp -a "${source}/primary-writer.mjs" "${artifact}/primary-writer.mjs"
+  [[ ! -d "${source}/src/lib/db" ]] || { mkdir -p "${artifact}/src/lib"; cp -a "${source}/src/lib/db" "${artifact}/src/lib/db/"; }
   for package in better-sqlite3 sql.js ioredis undici denque redis-errors \
     redis-parser standard-as-callback cluster-key-slot debug ms \
     lodash.defaults lodash.isarguments; do
@@ -297,6 +300,10 @@ assemble_artifact() {
     fi
   done
   [[ -f "${artifact}/custom-server.js" ]] || die "custom-server.js is missing"
+  [[ -f "${artifact}/primary-writer.mjs" ]] || die "primary-writer.mjs is missing"
+  [[ -f "${artifact}/src/lib/db/schema.js" ]] || die "writer dep schema.js is missing"
+  [[ -f "${artifact}/src/lib/db/version.js" ]] || die "writer dep version.js is missing"
+  [[ -f "${artifact}/src/lib/db/helpers/jsonCol.js" ]] || die "writer dep jsonCol.js is missing"
   [[ -d "${artifact}/node_modules/better-sqlite3" ]] || die "better-sqlite3 is missing"
   [[ -d "${artifact}/node_modules/ioredis" ]] || die "ioredis is missing"
 }
