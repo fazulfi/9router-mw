@@ -96,3 +96,12 @@ export function isNewFormatKey(apiKey) {
   return parsed?.isNewFormat === true;
 }
 
+/**
+ * Hash an API key for storage/lookup using SHA-256
+ * @param {string} rawKey
+ * @returns {string}
+ */
+export function hashApiKey(rawKey) {
+  return crypto.createHash("sha256").update(rawKey).digest("hex");
+}
+
