@@ -4,8 +4,8 @@
 > **Product:** 9router-mw
 > **Repo:** <https://github.com/fazulfi/9router-mw>
 > **Current release:** v0.5.40-mw.23 (production live)
-> **Deployed commit:** 722d712c8 (DB8 + coverage >80%)
-> **Deployed at:** 2026-07-24T06:15:49Z (mw.22) — coverage + benchmark 2026-07-24
+> **Deployed commit:** 6dac172d1 (mw.23 hard lock — SOP promote)
+> **Deployed at:** 2026-07-24T09:18:18Z (SOP stage→approve→promote)
 
 ---
 
@@ -33,15 +33,17 @@ writer — workers never hold a write lock.
 | Artifact | Version |
 | -------- | ------- |
 | Upstream base | decolua/9router **0.5.40** (selective integration) |
-| Current production release | **v0.5.40-mw.23** (722d712c8) |
+| Current production release | **v0.5.40-mw.23** (6dac172d1) |
 | DB8 writer PR | **PR #6** feat(db): dedicated SQLite writer + deployment SOP |
 | Test coverage lock | Iterasi 2/5 — 207 test files, 1926 tests, 0 failures |
 | Benchmark | 303 req/s C100 (18K RPM), 4 workers, 4 vCPU |
-| Previous production release | **v0.5.40-mw.22** (722d712c8) |
+| SOP | Stage→approve→promote with prune, DB backup, 20/20 health |
+| Previous production release | **v0.5.40-mw.22** (722d712c8 → 6dac172d1) |
 
-**v0.5.40-mw.23** is the current locked release. Production deployment is
-unchanged from mw.22 (still commit 722d712c8 with DB8 writer architecture).
-mw.23 locks the test suite at >80% coverage with verified benchmark results.
+**v0.5.40-mw.23** is the current locked release. Deployed via SOP from
+commit 6dac172d1 which includes all mw.23 test coverage improvements,
+SOP prune subcommand, and runtime-release.sh BOM/CRLF fixes.
+Active slot 20132, rollback slot 20131.
 
 ---
 
