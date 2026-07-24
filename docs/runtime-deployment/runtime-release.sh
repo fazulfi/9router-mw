@@ -626,6 +626,34 @@ cleanup_release() {
   log "staging cleaned for ${release_id}; manifest retained"
 }
 
+prune_releases() {
+  assert_proxy_topology
+  local active_port previous_port active_target prev_target
+  local kept=0 removed=0
+
+  active_port="$(tr -d '[:space:]' <"${ACTIVE_STATE}")"
+  previous_port="$(tr -d '[:space:]' <"${PREVIOUS_STATE}" 2>/dev/null || true)"
+  active_target="$(dirname "$(dirname "$(readlink -f "${APP_ROOT}/slots/${active_port}")")")"
+  prev_target=""
+  [[ -n "${previous_port}" && -L "${APP_ROOT}/slots/${previous_port}" ]] \
+    && prev_target="$(dirname "$(dirname "$(readlink -f "${APP_ROOT}/slots/${previous_port}")")")"
+
+  log "prune: keeping active slot ${active_port} and rollback slot ${previous_port}"
+
+  local dir size
+  for dir in "${APP_ROOT}/releases/"*/; do
+    [[ -d "${dir}" ]] || continue
+    dir="${dir%/}"
+    [[ "${dir}" != "${active_target}" && "${dir}" != "${prev_target}" ]] || { kept=$((kept+1)); continue; }
+    size="$(du -sh "${dir}" 2>/dev/null | awk '{print $1}')"
+    rm -rf "${dir}"
+    removed=$((removed+1))
+    log "prune: removed ${dir##*/} (${size})"
+  done
+
+  log "prune complete: kept=${kept} removed=${removed}"
+}
+
 show_status() {
   assert_production
   health_json "${PROD_PORT}" | python3 -m json.tool
@@ -654,8 +682,9 @@ main() {
     promote) promote_release "${2:-}" ;;
     rollback) rollback_release ;;
     cleanup) cleanup_release "${2:-}" ;;
+    prune) prune_releases ;;
     status) show_status ;;
-    *) die "usage: $0 {stage <ref>|approve <release-id> <evidence>|promote <release-id>|rollback|cleanup <release-id>|status}" ;;
+    *) die "usage: $0 {stage <ref>|approve <release-id> <evidence>|promote <release-id>|rollback|cleanup <release-id>|prune|status}" ;;
   esac
 }
 
