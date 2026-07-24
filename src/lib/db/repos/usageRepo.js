@@ -16,8 +16,8 @@ import {
 
 function maskApiKey(key) {
   if (!key || typeof key !== "string") return null;
-  if (key.length <= 12) return key.charAt(0) + "***";
-  return key.slice(0, 12) + "***";
+  if (key.length <= 8) return key.charAt(0) + "***";
+  return key.slice(0, 8) + "***";
 }
 
 const RING_CAP = 50;
@@ -225,25 +225,23 @@ export async function getActiveRequests() {
   }
 
   // Load API key names so live-poll / SSE path also resolves apiKeyName
-  // Key names are resolved by matching keyPrefix (first 12 chars) since apiKeys
-  // no longer returns the full raw key, only keyPrefix.
   const { getApiKeys } = await import("./apiKeysRepo.js");
   let allApiKeys = [];
   try { allApiKeys = await getApiKeys(); } catch {}
   const apiKeyMap = {};
-  for (const k of allApiKeys) if (k.keyPrefix) apiKeyMap[k.keyPrefix] = k.name;
+  for (const k of allApiKeys) apiKeyMap[k.key] = k.name;
 
   const recentRequests = mapRecentToUi(ringItems);
   // Resolve apiKeyName from the original ring items without exposing raw keys
   const keyLookup = {};
   for (const ri of ringItems) {
     const id = `${ri.timestamp}|${ri.model}|${ri.provider}`;
-    keyLookup[id] = ri.apiKey ? ri.apiKey.slice(0, 12) : null;
+    keyLookup[id] = ri.apiKey;
   }
   for (const rr of recentRequests) {
     const id = `${rr.timestamp}|${rr.model}|${rr.provider}`;
-    const keyPrefix = keyLookup[id];
-    rr.apiKeyName = (keyPrefix && apiKeyMap[keyPrefix]) || null;
+    const rawKey = keyLookup[id];
+    rr.apiKeyName = (rawKey && apiKeyMap[rawKey]) || null;
   }
 
   const errorProvider = (await getLastErrorProvider()) || "";
@@ -266,7 +264,6 @@ export async function saveRequestUsageViaRedis(entry) {
   if (!entry) return;
   if (!entry.timestamp) entry.timestamp = new Date().toISOString();
   entry.cost = await calculateCost(entry.provider, entry.model, entry.tokens);
-  entry.apiKey = maskApiKey(entry.apiKey);
 
   const result = await enqueueUsageEvent({
     timestamp: entry.timestamp,
@@ -302,7 +299,6 @@ async function saveRequestUsageDirect(entry) {
 
     if (!entry.timestamp) entry.timestamp = new Date().toISOString();
     entry.cost = await calculateCost(entry.provider, entry.model, entry.tokens);
-    entry.apiKey = maskApiKey(entry.apiKey);
 
     const tokens = entry.tokens || {};
     const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
@@ -452,7 +448,7 @@ export async function getUsageStats(period = "all") {
   let allApiKeys = [];
   try { allApiKeys = await getApiKeys(); } catch {}
   const apiKeyMap = {};
-  for (const k of allApiKeys) if (k.keyPrefix) apiKeyMap[k.keyPrefix] = { name: k.name, id: k.id, createdAt: k.createdAt };
+  for (const k of allApiKeys) apiKeyMap[k.key] = { name: k.name, id: k.id, createdAt: k.createdAt };
 
   // recentRequests from live history (last 100 entries enough for 20 deduped)
   const recentRows = db.all(`SELECT timestamp, provider, model, apiKey, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
@@ -462,7 +458,7 @@ export async function getUsageStats(period = "all") {
       const t = parseJson(r.tokens, {}) || {};
       return {
         timestamp: r.timestamp, model: r.model, provider: r.provider || "",
-        apiKeyName: (r.apiKey && apiKeyMap[r.apiKey.slice(0, 12)])?.name || null,
+        apiKeyName: apiKeyMap[r.apiKey]?.name || null,
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         cachedTokens: t.cached_tokens || t.cache_read_input_tokens || 0,
@@ -698,7 +694,7 @@ export async function getUsageStats(period = "all") {
       }
 
       if (r.apiKey && typeof r.apiKey === "string") {
-        const keyInfo = apiKeyMap[r.apiKey.slice(0, 12)];
+        const keyInfo = apiKeyMap[r.apiKey];
         const keyName = keyInfo?.name || r.apiKey.slice(0, 8) + "...";
         const apiKeyMasked = maskApiKey(r.apiKey);
         const akKey = `${apiKeyMasked}|${r.model}|${r.provider || "unknown"}`;

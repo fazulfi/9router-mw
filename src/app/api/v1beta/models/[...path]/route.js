@@ -177,7 +177,7 @@ function buildGeminiNativeUrl(requestUrl, model, action) {
   return upstreamUrl.toString();
 }
 
-async function validateGeminiNativeClientKey(request, model) {
+async function validateGeminiNativeClientKey(request) {
   const settings = await getSettings();
   if (!settings.requireApiKey) return null;
 
@@ -186,7 +186,7 @@ async function validateGeminiNativeClientKey(request, model) {
     return Response.json({ error: { message: "Missing API key" } }, { status: 401 });
   }
 
-  const valid = await isValidApiKey(apiKey, { model });
+  const valid = await isValidApiKey(apiKey);
   if (!valid) {
     return Response.json({ error: { message: "Invalid API key" } }, { status: 401 });
   }
@@ -236,7 +236,7 @@ function getSafeGeminiNativeErrorText(error) {
 }
 
 async function forwardGeminiNativeRequest(request, body, model, action) {
-  const authError = await validateGeminiNativeClientKey(request, model);
+  const authError = await validateGeminiNativeClientKey(request);
   if (authError) return authError;
 
   const modelId = normalizeGeminiNativeModel(model);

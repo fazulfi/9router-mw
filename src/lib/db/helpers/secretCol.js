@@ -13,10 +13,7 @@ function deriveKey() {
     const raw = machineIdSync();
     return crypto.createHash("sha256").update(raw + ENCRYPT_SALT).digest();
   } catch {
-    throw new Error(
-      "DB_ENCRYPTION_KEY not set and machine-id unavailable. " +
-      "Set DB_ENCRYPTION_KEY environment variable or ensure node-machine-id works."
-    );
+    return crypto.createHash("sha256").update(ENCRYPT_SALT).digest();
   }
 }
 
