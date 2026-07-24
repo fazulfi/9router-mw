@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { LEGACY_FILES, DB_DIR } from "./paths.js";
@@ -142,9 +143,12 @@ function importLegacyMain(adapter, data) {
   }, (p) => ({ id: p.id ?? null }));
 
   importWithAssertion(adapter, "apiKeys", data.apiKeys || [], (k) => {
+    const keyHash = crypto.createHash("sha256").update(k.key).digest("hex");
+    const keyPrefix = k.key.slice(0, 12);
+    const defaultScope = JSON.stringify({ models: ["*"], providers: ["*"], maxDailySpend: null, maxRatePerMin: null });
     adapter.run(
-      `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?)`,
-      [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
+      `INSERT OR REPLACE INTO apiKeys(id, key, keyHash, keyPrefix, name, machineId, isActive, scope, createdAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [k.id, k.key, keyHash, keyPrefix, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.scope || defaultScope, k.createdAt || new Date().toISOString()]
     );
   }, (k) => ({ id: k.id ?? null, name: k.name ?? null }));
 
@@ -218,6 +222,19 @@ export async function runMigrationOnce(adapter) {
   if (_migratedAdapters.has(adapter)) return;
   _migratedAdapters.add(adapter);
 
+  // Boot-time encryption check: warn if neither DB_ENCRYPTION_KEY nor
+  // machine-id is available (encryption will fail when storing keys).
+  if (!process.env.DB_ENCRYPTION_KEY) {
+    try {
+      const { machineIdSync } = require("node-machine-id");
+      machineIdSync();
+    } catch {
+      console.warn(
+        "WARNING: No DB_ENCRYPTION_KEY and machine-id unavailable. Encryption will fail.",
+      );
+    }
+  }
+
   // Capture freshness BEFORE migrations stamp _meta (otherwise we'd misclassify
   // a brand-new DB as non-fresh once schemaVersion is written).
   const fresh = isFreshDb(adapter);
@@ -288,6 +305,15 @@ export async function runMigrationOnce(adapter) {
     pruneOldBackups();
     console.log(`[DB][migrate] JSON → SQLite in ${Date.now() - t0}ms | legacy JSON kept at DATA_DIR | backup: ${backupDir}`);
     return;
+  }
+
+  // Auto-purge audit logs older than 90 days
+  try {
+    adapter.run(
+      `DELETE FROM apiKeyAudit WHERE timestamp < datetime('now', '-90 days')`,
+    );
+  } catch {
+    // apiKeyAudit table may not exist yet on first run after schema sync
   }
 
   // Track app version for informational purposes only. App version bumps no
