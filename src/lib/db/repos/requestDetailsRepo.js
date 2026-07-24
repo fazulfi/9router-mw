@@ -1,5 +1,6 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { encryptSecretJson } from "../helpers/secretCol.js";
 
 const DEFAULT_MAX_RECORDS = 200;
 const DEFAULT_BATCH_SIZE = 20;
@@ -105,9 +106,16 @@ async function flushToDatabase() {
             pxpipe: item.pxpipe || undefined,
           };
 
+          const encryptColumns = process.env.ENCRYPT_REQUEST_DETAILS === "true";
+          const dataStr = encryptColumns
+            ? encryptSecretJson(record)
+            : stringifyJson(record);
+          const apiKeyCol = encryptColumns ? encryptSecretJson({ v: record.apiKey }) : record.apiKey;
+          const apiKeyNameCol = encryptColumns ? encryptSecretJson({ v: record.apiKeyName }) : record.apiKeyName;
+
           db.run(
             `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, apiKey, apiKeyName, status, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, apiKey = excluded.apiKey, apiKeyName = excluded.apiKeyName, status = excluded.status, data = excluded.data`,
-            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.apiKey, record.apiKeyName, record.status, stringifyJson(record)]
+            [record.id, record.timestamp, record.provider, record.model, record.connectionId, apiKeyCol, apiKeyNameCol, record.status, dataStr]
           );
         }
 
