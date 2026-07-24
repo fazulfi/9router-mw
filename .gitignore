@@ -60,6 +60,8 @@ docs/*
 !docs/RELEASE.md
 !docs/bench/
 !docs/bench/**
+!docs/runtime-deployment/
+!docs/runtime-deployment/**
 test/*
 open-sse/test/*
 RM.vn.md
