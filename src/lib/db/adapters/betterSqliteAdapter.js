@@ -5,7 +5,7 @@ import { PRAGMA_SQL } from "../schema.js";
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
 
 export function createBetterSqliteAdapter(filePath) {
-  const db = new Database(filePath);
+  const db = new Database(filePath, { timeout: 5000 });
   db.exec(PRAGMA_SQL);
   // Schema is created/synced by migrate.js after adapter init
 
