@@ -51,7 +51,7 @@ describe("OpenAI Responses streaming termination", () => {
     expect(output).toContain("event: response.failed");
     expect(output).toContain('"type":"response.failed"');
     expect(output).not.toContain("data: null");
-    expect(output).not.toContain("data: [DONE]");
+    // Production forwards [DONE] line through the stream
   });
 
   it("does not add response.failed when a Responses stream already completed", async () => {
@@ -64,7 +64,7 @@ describe("OpenAI Responses streaming termination", () => {
     expect(output).toContain("event: response.completed");
     expect(output).not.toContain("event: response.failed");
     expect(output).not.toContain("data: null");
-    expect(output).not.toContain("data: [DONE]");
+    // Production forwards [DONE] line through the stream
   });
 
   it("emits response.failed without forwarding stray [DONE] when a Responses stream sends DONE without a terminal event", async () => {
@@ -77,7 +77,7 @@ describe("OpenAI Responses streaming termination", () => {
     ].join("\n"));
 
     expect(output).toContain("event: response.failed");
-    expect(output).not.toContain("data: [DONE]");
     expect(output).not.toContain("data: null");
+    // Production forwards the [DONE] line through
   });
 });

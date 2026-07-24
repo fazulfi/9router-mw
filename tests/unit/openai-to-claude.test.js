@@ -194,7 +194,20 @@ describe("openaiToClaudeResponse", () => {
     };
 
     const result = openaiToClaudeResponse(chunk, state);
-    const inputDelta = result.find(event => event.delta?.type === "input_json_delta");
+
+    // input_json_delta is only emitted at finish_reason when buffered args are flushed
+    // First chunk just buffers args; send a second chunk with finish_reason to flush
+    const finishChunk = {
+      id: "chatcmpl-test",
+      model: "gpt-test",
+      choices: [{
+        delta: {},
+        finish_reason: "tool_calls"
+      }]
+    };
+    const finishResult = openaiToClaudeResponse(finishChunk, state);
+    const allResults = [...result, ...finishResult];
+    const inputDelta = allResults.find(event => event.delta?.type === "input_json_delta");
 
     expect(inputDelta).toBeDefined();
     expect(JSON.parse(inputDelta.delta.partial_json)).toEqual({

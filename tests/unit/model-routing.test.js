@@ -5,6 +5,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const originalDataDir = process.env.DATA_DIR;
 
+// On Windows, SQLite's WAL journal files may still be open when we try to
+// remove the temp directory. Don't block the hook — warn and move on.
+function rmDirRetry(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (e) {
+    console.warn(`[cleanup] Could not remove ${dir}: ${e.code} — process exit will release handles`);
+  }
+}
+
 async function setupDb() {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-model-routing-"));
   process.env.DATA_DIR = tempDir;
@@ -17,7 +27,7 @@ async function setupDb() {
     createProviderNode,
     getModelInfo,
     cleanup() {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      rmDirRetry(tempDir);
     },
   };
 }

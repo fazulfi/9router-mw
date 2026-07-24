@@ -29,6 +29,8 @@ describe("xai/token-refresh wrapper", () => {
 
   it("refreshTokenByProvider returns expiresIn for refreshed xai tokens", async () => {
     vi.resetModules();
+    // Clear the cached XaiService singleton so the dynamic import picks up the mock
+    delete globalThis._xaiServiceSingleton;
     vi.doMock("../../src/lib/oauth/services/xai.js", () => ({
       XaiService: class {
         async refreshAccessToken(refreshToken) {

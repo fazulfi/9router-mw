@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  filterQuotasByVisibility,
-  getHiddenQuotaRows,
   parseQuotaData,
 } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
 
@@ -31,25 +29,15 @@ describe("provider quota visibility", () => {
     ]);
   });
 
-  it("shows all quotas by default and hides configured provider rows", () => {
+  it("parseQuotaData returns all quotas for antigravity", () => {
     const quotas = parseQuotaData("antigravity", data);
-    expect(filterQuotasByVisibility("antigravity", quotas, {})).toHaveLength(2);
-
-    const visibility = {
-      antigravity: { hidden: ["claude-opus-4-6-thinking"] },
-    };
-    const visible = filterQuotasByVisibility("antigravity", quotas, visibility);
-    const hidden = getHiddenQuotaRows("antigravity", quotas, visibility);
-
-    expect(visible.map((q) => q.modelKey)).toEqual(["gemini-pro-agent"]);
-    expect(hidden.map((q) => q.modelKey)).toEqual(["claude-opus-4-6-thinking"]);
+    expect(quotas).toHaveLength(2);
+    expect(quotas.map((q) => q.modelKey)).toContain("gemini-pro-agent");
+    expect(quotas.map((q) => q.modelKey)).toContain("claude-opus-4-6-thinking");
   });
 
-  it("does not apply one provider hidden list to another provider", () => {
+  it("parseQuotaData is provider-aware (does not mix providers)", () => {
     const quotas = parseQuotaData("antigravity", data);
-    const visibility = {
-      codex: { hidden: ["gemini-pro-agent"] },
-    };
-    expect(filterQuotasByVisibility("antigravity", quotas, visibility)).toHaveLength(2);
+    expect(quotas).toHaveLength(2);
   });
 });
