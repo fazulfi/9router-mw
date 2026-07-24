@@ -1,5 +1,7 @@
 const cluster = require("cluster");
 const http = require("http");
+const path = require("path");
+const { fork } = require("child_process");
 
 /**
  * 9router-mw multi-worker entry (Fase 3).
@@ -86,6 +88,59 @@ if (isPrimary) {
   for (let i = 1; i <= workerCount; i++) {
     forkWorker(i, workerCount);
   }
+
+  // ─── Dedicated SQLite writer ──────────────────────────────────────
+  const writerPath = path.join(__dirname, "primary-writer.mjs");
+  let writerProcess = null;
+
+  function startWriter() {
+    if (writerProcess) {
+      try { writerProcess.kill(); } catch {}
+    }
+    writerProcess = fork(writerPath, [], {
+      stdio: ["pipe", "pipe", "pipe", "ipc"],
+      env: { ...process.env },
+    });
+
+    writerProcess.on("message", (msg) => {
+      if (msg?.type === "writer:ready") {
+        console.log(`[writer] online pid=${msg.pid}`);
+      } else if (msg?.type === "writer:pong") {
+        global.__writerHealth = msg;
+      }
+    });
+
+    writerProcess.on("exit", (code, signal) => {
+      console.error(`[writer] exited code=${code} signal=${signal}, restarting in 2s`);
+      setTimeout(startWriter, 2000);
+    });
+
+    writerProcess.stdout.on("data", (d) => process.stdout.write(`[writer] ${d}`));
+    writerProcess.stderr.on("data", (d) => process.stderr.write(`[writer] ${d}`));
+  }
+
+  startWriter();
+
+  // Poll writer health every 10s
+  setInterval(() => {
+    if (writerProcess && writerProcess.connected) {
+      writerProcess.send({ type: "writer:ping" });
+    }
+  }, 10000).unref();
+
+  // Graceful shutdown: writer first, then workers
+  function shutdownCluster() {
+    console.log("[9router-mw] shutting down cluster...");
+    if (writerProcess) {
+      writerProcess.send({ type: "shutdown" });
+      setTimeout(() => { try { writerProcess.kill(); } catch {} }, 3000);
+    }
+    for (const id in cluster.workers) {
+      cluster.workers[id].kill();
+    }
+  }
+  process.on("SIGTERM", shutdownCluster);
+  process.on("SIGINT", shutdownCluster);
 
   let nextSlot = workerCount + 1;
   cluster.on("exit", (worker, code, signal) => {

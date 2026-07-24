@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { pingRedis, getRedisHealthSnapshot } from "open-sse/services/redisClient.js";
+import { pingRedis, getRedis, getRedisHealthSnapshot } from "open-sse/services/redisClient.js";
 import { getHotPathAgentInfo } from "open-sse/utils/proxyFetch.js";
 
 const CORS_HEADERS = {
@@ -42,6 +42,20 @@ export async function GET() {
     };
   }
 
+  // Writer health from Redis (shared by dedicated writer process via primary-writer.mjs)
+  let writer = { ok: false, pid: null, uptime: null, status: "unavailable" };
+  try {
+    const r = await getRedis();
+    if (r) {
+      const raw = await r.get("mw:writer:health");
+      if (raw) {
+        writer = { ...JSON.parse(raw), status: "online" };
+      }
+    }
+  } catch {
+    /* writer status not critical for liveness */
+  }
+
   let hotpath = {
     undici: getHotPathAgentInfo(),
     sqlite: { driver: null, journalMode: null },
@@ -72,6 +86,7 @@ export async function GET() {
     workers: process.env.MW_WORKER_COUNT ? Number(process.env.MW_WORKER_COUNT) : null,
     redis,
     hotpath,
+    writer,
   };
   return NextResponse.json(body, { headers: CORS_HEADERS });
 }

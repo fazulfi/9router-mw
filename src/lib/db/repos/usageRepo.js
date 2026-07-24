@@ -2,6 +2,10 @@ import { EventEmitter } from "events";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
+import { enqueueUsageEvent } from "open-sse/services/usageBuffer.js";
+
+// Writer mode: if enabled, usage goes through Redis → dedicated writer process
+const MW_WRITER_MODE = process.env.MW_WRITER_MODE === "1";
 import {
   adjustPending,
   getPendingSnapshot,
@@ -245,6 +249,51 @@ export async function getActiveRequests() {
 }
 
 export async function saveRequestUsage(entry) {
+  // Writer mode: route through Redis → dedicated writer process
+  if (MW_WRITER_MODE) {
+    return saveRequestUsageViaRedis(entry);
+  }
+  return saveRequestUsageDirect(entry);
+}
+
+/**
+ * Alternative: sends usage event to Redis queue for dedicated writer.
+ * Workers call this when MW_WRITER_MODE=1 instead of direct SQLite.
+ */
+export async function saveRequestUsageViaRedis(entry) {
+  if (!entry) return;
+  if (!entry.timestamp) entry.timestamp = new Date().toISOString();
+  entry.cost = await calculateCost(entry.provider, entry.model, entry.tokens);
+
+  const result = await enqueueUsageEvent({
+    timestamp: entry.timestamp,
+    provider: entry.provider || null,
+    model: entry.model || null,
+    connectionId: entry.connectionId || null,
+    apiKey: entry.apiKey || null,
+    endpoint: entry.endpoint || null,
+    tokens: entry.tokens || {},
+    cost: entry.cost || 0,
+    status: entry.status || "ok",
+  });
+
+  // Ring tetap di-populate di worker untuk dashboard real-time
+  // (local in-process - selalu tersedia, tidak bergantung Redis)
+  pushToRing(entry);
+  scheduleStatsEvent("update", 250);
+
+  // Redis down fallback: write langsung ke SQLite lewat adapter
+  // enqueueUsageEvent fallback mengembalikan {mode:"direct"} tapi
+  // tidak persist data karena flushHandler=null di worker process.
+  if (result.mode !== "redis") {
+    await saveRequestUsageDirect(entry);
+  }
+}
+
+/**
+ * Direct SQLite write (original implementation, also used when MW_WRITER_MODE=0).
+ */
+async function saveRequestUsageDirect(entry) {
   try {
     const db = await getAdapter();
 
