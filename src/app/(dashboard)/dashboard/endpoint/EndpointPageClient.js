@@ -24,6 +24,15 @@ export default function APIPageClient({ machineId }) {
   const [newKeyName, setNewKeyName] = useState("");
   const [createdKey, setCreatedKey] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [scopeOption, setScopeOption] = useState("allowAll");
+  const [scope, setScope] = useState({ models: ["*"], providers: ["*"], maxRatePerMin: null, maxDailySpend: null });
+  const [rotateState, setRotateState] = useState(null);
+  const [rotateResult, setRotateResult] = useState(null);
+  const [expandedAudit, setExpandedAudit] = useState(new Set());
+  const [editingScope, setEditingScope] = useState(null);
+  const [scopeEdit, setScopeEdit] = useState(null);
+  const [auditData, setAuditData] = useState({});
 
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
@@ -611,10 +620,21 @@ export default function APIPageClient({ machineId }) {
     if (!newKeyName.trim()) return;
 
     try {
+      const body = scopeOption === "restrict"
+        ? {
+            name: newKeyName,
+            scope: {
+              models: scope.models.length ? scope.models : ["*"],
+              providers: scope.providers.length ? scope.providers : ["*"],
+              ...(scope.maxRatePerMin != null ? { maxRatePerMin: scope.maxRatePerMin } : {}),
+              ...(scope.maxDailySpend != null ? { maxDailySpend: scope.maxDailySpend } : {}),
+            },
+          }
+        : { name: newKeyName };
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
 
@@ -667,9 +687,71 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  const handleRotateKey = async () => {
+    if (!rotateState) return;
+    const { key, revokeOption, graceDays } = rotateState;
+    try {
+      const res = await fetch(`/api/keys/${key.id}/rotate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          revokeImmediately: revokeOption === "immediate",
+          ...(revokeOption === "grace" ? { graceDays: graceDays || 7 } : {}),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRotateResult(data.newKey || data.key);
+        setRotateState(null);
+        await fetchData();
+      }
+    } catch (error) {
+      console.log("Error rotating key:", error);
+    }
+  };
+
+  const handleUpdateScope = async (keyId, newScope) => {
+    try {
+      const res = await fetch(`/api/keys/${keyId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scope: {
+            models: newScope.models.length ? newScope.models : ["*"],
+            providers: newScope.providers.length ? newScope.providers : ["*"],
+            ...(newScope.maxRatePerMin != null ? { maxRatePerMin: newScope.maxRatePerMin } : {}),
+            ...(newScope.maxDailySpend != null ? { maxDailySpend: newScope.maxDailySpend } : {}),
+          },
+        }),
+      });
+      if (res.ok) {
+        setKeys(prev => prev.map(k => k.id === keyId ? { ...k, scope: newScope } : k));
+        setEditingScope(null);
+      }
+    } catch (error) {
+      console.log("Error updating scope:", error);
+    }
+  };
+
+  const fetchAudit = async (keyId) => {
+    if (auditData[keyId]) return;
+    try {
+      const res = await fetch(`/api/keys/${keyId}/audit`);
+      if (res.ok) {
+        const data = await res.json();
+        setAuditData(prev => ({ ...prev, [keyId]: data.audit || data.events || [] }));
+      } else {
+        setAuditData(prev => ({ ...prev, [keyId]: "unavailable" }));
+      }
+    } catch {
+      setAuditData(prev => ({ ...prev, [keyId]: "unavailable" }));
+    }
+  };
+
   const maskKey = (fullKey) => {
-    if (!fullKey || fullKey.length <= 10) return fullKey || "";
-    return fullKey.slice(0, 6) + "•".repeat(fullKey.length - 10) + fullKey.slice(-4);
+    if (!fullKey) return "";
+    if (fullKey.length <= 12) return fullKey;
+    return fullKey.slice(0, 12) + "••••";
   };
 
   const toggleKeyVisibility = (keyId) => {
@@ -955,7 +1037,12 @@ export default function APIPageClient({ machineId }) {
             <span className="material-symbols-outlined text-primary">vpn_key</span>
             API Keys
           </h2>
-          <Button icon="add" onClick={() => setShowAddModal(true)}>
+          <Button icon="add" onClick={() => {
+            setShowAddModal(true);
+            setScopeOpen(false);
+            setScopeOption("allowAll");
+            setScope({ models: ["*"], providers: ["*"], maxRatePerMin: null, maxDailySpend: null });
+          }}>
             Create Key
           </Button>
         </div>
@@ -992,71 +1079,189 @@ export default function APIPageClient({ machineId }) {
           </div>
         ) : (
           <div className="flex flex-col">
-            {keys.map((key) => (
-              <div
-                key={key.id}
-                className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{key.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="text-xs text-text-muted font-mono">
-                      {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
-                    </code>
-                    <button
-                      onClick={() => toggleKeyVisibility(key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
-                      title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => copy(key.key, key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {copied === key.id ? "check" : "content_copy"}
-                      </span>
-                    </button>
-                  </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    Created {new Date(key.createdAt).toLocaleDateString()}
-                  </p>
-                  {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">Paused</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Toggle
-                    size="sm"
-                    checked={key.isActive ?? true}
-                    onChange={(checked) => {
-                      if (key.isActive && !checked) {
-                        setConfirmState({
-                          title: "Pause API Key",
-                          message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
-                          onConfirm: async () => {
-                            setConfirmState(null);
+            {keys.map((key) => {
+              const scopeAllWild = key.scope?.models?.includes("*") && key.scope?.providers?.includes("*");
+              const isExpiring = key.isActive !== false && key.expiresAt && new Date(key.expiresAt) > new Date();
+              const isExpired = key.isActive !== false && key.expiresAt && new Date(key.expiresAt) <= new Date();
+              const isRevoked = key.isActive === false && key.rotatedFromId && !key.keyPrefix;
+              const formatEvent = (ev) => ev.charAt(0).toUpperCase() + ev.slice(1);
+              return (
+                <div key={key.id}>
+                  <div
+                    className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] ${key.isActive === false ? "opacity-60" : ""}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium">{key.name}</p>
+                        {/* Scope badge */}
+                        {key.scope && (
+                          <button
+                            onClick={() => { setEditingScope(key); setScopeEdit({ ...key.scope }); }}
+                            className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border transition-colors ${
+                              scopeAllWild
+                                ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20 hover:bg-green-500/20"
+                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
+                            }`}
+                            title="Click to edit scope"
+                          >
+                            {scopeAllWild ? "Unrestricted" : "Restricted"}
+                          </button>
+                        )}
+                        {/* Expiring badge */}
+                        {isExpiring && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            Expiring
+                          </span>
+                        )}
+                        {/* Expired badge */}
+                        {isExpired && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                            Expired
+                          </span>
+                        )}
+                        {/* Revoked badge */}
+                        {isRevoked && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-500/10 text-gray-500 dark:text-gray-400 border border-gray-500/20">
+                            Revoked
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="text-xs text-text-muted font-mono">
+                          {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
+                        </code>
+                        <button
+                          onClick={() => toggleKeyVisibility(key.id)}
+                          className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                          title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">
+                            {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => copy(key.key, key.id)}
+                          className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">
+                            {copied === key.id ? "check" : "content_copy"}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-text-muted">
+                          Created {new Date(key.createdAt).toLocaleDateString()}
+                        </p>
+                        {key.expiresAt && (
+                          <p className="text-xs text-amber-500">
+                            Expires {new Date(key.expiresAt).toLocaleDateString()}
+                          </p>
+                        )}
+                        {key.isActive === false && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-500/10 text-gray-500 dark:text-gray-400 border border-gray-500/20">
+                            Paused
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Toggle
+                        size="sm"
+                        checked={key.isActive ?? true}
+                        onChange={(checked) => {
+                          if (key.isActive && !checked) {
+                            setConfirmState({
+                              title: "Pause API Key",
+                              message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
+                              onConfirm: async () => {
+                                setConfirmState(null);
+                                handleToggleKey(key.id, checked);
+                              }
+                            });
+                          } else {
                             handleToggleKey(key.id, checked);
                           }
-                        });
-                      } else {
-                        handleToggleKey(key.id, checked);
-                      }
-                    }}
-                    title={key.isActive ? "Pause key" : "Resume key"}
-                  />
+                        }}
+                        title={key.isActive ? "Pause key" : "Resume key"}
+                      />
+                      <button
+                        onClick={() => setRotateState({ key, revokeOption: "immediate", graceDays: 7 })}
+                        className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                        title="Rotate key"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">refresh</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteKey(key.id)}
+                        className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                  {/* Audit toggle button */}
                   <button
-                    onClick={() => handleDeleteKey(key.id)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                    onClick={() => {
+                      const next = new Set(expandedAudit);
+                      if (next.has(key.id)) {
+                        next.delete(key.id);
+                      } else {
+                        next.add(key.id);
+                        fetchAudit(key.id);
+                      }
+                      setExpandedAudit(next);
+                    }}
+                    className="w-full flex items-center justify-center gap-1 py-1 text-[11px] text-text-muted hover:text-primary transition-colors border-b border-black/[0.03] dark:border-white/[0.03]"
                   >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                    <span className="material-symbols-outlined text-[14px]">
+                      {expandedAudit.has(key.id) ? "expand_less" : "expand_more"}
+                    </span>
+                    {expandedAudit.has(key.id) ? "Hide History" : "Show History"}
                   </button>
+                  {/* Audit panel */}
+                  {expandedAudit.has(key.id) && (
+                    <div className="bg-surface-1/50 border-b border-black/[0.03] dark:border-white/[0.03]">
+                      <div className="px-4 py-3">
+                        {auditData[key.id] === "unavailable" ? (
+                          <p className="text-xs text-text-muted text-center py-2">Audit history coming soon</p>
+                        ) : auditData[key.id] ? (
+                          auditData[key.id].length === 0 ? (
+                            <p className="text-xs text-text-muted text-center py-2">No audit entries yet</p>
+                          ) : (
+                            <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                              {auditData[key.id].slice(0, 20).map((entry, i) => {
+                                const ts = new Date(entry.timestamp || entry.createdAt);
+                                const dateStr = ts.toLocaleString("sv-SE", { hour12: false }).slice(0, 16).replace("T", " ");
+                                const ev = formatEvent(entry.event);
+                                return (
+                                  <div key={i} className="flex items-baseline gap-2 text-xs text-text-muted">
+                                    <span className="font-mono whitespace-nowrap shrink-0">{dateStr}</span>
+                                    <span className="text-text-main shrink-0">{ev}</span>
+                                    {entry.event === "used" && entry.metadata?.model && (
+                                      <span className="truncate">— model: {entry.metadata.model}</span>
+                                    )}
+                                    {entry.event !== "used" && entry.metadata && (
+                                      <span className="truncate text-text-muted">
+                                        {Object.entries(entry.metadata).map(([k, v]) => `${k}: ${v}`).join(", ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )
+                        ) : (
+                          <div className="flex items-center justify-center gap-2 text-xs text-text-muted py-2">
+                            <span className="material-symbols-outlined animate-spin text-[14px]">progress_activity</span>
+                            Loading...
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -1068,6 +1273,9 @@ export default function APIPageClient({ machineId }) {
         onClose={() => {
           setShowAddModal(false);
           setNewKeyName("");
+          setScopeOpen(false);
+          setScopeOption("allowAll");
+          setScope({ models: ["*"], providers: ["*"], maxRatePerMin: null, maxDailySpend: null });
         }}
       >
         <div className="flex flex-col gap-4">
@@ -1077,6 +1285,77 @@ export default function APIPageClient({ machineId }) {
             onChange={(e) => setNewKeyName(e.target.value)}
             placeholder="Production Key"
           />
+
+          {/* Scope Editor */}
+          <div className="border border-border rounded-lg">
+            <button
+              type="button"
+              onClick={() => setScopeOpen(!scopeOpen)}
+              className="w-full flex items-center justify-between p-3 text-sm font-medium text-text-main hover:bg-surface-2/50 transition-colors rounded-lg"
+            >
+              <span className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] text-text-muted">tune</span>
+                Advanced Scope
+              </span>
+              <span
+                className="material-symbols-outlined text-[16px] text-text-muted transition-transform"
+                style={{ transform: scopeOpen ? "rotate(180deg)" : undefined }}
+              >
+                expand_more
+              </span>
+            </button>
+            {scopeOpen && (
+              <div className="p-3 pt-0 border-t border-border">
+                <div className="flex items-center justify-between mb-3 mt-3">
+                  <span className="text-sm text-text-main">Restrict scope</span>
+                  <Toggle
+                    size="sm"
+                    checked={scopeOption === "restrict"}
+                    onChange={(checked) => setScopeOption(checked ? "restrict" : "allowAll")}
+                  />
+                </div>
+                {scopeOption === "restrict" && (
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <label className="text-xs text-text-muted mb-1 block">Models (comma-separated)</label>
+                      <Input
+                        value={scope.models.join(", ")}
+                        onChange={(e) => setScope(prev => ({ ...prev, models: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }))}
+                        placeholder="gpt-4o, claude-3-opus"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-muted mb-1 block">Providers (comma-separated)</label>
+                      <Input
+                        value={scope.providers.join(", ")}
+                        onChange={(e) => setScope(prev => ({ ...prev, providers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }))}
+                        placeholder="openai, anthropic"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-muted mb-1 block">Max RPM</label>
+                      <Input
+                        type="number"
+                        value={scope.maxRatePerMin ?? ""}
+                        onChange={(e) => setScope(prev => ({ ...prev, maxRatePerMin: e.target.value ? Number(e.target.value) : null }))}
+                        placeholder="e.g. 60"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-muted mb-1 block">Max Daily Spend ($)</label>
+                      <Input
+                        type="number"
+                        value={scope.maxDailySpend ?? ""}
+                        onChange={(e) => setScope(prev => ({ ...prev, maxDailySpend: e.target.value ? Number(e.target.value) : null }))}
+                        placeholder="e.g. 50"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
               Create
@@ -1085,6 +1364,9 @@ export default function APIPageClient({ machineId }) {
               onClick={() => {
                 setShowAddModal(false);
                 setNewKeyName("");
+                setScopeOpen(false);
+                setScopeOption("allowAll");
+                setScope({ models: ["*"], providers: ["*"], maxRatePerMin: null, maxDailySpend: null });
               }}
               variant="ghost"
               fullWidth
@@ -1128,6 +1410,163 @@ export default function APIPageClient({ machineId }) {
             Done
           </Button>
         </div>
+      </Modal>
+
+      {/* Rotate Key Modal */}
+      <Modal
+        isOpen={!!rotateState && !rotateResult}
+        title={`Rotate Key: ${rotateState?.key?.name || "API Key"}`}
+        onClose={() => setRotateState(null)}
+      >
+        <div className="flex flex-col gap-4">
+          {rotateState && (
+            <>
+              <p className="text-sm text-text-muted">
+                Replace key{" "}
+                <code className="font-mono text-xs bg-surface-2 px-1 py-0.5 rounded">
+                  {maskKey(rotateState.key.key)}
+                </code>{" "}
+                with a new one?
+              </p>
+
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="revokeOption"
+                    checked={rotateState.revokeOption === "immediate"}
+                    onChange={() => setRotateState(prev => ({ ...prev, revokeOption: "immediate" }))}
+                    className="text-primary"
+                  />
+                  Revoke old key immediately
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="revokeOption"
+                    checked={rotateState.revokeOption === "grace"}
+                    onChange={() => setRotateState(prev => ({ ...prev, revokeOption: "grace" }))}
+                    className="text-primary"
+                  />
+                  Keep old key for a grace period
+                </label>
+              </div>
+
+              {rotateState.revokeOption === "grace" && (
+                <div>
+                  <label className="text-xs text-text-muted mb-1 block">Grace period (days)</label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={90}
+                    value={rotateState.graceDays}
+                    onChange={(e) => setRotateState(prev => ({ ...prev, graceDays: Math.max(1, Number(e.target.value)) }))}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button onClick={handleRotateKey} fullWidth>
+                  Rotate Key
+                </Button>
+                <Button onClick={() => setRotateState(null)} variant="ghost" fullWidth>
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Rotate Result Modal */}
+      <Modal
+        isOpen={!!rotateResult}
+        title="Key Rotated"
+        onClose={() => { setRotateResult(null); setRotateState(null); }}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
+              Save the new key now!
+            </p>
+            <p className="text-sm text-yellow-700 dark:text-yellow-300">
+              The old key has been replaced. Store the new key securely.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={rotateResult || ""}
+              readOnly
+              className="flex-1 font-mono text-sm"
+            />
+            <Button
+              variant="secondary"
+              icon={copied === "rotated_key" ? "check" : "content_copy"}
+              onClick={() => copy(rotateResult, "rotated_key")}
+            >
+              {copied === "rotated_key" ? "Copied!" : "Copy"}
+            </Button>
+          </div>
+          <Button onClick={() => { setRotateResult(null); setRotateState(null); }} fullWidth>
+            Done
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Scope Editor Modal */}
+      <Modal
+        isOpen={!!editingScope}
+        title={`Edit Scope: ${editingScope?.name || "API Key"}`}
+        onClose={() => { setEditingScope(null); setScopeEdit(null); }}
+      >
+        {scopeEdit && editingScope && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs text-text-muted mb-1 block">Models (comma-separated)</label>
+                <Input
+                  value={scopeEdit.models?.join(", ") || ""}
+                  onChange={(e) => setScopeEdit(prev => ({ ...prev, models: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }))}
+                  placeholder="gpt-4o, claude-3-opus"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted mb-1 block">Providers (comma-separated)</label>
+                <Input
+                  value={scopeEdit.providers?.join(", ") || ""}
+                  onChange={(e) => setScopeEdit(prev => ({ ...prev, providers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) }))}
+                  placeholder="openai, anthropic"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted mb-1 block">Max RPM</label>
+                <Input
+                  type="number"
+                  value={scopeEdit.maxRatePerMin ?? ""}
+                  onChange={(e) => setScopeEdit(prev => ({ ...prev, maxRatePerMin: e.target.value ? Number(e.target.value) : null }))}
+                  placeholder="e.g. 60"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted mb-1 block">Max Daily Spend ($)</label>
+                <Input
+                  type="number"
+                  value={scopeEdit.maxDailySpend ?? ""}
+                  onChange={(e) => setScopeEdit(prev => ({ ...prev, maxDailySpend: e.target.value ? Number(e.target.value) : null }))}
+                  placeholder="e.g. 50"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => handleUpdateScope(editingScope.id, scopeEdit)} fullWidth>
+                Save
+              </Button>
+              <Button onClick={() => { setEditingScope(null); setScopeEdit(null); }} variant="ghost" fullWidth>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Enable Tunnel Modal */}

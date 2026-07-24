@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -78,13 +78,36 @@ export const TABLES = {
   apiKeys: {
     columns: {
       id: "TEXT PRIMARY KEY",
-      key: "TEXT UNIQUE NOT NULL",
+      key: "TEXT NOT NULL",
+      keyHash: "TEXT UNIQUE NOT NULL",
+      keyPrefix: "TEXT NOT NULL",
       name: "TEXT",
       machineId: "TEXT",
       isActive: "INTEGER DEFAULT 1",
+      scope: "TEXT NOT NULL DEFAULT '{\"models\":[\"*\"],\"providers\":[\"*\"],\"maxDailySpend\":null,\"maxRatePerMin\":null}'",
+      keyVersion: "INTEGER DEFAULT 1",
+      rotationPolicy: "TEXT DEFAULT 'none'",
+      rotationDays: "INTEGER",
+      expiresAt: "TEXT",
+      rotatedFromId: "TEXT REFERENCES apiKeys(id)",
       createdAt: "TEXT NOT NULL",
     },
-    indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_keyhash ON apiKeys(keyHash)"],
+  },
+  apiKeyAudit: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      apiKeyId: "TEXT NOT NULL",
+      apiKeyHash: "TEXT",
+      event: "TEXT NOT NULL",
+      metadata: "TEXT",
+      timestamp: "TEXT NOT NULL DEFAULT (datetime('now'))",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_aka_keyid ON apiKeyAudit(apiKeyId, timestamp DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_aka_event ON apiKeyAudit(event, timestamp DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_aka_hash ON apiKeyAudit(apiKeyHash, timestamp DESC)",
+    ],
   },
   combos: {
     columns: {

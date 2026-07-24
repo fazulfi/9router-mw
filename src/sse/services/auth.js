@@ -1,4 +1,6 @@
-import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+import crypto from "node:crypto";
+import { getProviderConnections, validateKeyScope, updateProviderConnection, getSettings, getProxyPools, logAudit } from "@/lib/localDb";
+import { getAdapter } from "@/lib/db/driver.js";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
@@ -319,7 +321,22 @@ export function extractApiKey(request) {
 /**
  * Validate API key (optional - for local use can skip)
  */
-export async function isValidApiKey(apiKey) {
+export async function isValidApiKey(apiKey, { model, provider } = {}) {
   if (!apiKey) return false;
-  return await validateApiKey(apiKey);
+  const { valid, reason } = await validateKeyScope(apiKey, { model, provider });
+
+  // Audit trail: log every key validation attempt (best-effort)
+  try {
+    const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
+    const db = await getAdapter();
+    logAudit(db, {
+      apiKeyHash: keyHash,
+      event: valid ? "used" : "rejected",
+      metadata: { model, provider, reason: reason || null },
+    });
+  } catch {
+    // Audit failure should never block the request
+  }
+
+  return valid;
 }

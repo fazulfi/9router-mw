@@ -93,7 +93,7 @@ export async function handleChat(request, clientRawRequest = null) {
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
     const valid = await measureRequestPhase(requestTiming.phases, "auth_total_ms", () =>
-      measureRequestPhase(requestTiming.phases, "db_overlap_ms", () => isValidApiKey(apiKey)));
+      measureRequestPhase(requestTiming.phases, "db_overlap_ms", () => isValidApiKey(apiKey, { model: modelStr })));
     if (!valid) {
       log.warn("AUTH", "Invalid API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
