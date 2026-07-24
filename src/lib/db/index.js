@@ -1,4 +1,5 @@
 // Public API barrel — all DB functions
+import crypto from "node:crypto";
 import { getAdapter } from "./driver.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 import { decryptSecretJson, encryptSecretJson } from "./helpers/secretCol.js";
@@ -32,6 +33,7 @@ export {
 // API keys
 export {
   getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
+  validateKeyScope, revealApiKey, rotateApiKey, logAudit,
 } from "./repos/apiKeysRepo.js";
 
 // Combos
@@ -138,9 +140,12 @@ export async function importDb(payload) {
       );
     }
     for (const k of payload.apiKeys || []) {
+      const keyHash = crypto.createHash("sha256").update(k.key).digest("hex");
+      const keyPrefix = k.key.slice(0, 12);
+      const defaultScope = JSON.stringify({ models: ["*"], providers: ["*"], maxDailySpend: null, maxRatePerMin: null });
       db.run(
-        `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?)`,
-        [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
+        `INSERT OR REPLACE INTO apiKeys(id, key, keyHash, keyPrefix, name, machineId, isActive, scope, createdAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [k.id, k.key, keyHash, keyPrefix, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.scope || defaultScope, k.createdAt || new Date().toISOString()]
       );
     }
     for (const c of payload.combos || []) {
