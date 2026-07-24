@@ -256,7 +256,7 @@ setInterval(async () => {
         db: {
           driver: "better-sqlite3",
           file: DATA_FILE,
-          journalMode: db.pragma("journal_mode", true)?.[0],
+          journalMode: db.pragma("journal_mode", { simple: true }),
         },
       }), "EX", 15);
     }
@@ -277,7 +277,7 @@ process.on("message", (msg) => {
         db: {
           driver: "better-sqlite3",
           file: DATA_FILE,
-          journalMode: db.pragma("journal_mode", true)?.[0],
+          journalMode: db.pragma("journal_mode", { simple: true }),
         },
       });
     }
