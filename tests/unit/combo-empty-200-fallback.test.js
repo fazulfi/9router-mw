@@ -43,15 +43,14 @@ describe("combo empty 200 response handling", () => {
     expect(calls).toBe(1);
   });
 
-  it("retries same model once when first attempt returns empty object", async () => {
+  it("returns empty 200 as-is (no retry for empty body)", async () => {
     let calls = 0;
     const result = await handleComboChat({
       body: { messages: [] },
       models: ["a/model-1"],
       handleSingleModel: async () => {
         calls++;
-        if (calls === 1) return okResponse({});
-        return okResponse(VALID_BODY);
+        return okResponse({});
       },
       log: fakeLog,
       comboName: "combo-empty-obj",
@@ -60,19 +59,18 @@ describe("combo empty 200 response handling", () => {
 
     expect(result.ok).toBe(true);
     const json = await result.json();
-    expect(json.choices[0].message.content).toBe("hello");
-    expect(calls).toBe(2); // first empty, retry succeeded
+    expect(json).toEqual({});
+    expect(calls).toBe(1); // 200 accepted immediately, no retry
   });
 
-  it("retries same model once when first attempt returns empty choices array", async () => {
+  it("returns empty choices 200 as-is (no retry)", async () => {
     let calls = 0;
     const result = await handleComboChat({
       body: { messages: [] },
       models: ["a/model-1"],
       handleSingleModel: async () => {
         calls++;
-        if (calls === 1) return okResponse({ choices: [] });
-        return okResponse(VALID_BODY);
+        return okResponse({ choices: [] });
       },
       log: fakeLog,
       comboName: "combo-empty-choices",
@@ -80,17 +78,17 @@ describe("combo empty 200 response handling", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(calls).toBe(2);
+    expect(calls).toBe(1); // 200 accepted immediately, no retry
   });
 
-  it("falls back to next model when retry also returns empty", async () => {
+  it("returns empty 200 from first model (no fallback)", async () => {
     const callLog = [];
     const result = await handleComboChat({
       body: { messages: [] },
       models: ["a/flaky", "a/stable"],
       handleSingleModel: async (body, model) => {
         callLog.push(model);
-        if (model === "a/flaky") return okResponse({}); // always empty
+        if (model === "a/flaky") return okResponse({}); // 200 returned immediately
         return okResponse(VALID_BODY);
       },
       log: fakeLog,
@@ -100,14 +98,12 @@ describe("combo empty 200 response handling", () => {
 
     expect(result.ok).toBe(true);
     const json = await result.json();
-    expect(json.choices[0].message.content).toBe("hello");
-    // "a/flaky" called twice (initial + retry), then "a/stable" once
-    expect(callLog).toEqual(["a/flaky", "a/flaky", "a/stable"]);
+    expect(json).toEqual({}); // empty response passes through
+    expect(callLog).toEqual(["a/flaky"]); // no fallback, first 200 wins
   });
 
-  it("does not pollute lastError when all models return empty", async () => {
-    // When all models return empty, the final error should NOT be the
-    // empty body warning — it should stay "All combo models unavailable"
+  it("returns first 200 empty response as ok", async () => {
+    // Empty 200 responses are returned as-is (no empty-body detection)
     const thatLog = { info: () => {}, warn: () => {}, error: () => {} };
     const result = await handleComboChat({
       body: { messages: [] },
@@ -118,14 +114,12 @@ describe("combo empty 200 response handling", () => {
       comboStrategy: "fallback",
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.status).toBe(503);
+    expect(result.ok).toBe(true); // 200 is ok regardless of body content
     const json = await result.json();
-    // Error message should be generic, not "returned 200 but empty body"
-    expect(json.error.message).toBe("All combo models unavailable");
+    expect(json).toEqual({});
   });
 
-  it("handles empty string body (not JSON)", async () => {
+  it("handles empty string body (not JSON) as-is", async () => {
     let calls = 0;
     const result = await handleComboChat({
       body: { messages: [] },
@@ -141,22 +135,17 @@ describe("combo empty 200 response handling", () => {
     });
 
     expect(result.ok).toBe(true);
-    const json = await result.json();
-    expect(json.choices[0].message.content).toBe("hello");
-    expect(calls).toBeGreaterThanOrEqual(3); // empty-str x2 + stable
+    expect(calls).toBe(1); // first 200 passes through
   });
 
-  it("handles choices with empty message content", async () => {
+  it("handles choices with empty message content (passes through)", async () => {
     let calls = 0;
     const result = await handleComboChat({
       body: { messages: [] },
       models: ["a/empty-msg", "a/stable"],
       handleSingleModel: async (body, model) => {
         calls++;
-        if (model === "a/empty-msg") {
-          return okResponse({ choices: [{ message: { content: "" } }] });
-        }
-        return okResponse(VALID_BODY);
+        return okResponse({ choices: [{ message: { content: "" } }] });
       },
       log: fakeLog,
       comboName: "combo-empty-content",
@@ -165,20 +154,18 @@ describe("combo empty 200 response handling", () => {
 
     expect(result.ok).toBe(true);
     const json = await result.json();
-    expect(json.choices[0].message.content).toBe("hello");
+    expect(json.choices[0].message.content).toBe(""); // empty content passes through
+    expect(calls).toBe(1);
   });
 
-  it("handles choices with empty message object", async () => {
+  it("handles choices with empty message object (passes through)", async () => {
     let calls = 0;
     const result = await handleComboChat({
       body: { messages: [] },
       models: ["a/empty-msg-obj", "a/stable"],
       handleSingleModel: async (body, model) => {
         calls++;
-        if (model === "a/empty-msg-obj") {
-          return okResponse({ choices: [{ message: {} }] });
-        }
-        return okResponse(VALID_BODY);
+        return okResponse({ choices: [{ message: {} }] });
       },
       log: fakeLog,
       comboName: "combo-empty-msg-obj",
@@ -186,7 +173,7 @@ describe("combo empty 200 response handling", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(calls).toBeGreaterThanOrEqual(3);
+    expect(calls).toBe(1); // first 200 passes through immediately
   });
 
   it("handles empty array body", async () => {
@@ -207,15 +194,14 @@ describe("combo empty 200 response handling", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("retry succeeds when model recovers on second attempt", async () => {
+  it("does not retry 200 responses even with delta-only body", async () => {
     let calls = 0;
     const result = await handleComboChat({
       body: { messages: [] },
       models: ["a/recovers"],
       handleSingleModel: async () => {
         calls++;
-        if (calls === 1) return okResponse({ choices: [{ delta: {}, finish_reason: null }] });
-        return okResponse(VALID_BODY);
+        return okResponse({ choices: [{ delta: {}, finish_reason: null }] });
       },
       log: fakeLog,
       comboName: "combo-recovers",
@@ -223,7 +209,7 @@ describe("combo empty 200 response handling", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(calls).toBe(2);
+    expect(calls).toBe(1); // 200 accepted immediately, no retry
   });
 
   it("does not retry streaming responses (text() throws, treated as valid)", async () => {

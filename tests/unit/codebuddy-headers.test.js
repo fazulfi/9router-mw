@@ -11,12 +11,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import DefaultExecutor from "open-sse/executors/default.js";
+import CodeBuddyGlobalExecutor from "open-sse/executors/codebuddy.js";
 
-describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
+describe("CodeBuddyGlobalExecutor.buildHeaders()", () => {
 
   it("should include CLI spoofing headers for CodeBuddy provider", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -29,7 +29,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should set Bearer Authorization when accessToken is provided", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token-123" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -37,7 +37,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should set Bearer Authorization when apiKey is provided", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { apiKey: "api-key-456" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -45,7 +45,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include Accept: text/event-stream when stream=true", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -53,7 +53,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include Content-Type: application/json; charset=utf-8", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -61,7 +61,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include User-Agent header", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -69,7 +69,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-Requested-With: XMLHttpRequest", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -77,7 +77,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-IDE-Type: CLI", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -85,7 +85,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-IDE-Name: CLI", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -93,7 +93,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-IDE-Version: 2.105.2", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -101,7 +101,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-Private-Data: false", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -109,7 +109,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-Domain with default value when not provided", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -117,7 +117,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-Domain with custom value when provided in providerSpecificData", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = {
       accessToken: "test-token",
       providerSpecificData: { domain: "custom.codebuddy.ai" }
@@ -128,7 +128,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should generate X-Request-ID header", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -138,7 +138,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should generate X-Conversation-ID header", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -148,7 +148,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-Conversation-Request-ID header", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -156,7 +156,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-Conversation-Message-ID header", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 
@@ -164,7 +164,7 @@ describe("DefaultExecutor.buildHeaders() — codebuddy provider", () => {
   });
 
   it("should include X-Agent-Intent: craft", () => {
-    const executor = new DefaultExecutor("codebuddy");
+    const executor = new CodeBuddyGlobalExecutor();
     const credentials = { accessToken: "test-token" };
     const headers = executor.buildHeaders(credentials, true);
 

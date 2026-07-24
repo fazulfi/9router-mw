@@ -141,9 +141,9 @@ describe("BaseExecutor.execute — network error retry/fallback", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps the request id across a network retry", async () => {
+  it("keeps the request id across a network error url fallback", async () => {
     const requestId = "019f7fa1-0d8d-7000-8000-000000000001";
-    const ex = makeExec({ baseUrl: "https://x/api", retry: { 502: { attempts: 1, delayMs: 0 } } });
+    const ex = makeExec({ baseUrls: ["https://a/api", "https://b/api"], retry: { 502: { attempts: 1, delayMs: 0 } } });
     fetchMock
       .mockImplementationOnce(async () => { throw new Error("ECONNRESET"); })
       .mockResolvedValueOnce(res(200));

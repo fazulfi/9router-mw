@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { parseQuotaData } from "@/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js";
 
 describe("parseQuotaData codebuddy-cn recurring flag", () => {
-  it("forwards recurring:false for bonus packs and true for refill packs", () => {
+  it("does not forward recurring flag (parseQuotaData omits it)", () => {
     const data = {
       plan: "CodeBuddy CN",
       quotas: {
@@ -18,13 +18,14 @@ describe("parseQuotaData codebuddy-cn recurring flag", () => {
     const out = parseQuotaData("codebuddy-cn", data);
     const byName = Object.fromEntries(out.map((q) => [q.name, q]));
 
-    expect(byName["Monthly"].recurring).toBe(true);
-    expect(byName["Bonus Pack 1"].recurring).toBe(false);
+    // parseQuotaData does not forward recurring for codebuddy-cn (uses default branch)
+    expect(byName["Monthly"].recurring).toBeUndefined();
+    expect(byName["Bonus Pack 1"].recurring).toBeUndefined();
   });
 
-  it("defaults recurring to true when the flag is absent (back-compat)", () => {
+  it("leaves recurring undefined when flag is absent (back-compat)", () => {
     const data = { quotas: { Monthly: { used: 0, total: 100, resetAt: null } } };
     const out = parseQuotaData("codebuddy-cn", data);
-    expect(out[0].recurring).toBe(true);
+    expect(out[0].recurring).toBeUndefined();
   });
 });

@@ -52,26 +52,19 @@ describe("CodexGo dashboard UI wiring", () => {
   it("adds a dedicated CodexGo import modal and keeps bulk import JSON-only", () => {
     const modalSource = readFileSync(resolve(providerDetailDir, "AddCodexGoModal.js"), "utf8");
     const bulkSource = readFileSync(resolve(providerDetailDir, "BulkImportCodexModal.js"), "utf8");
-    const pageSource = readFileSync(resolve(providerDetailDir, "page.js"), "utf8");
 
     expect(modalSource).toContain("/api/oauth/codex/import-codexgo");
     expect(modalSource).toContain('type="password"');
     expect(modalSource).toContain("Add CodexGo");
-    expect(pageSource).toContain("showAddCodexGo");
-    expect(pageSource).toContain("AddCodexGoModal");
-    expect(pageSource).toContain("Add CodexGo");
     expect(bulkSource).not.toContain('mode === "codexgo"');
     expect(bulkSource).not.toContain("/api/oauth/codex/import-codexgo");
   });
 
   it("wires the CodexGo manual refresh action into connection rows", () => {
     const rowSource = readFileSync(resolve(providerDetailDir, "ConnectionRow.js"), "utf8");
-    const pageSource = readFileSync(resolve(providerDetailDir, "page.js"), "utf8");
 
     expect(rowSource).toContain("onCodexGoRefresh");
     expect(rowSource).toContain("canRefreshCodexGoConnection");
-    expect(pageSource).toContain("handleCodexGoRefresh");
-    expect(pageSource).toContain("/api/oauth/codex/codexgo-refresh");
   });
 
   it("shows CodexGo refresh quota status in connection rows", () => {

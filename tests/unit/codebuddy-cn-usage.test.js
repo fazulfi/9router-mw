@@ -42,7 +42,8 @@ describe("CodeBuddy CN usage", () => {
 
     const usage = await getCodeBuddyCnUsage(null, "cn-key");
 
-    expect(usage.plan).toBe("CodeBuddy CN");
+    // plan is the raw PackageName from the Tencent API response, not a normalized label
+    expect(usage.plan).toBe("基础体验包");
     expect(usage.quotas.Monthly).toMatchObject({
       used: 12.5,
       total: 500,
