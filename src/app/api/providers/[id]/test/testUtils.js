@@ -482,7 +482,7 @@ async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null
   });
 }
 
-async function testApiKeyConnection(connection, effectiveProxy = null) {
+export async function testApiKeyConnection(connection, effectiveProxy = null) {
   if (isOpenAICompatibleProvider(connection.provider)) {
     const modelsBase = connection.providerSpecificData?.baseUrl;
     if (!modelsBase) return { valid: false, error: "Missing base URL" };
@@ -863,3 +863,7 @@ export async function testSingleConnection(id) {
 
   return { valid: result.valid, error: result.error, refreshed: !!result.refreshed, latencyMs, testedAt: new Date().toISOString() };
 }
+
+// Exported for unit test introspection. testApiKeyConnection is the raw api-key
+// test dispatch; classifyOAuthProbeResult is shared between OAuth and unit tests.
+export const __test__ = { testApiKeyConnection, classifyOAuthProbeResult };

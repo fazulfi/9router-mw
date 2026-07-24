@@ -30,6 +30,8 @@ export async function refreshCursorToken(refreshToken, log) {
 }
 
 
+let _xaiServiceSingleton;
+
 export async function refreshXaiToken(refreshToken, log) {
   if (!refreshToken) return null;
   return dedupRefresh("xai", refreshToken, async () => {
