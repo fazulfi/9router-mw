@@ -1,3 +1,100 @@
+# v0.5.40-mw.22 — dedicated SQLite writer + deployment SOP + timeout fix
+
+Production deployment of DB8 dedicated SQLite writer eliminating write-path
+contention across 4 cluster workers. Writers are isolated to a dedicated
+child process; workers communicate writes via Redis and never touch the
+database directly.
+
+## Infrastructure
+
+- **DB8 writer process**: dedicated `primary-writer.mjs` child process
+  owned by cluster primary; manages all SQLite writes via Redis-backed queue
+- **Zero-downtime SOP**: `docs/runtime-deployment/` — Nginx upstream switch
+  with isolated staging slot (port 20130) and production slots (20131/20132)
+- **SQLite timeout**: all adapter connections set `busy_timeout=5000` to
+  prevent immediate `SQLITE_BUSY` failures under concurrent startup
+- **Writer-mode gate**: `usageRepo.js` detects writer process and skips
+  direct writes, deferring to the writer path
+
+## Implementation
+
+- PR #6 into fazulfi/9router-mw (3 commits: SOP, writer, timeout fix)
+- Verified: HTTP 200, 4 workers, Redis connected, SQLite WAL
+- Production benchmark: 230-400 req/s, zero runtime errors
+
+# v0.5.40-mw.21 — fix: font-mono API key column in Recent Requests
+
+**Fix**: apply `font-mono` CSS to API key column in the Recent Requests
+table so partial-key previews render in monospace for easy visual scanning.
+
+# v0.5.40-mw.20 — fix: resolve apiKeyName for active-requests SSE path
+
+**Fix**: the SSE-based active-requests endpoint now correctly resolves the
+API key name from the database instead of showing a blank or fallback
+label. Completes the apiKeyName plumbing chain for real-time views.
+
+# v0.5.40-mw.19 — fix: show API key names in recent requests
+
+**Before**: Recent Requests table displayed only the provider column
+without indicating which API key was used for each request.
+
+**After**: Each request row shows the API key name (partial key mask) so
+users can correlate usage per key without leaving the dashboard.
+
+# v0.5.40-mw.18 — fix: persist API key attribution for streams
+
+**Before**: Streaming requests (chat completions, embeddings via SSE)
+recorded request details but did not persist the resolved `apiKeyName`
+and `apiKey` fields, leaving key attribution gaps in the audit trail.
+
+**After**: Stream request-detail records now include `apiKey` and
+`apiKeyName`, closing the last attribution gap.
+
+# v0.5.40-mw.17 — fix: pass apiKeyName through handleSingleModelChat
+
+**Before**: The `handleSingleModelChat` function referenced an undefined
+`apiKeyInfo` variable, causing a `ReferenceError` at runtime and leaving
+`apiKeyName` unset in request details.
+
+**After**: The function receives `apiKeyName` as a direct parameter.
+Chat completions and downstream request-detail records carry the correct
+key name. Additional fixes: conflict markers removed from `schema.js`
+and `chat.js`; `ioredis` dependency added.
+
+# v0.5.40-mw.16 — fix: persist apiKey/apiKeyName in requestDetails
+
+**Before**: Request details stored provider and model info but did not
+capture which API key was used to make each request, making it
+impossible to audit per-key usage patterns.
+
+**After**: `requestDetailsRepo` persists `apiKey` (partial mask) and
+`apiKeyName` for every request. Upstream test regressions fixed.
+Corrupted files from PR #2729 conflict resolution restored.
+
+# v0.5.40-mw.15 — batch: integrate Batch 1 core fixes
+
+Integrates core fixes from upstream decolua/9router covering Gemini
+model updates, console-log capture, and SSE proxy buffering.
+
+## Features
+
+- **Gemini 3.6**: add Flash/Lite model IDs and update endpoints to
+  daily-cloudcode-pa tier routing
+- **pas-router**: port automation features — provider node filter,
+  endpoint search, collapsible sidebar, active request indicator
+- **API keys**: export/import as JSON and TXT files
+
+## Fixes
+
+- **Gemini**: isolate Cloud Code endpoints and verify correct tier
+  routing per model
+- **Console-log**: initialize capture at server boot via instrumentation
+  hook (no more missing startup logs)
+- **SSE proxy**: add `X-Accel-Buffering: no` header to prevent Nginx
+  from buffering streaming responses
+- **API**: decompress `Content-Encoding` on incoming request JSON bodies
+  (accept gzip/deflate from HTTP clients)
+
 # v0.5.40-mw.14 — batch: integrate 9 upstream PRs (stable, failover, models, fixes)
 
 Integrates 9 upstream decolua/9router PRs covering failover resilience,
