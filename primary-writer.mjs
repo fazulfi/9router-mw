@@ -16,12 +16,23 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import Database from "better-sqlite3";
-import { PRAGMA_SQL, TABLES, buildCreateTableSql } from "./src/lib/db/schema.js";
+import { PRAGMA_SQL } from "./src/lib/db/schema.js";
+import { runMigrationOnce } from "./src/lib/db/migrate.js";
 import { startUsageFlusher, stopUsageFlusher } from "./open-sse/services/usageBuffer.js";
+import { startDetailsFlusher, stopDetailsFlusher } from "./open-sse/services/detailsBuffer.js";
 import { getRedis } from "./open-sse/services/redisClient.js";
 import { getAppVersion, timestampSlug } from "./src/lib/db/version.js";
 import { parseJson, stringifyJson } from "./src/lib/db/helpers/jsonCol.js";
 import { calculateCostFromTokens, getPricingForModel } from "./open-sse/providers/pricing.js";
+import {
+  drainWriterCommands,
+  getWriterRuntimeNamespace,
+  sendWriterResponse,
+} from "./src/lib/db/writerRpc.js";
+import {
+  executeWriterCommandLocally,
+  registerWriterAdapter,
+} from "./src/lib/db/writerCommands.js";
 
 // ─── 1b. Inline DATA_DIR + path logic ───────────────────────────
 const APP_NAME = "9router";
@@ -52,7 +63,8 @@ fs.mkdirSync(DB_DIR, { recursive: true });
 fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 
 // ─── 1c. Adapter shim (inline dari betterSqliteAdapter.js) ──────
-const db = new Database(DATA_FILE, { timeout: 5000 });
+const DB_TIMEOUT = Number(process.env.DB_BUSY_TIMEOUT) || 15000;
+const db = new Database(DATA_FILE, { timeout: DB_TIMEOUT });
 db.exec(PRAGMA_SQL);
 
 const stmtCache = new Map();
@@ -67,13 +79,18 @@ function adapterAll(sql, params = []) { return prepare(sql).all(...params); }
 function adapterExec(sql) { return db.exec(sql); }
 function adapterTransaction(fn) { return db.transaction(fn)(); }
 
-// ─── 1d. Create tables ──────────────────────────────────────────
-for (const [tableName, def] of Object.entries(TABLES)) {
-  adapterExec(buildCreateTableSql(tableName, def));
-  for (const idx of def.indexes || []) {
-    try { adapterExec(idx); } catch { /* idempotent */ }
-  }
-}
+const writerAdapter = {
+  driver: "better-sqlite3",
+  run: adapterRun,
+  get: adapterGet,
+  all: adapterAll,
+  exec: adapterExec,
+  transaction: adapterTransaction,
+};
+process.env.MW_WRITER_PROCESS = "1";
+registerWriterAdapter(writerAdapter);
+
+await runMigrationOnce(writerAdapter);
 
 // ─── 1e. metaStore inline ───────────────────────────────────────
 function getMeta(key, fallback = null) {
@@ -195,13 +212,123 @@ async function flushUsageBatch(events) {
   }
 }
 
-// ─── 1g. Main startup ───────────────────────────────────────────
+// ─── 1g. Request details flush ──────────────────────────────────
+function sanitizeHeaders(headers) {
+  if (!headers || typeof headers !== "object") return {};
+  const sensitiveKeys = ["authorization", "x-api-key", "cookie", "token", "api-key"];
+  const sanitized = { ...headers };
+  for (const key of Object.keys(sanitized)) {
+    if (sensitiveKeys.some((s) => key.toLowerCase().includes(s))) delete sanitized[key];
+  }
+  return sanitized;
+}
+
+function generateDetailId(model) {
+  const timestamp = new Date().toISOString();
+  const random = Math.random().toString(36).substring(2, 8);
+  const modelPart = model ? model.replace(/[^a-zA-Z0-9-]/g, "-") : "unknown";
+  return `${timestamp}-${random}-${modelPart}`;
+}
+
+function truncateField(obj, maxSize) {
+  const str = JSON.stringify(obj || {});
+  if (str.length > maxSize) {
+    return { _truncated: true, _originalSize: str.length, _preview: str.substring(0, 200) };
+  }
+  return obj || {};
+}
+
+function stringifyJsonWriter(val) {
+  try { return JSON.stringify(val); } catch { return "{}"; }
+}
+
+const DEFAULT_BATCH_SIZE = 30;
+const DEFAULT_MAX_RECORDS = 200;
+
+async function flushDetailsBatch(details) {
+  let count = 0;
+  let pruned = false;
+  try {
+    adapterTransaction(() => {
+      for (const item of details) {
+        if (!item.id) item.id = generateDetailId(item.model);
+        if (!item.timestamp) item.timestamp = new Date().toISOString();
+        if (item.request?.headers) item.request.headers = sanitizeHeaders(item.request.headers);
+
+        const record = {
+          id: item.id,
+          attemptId: item.attemptId || item.id,
+          correlationId: item.correlationId || null,
+          provider: item.provider || null,
+          model: item.model || null,
+          connectionId: item.connectionId || null,
+          apiKey: item.apiKey || null,
+          apiKeyName: item.apiKeyName || null,
+          timestamp: item.timestamp,
+          status: item.status || null,
+          latency: item.latency || {},
+          tokens: item.tokens || {},
+          request: truncateField(item.request, 5 * 1024),
+          providerRequest: truncateField(item.providerRequest, 5 * 1024),
+          providerResponse: truncateField(item.providerResponse, 5 * 1024),
+          response: truncateField(item.response, 5 * 1024),
+          pxpipe: item.pxpipe || undefined,
+        };
+
+        adapterRun(
+          `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, apiKey, apiKeyName, status, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, apiKey = excluded.apiKey, apiKeyName = excluded.apiKeyName, status = excluded.status, data = excluded.data`,
+          [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.apiKey, record.apiKeyName, record.status, stringifyJsonWriter(record)]
+        );
+        count++;
+      }
+
+      const cnt = adapterGet(`SELECT COUNT(*) as c FROM requestDetails`);
+      if (cnt && cnt.c > DEFAULT_MAX_RECORDS) {
+        adapterRun(
+          `DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`,
+          [cnt.c - DEFAULT_MAX_RECORDS]
+        );
+        pruned = true;
+      }
+    });
+  } catch (e) {
+    console.error(`[writer] details flush failed:`, e.message);
+  }
+  if (count > 0 && (count % 100 === 0 || pruned)) {
+    console.log(`[writer] flushed ${count} details${pruned ? " +pruned" : ""}`);
+  }
+}
+
+// ─── 1h. Main startup ───────────────────────────────────────────
 console.log(`[writer] start pid=${process.pid} db=${DATA_FILE}`);
 
-// Flush function wrapper untuk usageBuffer
+// Flush function wrappers
 const flushFn = async (events) => { await flushUsageBatch(events); };
+const detailsFlushFn = async (details) => { await flushDetailsBatch(details); };
 
 startUsageFlusher(flushFn, { intervalMs: 2000, batchSize: 50 });
+startDetailsFlusher(detailsFlushFn, { intervalMs: 5000, batchSize: 30 });
+
+let writerCommandLoopRunning = true;
+async function flushWriterCommands() {
+  if (!writerCommandLoopRunning) return;
+  try {
+    const requests = await drainWriterCommands(50);
+    for (const request of requests) {
+      try {
+        const result = await executeWriterCommandLocally(request.command, request.args);
+        await sendWriterResponse(request, { ok: true, result });
+      } catch (error) {
+        await sendWriterResponse(request, { ok: false, error: error?.message || "writer command failed" });
+      }
+    }
+  } catch (error) {
+    console.error("[writer] RPC flush failed:", error?.message || error);
+  } finally {
+    if (writerCommandLoopRunning) setTimeout(flushWriterCommands, 25).unref();
+  }
+}
+void flushWriterCommands();
 
 // Periodic checkpoint (60s)
 setInterval(() => {
@@ -242,11 +369,13 @@ setInterval(() => {
 }, 86400000).unref();
 
 // Periodic health publish to Redis (cross-process visibility)
+const WRITER_RUNTIME_NAMESPACE = getWriterRuntimeNamespace();
+const WRITER_HEALTH_KEY = `mw:${WRITER_RUNTIME_NAMESPACE}:writer:health`;
 setInterval(async () => {
   try {
     const redis = await getRedis();
     if (redis) {
-      await redis.set("mw:writer:health", JSON.stringify({
+      await redis.set(WRITER_HEALTH_KEY, JSON.stringify({
         pid: process.pid,
         uptime: process.uptime(),
         ok: true,
@@ -289,13 +418,15 @@ process.on("message", (msg) => {
 // ─── Graceful shutdown ──────────────────────────────────────────
 function shutdown() {
   console.log("[writer] shutting down...");
+  writerCommandLoopRunning = false;
   stopUsageFlusher();
+  stopDetailsFlusher();
   try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
   try { stmtCache.clear(); } catch {}
   try { db.close(); } catch {}
   // Clear Redis health key
   getRedis().then(redis => {
-    if (redis) redis.del("mw:writer:health").catch(() => {});
+    if (redis) redis.del(WRITER_HEALTH_KEY).catch(() => {});
   }).catch(() => {});
   process.exit(0);
 }

@@ -85,13 +85,24 @@ if (isPrimary) {
     `[9router-mw] primary pid=${process.pid} forking workers=${workerCount} (WORKERS=${process.env.WORKERS || "default"})`
   );
 
-  for (let i = 1; i <= workerCount; i++) {
-    forkWorker(i, workerCount);
+  // Boot stagger: delay each worker fork by 2s to reduce concurrent DB init/load.
+  // Workers fork sequentially; each registers its own online listener matched by worker.id.
+  function forkWorkersWithStagger(idx) {
+    if (idx > workerCount) return;
+    const worker = forkWorker(idx, workerCount);
+    const onOnline = (w) => {
+      if (w.id === worker.id) {
+        cluster.removeListener("online", onOnline);
+        setTimeout(() => forkWorkersWithStagger(idx + 1), 2000);
+      }
+    };
+    cluster.on("online", onOnline);
   }
 
   // ─── Dedicated SQLite writer ──────────────────────────────────────
   const writerPath = path.join(__dirname, "primary-writer.mjs");
   let writerProcess = null;
+  let workersStarted = false;
 
   function startWriter() {
     if (writerProcess) {
@@ -105,6 +116,10 @@ if (isPrimary) {
     writerProcess.on("message", (msg) => {
       if (msg?.type === "writer:ready") {
         console.log(`[writer] online pid=${msg.pid}`);
+        if (!workersStarted) {
+          workersStarted = true;
+          forkWorkersWithStagger(1);
+        }
       } else if (msg?.type === "writer:pong") {
         global.__writerHealth = msg;
       }
