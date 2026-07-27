@@ -35,7 +35,7 @@ function cleanupCursorSessions() {
   }
 }
 async function completeXaiManualCode(code, state) {
-  const session = state ? getXaiSessionStatus(state) : null;
+  const session = state ? await getXaiSessionStatus(state) : null;
   if (!session) {
     throw new Error("xAI OAuth session not found; restart the login flow and paste the code again");
   }
@@ -58,7 +58,7 @@ async function completeXaiManualCode(code, state) {
         : null,
       testStatus: "active",
     });
-    clearXaiSession(state);
+    await clearXaiSession(state);
     stopXaiProxy();
     return {
       id: connection.id,
@@ -67,7 +67,7 @@ async function completeXaiManualCode(code, state) {
       displayName: connection.displayName,
     };
   } catch (err) {
-    clearXaiSession(state);
+    await clearXaiSession(state);
     stopXaiProxy();
     throw err;
   }
@@ -125,8 +125,8 @@ export async function GET(request, { params }) {
       let serverSide = false;
       if (result.success && state && codeVerifier && redirectUri) {
         serverSide = provider === "xai"
-          ? registerXaiSession({ state, codeVerifier, redirectUri })
-          : registerCodexSession({ state, codeVerifier, redirectUri });
+          ? await registerXaiSession({ state, codeVerifier, redirectUri })
+          : await registerCodexSession({ state, codeVerifier, redirectUri });
       }
       return NextResponse.json({ ...result, serverSide });
     }
@@ -139,12 +139,12 @@ export async function GET(request, { params }) {
       if (!state) {
         return NextResponse.json({ error: "Missing state" }, { status: 400 });
       }
-      const session = provider === "xai" ? getXaiSessionStatus(state) : getCodexSessionStatus(state);
+      const session = provider === "xai" ? await getXaiSessionStatus(state) : await getCodexSessionStatus(state);
       if (!session) return NextResponse.json({ status: "unknown" });
       if (session.status === "done" || session.status === "error") {
         const payload = { ...session };
-        if (provider === "xai") clearXaiSession(state);
-        else clearCodexSession(state);
+        if (provider === "xai") await clearXaiSession(state);
+        else await clearCodexSession(state);
         return NextResponse.json(payload);
       }
       return NextResponse.json({ status: session.status });

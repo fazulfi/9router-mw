@@ -1,6 +1,12 @@
 import http from "http";
 import { URL } from "url";
 import { CODEX_CONFIG } from "../constants/oauth.js";
+import {
+  registerPendingSession,
+  getPendingSession,
+  updatePendingSession,
+  deletePendingSession,
+} from "./pendingState.js";
 
 /**
  * Start a local HTTP server to receive OAuth callback
@@ -122,36 +128,26 @@ let codexProxyTimeout = null;
 const CODEX_PROXY_TIMEOUT_MS = 300000; // 5 minutes
 const CODEX_PORT = CODEX_CONFIG.fixedPort;
 
-// Pending exchange sessions keyed by state — used by server-side exchange mode
-const pendingExchanges = new Map();
-
 /**
  * Register a pending exchange session for server-side mode.
  * Modal client calls this before opening popup.
  */
-export function registerCodexSession({ state, codeVerifier, redirectUri }) {
-  if (!state || !codeVerifier || !redirectUri) return false;
-  pendingExchanges.set(state, {
-    codeVerifier,
-    redirectUri,
-    status: "pending",
-    createdAt: Date.now(),
-  });
-  return true;
+export async function registerCodexSession({ state, codeVerifier, redirectUri }) {
+  return registerPendingSession("codex", { state, codeVerifier, redirectUri });
 }
 
 /**
  * Read session status (modal polls this).
  */
-export function getCodexSessionStatus(state) {
-  return pendingExchanges.get(state) || null;
+export async function getCodexSessionStatus(state) {
+  return getPendingSession("codex", state);
 }
 
 /**
  * Clear a session (called after modal consumes status).
  */
-export function clearCodexSession(state) {
-  pendingExchanges.delete(state);
+export async function clearCodexSession(state) {
+  return deletePendingSession("codex", state);
 }
 
 function escapeHtml(str) {
@@ -200,7 +196,7 @@ export function startCodexProxy(appPort) {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       const errorParam = url.searchParams.get("error");
-      const session = state ? pendingExchanges.get(state) : null;
+      const session = state ? await getCodexSessionStatus(state) : null;
 
       // Mode A: server-side exchange (session registered)
       if (session) {
@@ -231,15 +227,21 @@ export function startCodexProxy(appPort) {
             testStatus: "active",
           });
 
-          session.status = "done";
-          session.connectionId = connection.id;
-          session.email = connection.email;
+          // Persist final state back to Redis (not in-place mutation)
+          await updatePendingSession("codex", state, {
+            status: "done",
+            connectionId: connection.id,
+            email: connection.email,
+          });
 
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderCodexResultPage(true, "You can close this window."));
         } catch (err) {
-          session.status = "error";
-          session.error = err.message;
+          // Persist error state back to Redis (not in-place mutation)
+          await updatePendingSession("codex", state, {
+            status: "error",
+            error: err.message,
+          });
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderCodexResultPage(false, err.message));
         } finally {
@@ -295,25 +297,16 @@ let xaiProxyServer = null;
 let xaiProxyTimeout = null;
 const XAI_PROXY_TIMEOUT_MS = 300000; // 5 minutes
 const XAI_PROXY_PORT = 56121;
-const xaiPendingExchanges = new Map();
-
-export function registerXaiSession({ state, codeVerifier, redirectUri }) {
-  if (!state || !codeVerifier || !redirectUri) return false;
-  xaiPendingExchanges.set(state, {
-    codeVerifier,
-    redirectUri,
-    status: "pending",
-    createdAt: Date.now(),
-  });
-  return true;
+export async function registerXaiSession({ state, codeVerifier, redirectUri }) {
+  return registerPendingSession("xai", { state, codeVerifier, redirectUri });
 }
 
-export function getXaiSessionStatus(state) {
-  return xaiPendingExchanges.get(state) || null;
+export async function getXaiSessionStatus(state) {
+  return getPendingSession("xai", state);
 }
 
-export function clearXaiSession(state) {
-  xaiPendingExchanges.delete(state);
+export async function clearXaiSession(state) {
+  return deletePendingSession("xai", state);
 }
 
 function renderXaiResultPage(success, message) {
@@ -343,7 +336,7 @@ export function startXaiProxy(appPort) {
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
       const errorParam = url.searchParams.get("error");
-      const session = state ? xaiPendingExchanges.get(state) : null;
+      const session = state ? await getXaiSessionStatus(state) : null;
 
       // Mode A: server-side exchange
       if (session) {
@@ -373,15 +366,21 @@ export function startXaiProxy(appPort) {
             testStatus: "active",
           });
 
-          session.status = "done";
-          session.connectionId = connection.id;
-          session.email = connection.email;
+          // Persist final state back to Redis (not in-place mutation)
+          await updatePendingSession("xai", state, {
+            status: "done",
+            connectionId: connection.id,
+            email: connection.email,
+          });
 
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderXaiResultPage(true, "You can close this window."));
         } catch (err) {
-          session.status = "error";
-          session.error = err.message;
+          // Persist error state back to Redis (not in-place mutation)
+          await updatePendingSession("xai", state, {
+            status: "error",
+            error: err.message,
+          });
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
           res.end(renderXaiResultPage(false, err.message));
         } finally {
