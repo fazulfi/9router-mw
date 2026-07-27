@@ -59,25 +59,27 @@ export async function GET() {
 
   let hotpath = {
     undici: getHotPathAgentInfo(),
-    sqlite: { driver: null, journalMode: null },
+    database: { driver: null, journalMode: null },
   };
   try {
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
     let journalMode = null;
-    try {
-      if (adapter?.raw && typeof adapter.raw.pragma === "function") {
-        journalMode = adapter.raw.pragma("journal_mode", { simple: true });
-      } else if (typeof adapter?.get === "function") {
-        const row = adapter.get("PRAGMA journal_mode");
-        journalMode = row?.journal_mode || row?.["journal_mode"] || null;
+    if (adapter?.driver !== "postgresql") {
+      try {
+        if (adapter?.raw && typeof adapter.raw.pragma === "function") {
+          journalMode = adapter.raw.pragma("journal_mode", { simple: true });
+        } else if (typeof adapter?.get === "function") {
+          const row = await adapter.get("PRAGMA journal_mode");
+          journalMode = row?.journal_mode || null;
+        }
+      } catch {
+        journalMode = null;
       }
-    } catch {
-      /* ignore */
     }
-    hotpath.sqlite = { driver: adapter?.driver || null, journalMode: journalMode || null };
+    hotpath.database = { driver: adapter?.driver || null, journalMode };
   } catch (err) {
-    hotpath.sqlite = { driver: null, journalMode: null, error: err?.message || String(err) };
+    hotpath.database = { driver: null, journalMode: null, error: err?.message || String(err) };
   }
 
   const body = {

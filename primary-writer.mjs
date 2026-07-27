@@ -18,6 +18,8 @@ import os from "node:os";
 import Database from "better-sqlite3";
 import { PRAGMA_SQL } from "./src/lib/db/schema.js";
 import { runMigrationOnce } from "./src/lib/db/migrate.js";
+import { createPgAdapter, createPgPool } from "./src/lib/db/adapters/pgAdapter.js";
+import { ensurePostgresSchema } from "./src/lib/db/adapters/pgSchema.js";
 import { startUsageFlusher, stopUsageFlusher } from "./open-sse/services/usageBuffer.js";
 import { startDetailsFlusher, stopDetailsFlusher } from "./open-sse/services/detailsBuffer.js";
 import { getRedis } from "./open-sse/services/redisClient.js";
@@ -62,43 +64,67 @@ const BACKUPS_DIR = path.join(DB_DIR, "backups");
 fs.mkdirSync(DB_DIR, { recursive: true });
 fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 
-// ─── 1c. Adapter shim (inline dari betterSqliteAdapter.js) ──────
-const DB_TIMEOUT = Number(process.env.DB_BUSY_TIMEOUT) || 15000;
-const db = new Database(DATA_FILE, { timeout: DB_TIMEOUT });
-db.exec(PRAGMA_SQL);
-
+// ─── 1c. Writer adapter ─────────────────────────────────────────
 const stmtCache = new Map();
-function prepare(sql) {
-  let stmt = stmtCache.get(sql);
-  if (!stmt) { stmt = db.prepare(sql); stmtCache.set(sql, stmt); }
-  return stmt;
-}
-function adapterRun(sql, params = []) { return prepare(sql).run(...params); }
-function adapterGet(sql, params = []) { return prepare(sql).get(...params); }
-function adapterAll(sql, params = []) { return prepare(sql).all(...params); }
-function adapterExec(sql) { return db.exec(sql); }
-function adapterTransaction(fn) { return db.transaction(fn)(); }
+let sqliteDb = null;
 
-const writerAdapter = {
-  driver: "better-sqlite3",
-  run: adapterRun,
-  get: adapterGet,
-  all: adapterAll,
-  exec: adapterExec,
-  transaction: adapterTransaction,
-};
+function createSqliteWriterAdapter() {
+  const timeout = Number(process.env.DB_BUSY_TIMEOUT) || 15000;
+  sqliteDb = new Database(DATA_FILE, { timeout });
+  sqliteDb.exec(PRAGMA_SQL);
+  function prepare(sql) {
+    let statement = stmtCache.get(sql);
+    if (!statement) {
+      statement = sqliteDb.prepare(sql);
+      stmtCache.set(sql, statement);
+    }
+    return statement;
+  }
+  return {
+    driver: "better-sqlite3",
+    run(sql, params = []) { return prepare(sql).run(...params); },
+    get(sql, params = []) { return prepare(sql).get(...params); },
+    all(sql, params = []) { return prepare(sql).all(...params); },
+    exec(sql) { return sqliteDb.exec(sql); },
+    transaction(fn) { return sqliteDb.transaction(fn)(); },
+    close() { sqliteDb.close(); },
+    raw: sqliteDb,
+  };
+}
+
+async function createWriterAdapter() {
+  if (process.env.DATABASE_URL) {
+    const pool = await createPgPool(process.env.DATABASE_URL);
+    return createPgAdapter({
+      pool,
+      onPoolError: (error) => console.error(`[writer] PostgreSQL idle client error: ${error?.message || "unknown"}`),
+    });
+  }
+  return createSqliteWriterAdapter();
+}
+
+const writerAdapter = await createWriterAdapter();
 process.env.MW_WRITER_PROCESS = "1";
 registerWriterAdapter(writerAdapter);
 
-await runMigrationOnce(writerAdapter);
+if (writerAdapter.driver === "postgresql") {
+  await ensurePostgresSchema(writerAdapter);
+} else {
+  await runMigrationOnce(writerAdapter);
+}
 
-// ─── 1e. metaStore inline ───────────────────────────────────────
-function getMeta(key, fallback = null) {
-  const row = adapterGet(`SELECT value FROM _meta WHERE key = ?`, [key]);
+async function adapterRun(sql, params = []) { return writerAdapter.run(sql, params); }
+async function adapterGet(sql, params = []) { return writerAdapter.get(sql, params); }
+async function adapterAll(sql, params = []) { return writerAdapter.all(sql, params); }
+async function adapterExec(sql) { return writerAdapter.exec(sql); }
+async function adapterTransaction(fn) { return writerAdapter.transaction(fn); }
+
+async function getMeta(key, fallback = null) {
+  const row = await adapterGet(`SELECT value FROM _meta WHERE key = ?`, [key]);
   return row ? row.value : fallback;
 }
-function setMeta(key, value) {
-  adapterRun(`INSERT INTO _meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [key, String(value)]);
+async function setMeta(key, value) {
+  await adapterRun(`INSERT INTO _meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [key, String(value)]);
 }
 
 // ─── 1f. Core flush function ────────────────────────────────────
@@ -176,8 +202,8 @@ async function flushUsageBatch(events) {
       const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
       const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
 
-      adapterTransaction(() => {
-        adapterRun(
+      await adapterTransaction(async () => {
+        await adapterRun(
           `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             entry.timestamp, entry.provider || null, entry.model || null,
@@ -188,17 +214,17 @@ async function flushUsageBatch(events) {
         );
 
         const dateKey = getLocalDateKey(entry.timestamp);
-        const row = adapterGet(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
+        const row = await adapterGet(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
         const day = row ? parseJson(row.data, {}) : {
           requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0,
           byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
         };
         aggregateEntryToDay(day, entry);
-        adapterRun(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON CONFLICT(dateKey) DO UPDATE SET data = excluded.data`, [dateKey, stringifyJson(day)]);
+        await adapterRun(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON CONFLICT(dateKey) DO UPDATE SET data = excluded.data`, [dateKey, stringifyJson(day)]);
 
-        const cur = adapterGet(`SELECT value FROM _meta WHERE key = 'totalRequestsLifetime'`);
+        const cur = await adapterGet(`SELECT value FROM _meta WHERE key = 'totalRequestsLifetime'`);
         const next = (cur ? parseInt(cur.value, 10) : 0) + 1;
-        adapterRun(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(next)]);
+        await adapterRun(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(next)]);
       });
       count++;
     } catch (e) {
@@ -249,7 +275,7 @@ async function flushDetailsBatch(details) {
   let count = 0;
   let pruned = false;
   try {
-    adapterTransaction(() => {
+    await adapterTransaction(async () => {
       for (const item of details) {
         if (!item.id) item.id = generateDetailId(item.model);
         if (!item.timestamp) item.timestamp = new Date().toISOString();
@@ -275,16 +301,16 @@ async function flushDetailsBatch(details) {
           pxpipe: item.pxpipe || undefined,
         };
 
-        adapterRun(
+        await adapterRun(
           `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, apiKey, apiKeyName, status, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, apiKey = excluded.apiKey, apiKeyName = excluded.apiKeyName, status = excluded.status, data = excluded.data`,
           [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.apiKey, record.apiKeyName, record.status, stringifyJsonWriter(record)]
         );
         count++;
       }
 
-      const cnt = adapterGet(`SELECT COUNT(*) as c FROM requestDetails`);
+      const cnt = await adapterGet(`SELECT COUNT(*) as c FROM requestDetails`);
       if (cnt && cnt.c > DEFAULT_MAX_RECORDS) {
-        adapterRun(
+        await adapterRun(
           `DELETE FROM requestDetails WHERE id IN (SELECT id FROM requestDetails ORDER BY timestamp ASC LIMIT ?)`,
           [cnt.c - DEFAULT_MAX_RECORDS]
         );
@@ -330,43 +356,40 @@ async function flushWriterCommands() {
 }
 void flushWriterCommands();
 
-// Periodic checkpoint (60s)
-setInterval(() => {
-  try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
-}, 60000).unref();
+if (sqliteDb) {
+  setInterval(() => {
+    try { sqliteDb.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
+  }, 60000).unref();
 
-// Periodic ANALYZE + VACUUM (tiap 1 jam)
-setInterval(() => {
-  try { db.exec("ANALYZE"); } catch {}
-  try {
-    const pc = adapterGet("SELECT page_count AS pc FROM pragma_page_count");
-    const fl = adapterGet("SELECT freelist_count AS fl FROM pragma_freelist_count");
-    if (pc && fl && pc.pc > 0 && (fl.fl / pc.pc) > 0.1) {
-      console.log("[writer] freelist >10%, vacuum");
-      db.exec("VACUUM");
-    }
-  } catch {}
-}, 3600000).unref();
+  setInterval(async () => {
+    try { sqliteDb.exec("ANALYZE"); } catch {}
+    try {
+      const pc = await adapterGet("SELECT page_count AS pc FROM pragma_page_count");
+      const fl = await adapterGet("SELECT freelist_count AS fl FROM pragma_freelist_count");
+      if (pc && fl && pc.pc > 0 && (fl.fl / pc.pc) > 0.1) {
+        console.log("[writer] freelist >10%, vacuum");
+        sqliteDb.exec("VACUUM");
+      }
+    } catch {}
+  }, 3600000).unref();
 
-// Periodic backup (tiap 24 jam, keep 3)
-setInterval(() => {
-  try {
-    const ver = getAppVersion();
-    const slug = timestampSlug();
-    const backupDir = path.join(BACKUPS_DIR, `writer-auto-${ver}-${slug}`);
-    fs.mkdirSync(backupDir, { recursive: true });
-    db.backup(path.join(backupDir, "data.sqlite"));
-    const entries = fs.readdirSync(BACKUPS_DIR, { withFileTypes: true })
-      .filter(e => e.isDirectory())
-      .map(e => ({ name: e.name, full: path.join(BACKUPS_DIR, e.name), mtime: fs.statSync(path.join(BACKUPS_DIR, e.name)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime);
-    for (const old of entries.slice(3)) {
-      fs.rmSync(old.full, { recursive: true, force: true });
+  setInterval(() => {
+    try {
+      const ver = getAppVersion();
+      const slug = timestampSlug();
+      const backupDir = path.join(BACKUPS_DIR, `writer-auto-${ver}-${slug}`);
+      fs.mkdirSync(backupDir, { recursive: true });
+      sqliteDb.backup(path.join(backupDir, "data.sqlite"));
+      const entries = fs.readdirSync(BACKUPS_DIR, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => ({ name: e.name, full: path.join(BACKUPS_DIR, e.name), mtime: fs.statSync(path.join(BACKUPS_DIR, e.name)).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime);
+      for (const old of entries.slice(3)) fs.rmSync(old.full, { recursive: true, force: true });
+    } catch (e) {
+      console.error("[writer] backup failed:", e.message);
     }
-  } catch (e) {
-    console.error("[writer] backup failed:", e.message);
-  }
-}, 86400000).unref();
+  }, 86400000).unref();
+}
 
 // Periodic health publish to Redis (cross-process visibility)
 const WRITER_RUNTIME_NAMESPACE = getWriterRuntimeNamespace();
@@ -383,9 +406,9 @@ setInterval(async () => {
         lastFlushCount: lastFlushCount,
         totalFlushed: totalFlushed,
         db: {
-          driver: "better-sqlite3",
-          file: DATA_FILE,
-          journalMode: db.pragma("journal_mode", { simple: true }),
+          driver: writerAdapter.driver,
+          file: sqliteDb ? DATA_FILE : null,
+          journalMode: sqliteDb ? sqliteDb.pragma("journal_mode", { simple: true }) : null,
         },
       }), "EX", 15);
     }
@@ -404,9 +427,9 @@ process.on("message", (msg) => {
         pid: process.pid,
         uptime: process.uptime(),
         db: {
-          driver: "better-sqlite3",
-          file: DATA_FILE,
-          journalMode: db.pragma("journal_mode", { simple: true }),
+          driver: writerAdapter.driver,
+          file: sqliteDb ? DATA_FILE : null,
+          journalMode: sqliteDb ? sqliteDb.pragma("journal_mode", { simple: true }) : null,
         },
       });
     }
@@ -416,18 +439,21 @@ process.on("message", (msg) => {
 });
 
 // ─── Graceful shutdown ──────────────────────────────────────────
-function shutdown() {
+let shuttingDown = false;
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log("[writer] shutting down...");
   writerCommandLoopRunning = false;
   stopUsageFlusher();
   stopDetailsFlusher();
-  try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
-  try { stmtCache.clear(); } catch {}
-  try { db.close(); } catch {}
-  // Clear Redis health key
-  getRedis().then(redis => {
-    if (redis) redis.del(WRITER_HEALTH_KEY).catch(() => {});
-  }).catch(() => {});
+  try { sqliteDb?.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
+  stmtCache.clear();
+  try { await writerAdapter.close(); } catch {}
+  try {
+    const redis = await getRedis();
+    if (redis) await redis.del(WRITER_HEALTH_KEY);
+  } catch {}
   process.exit(0);
 }
 
