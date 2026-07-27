@@ -24,8 +24,26 @@ function insertionSql(table, columns) {
   return `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`;
 }
 
+const LEGACY_TEXT_PRIMARY_KEYS = Object.freeze({
+  providerConnections: "id",
+  providerNodes: "id",
+  proxyPools: "id",
+  apiKeys: "id",
+  combos: "id",
+  usageDaily: "dateKey",
+  requestDetails: "id",
+});
+
 async function readSourceRows(source, table) {
-  return Promise.resolve(source.all(`SELECT * FROM ${table}`));
+  return Promise.resolve(source.all(`SELECT rowid AS migrationRowId, * FROM ${table}`));
+}
+
+function migrationValue(table, row, column) {
+  const primaryKey = LEGACY_TEXT_PRIMARY_KEYS[table];
+  if (column === primaryKey && (row[column] == null || row[column] === "")) {
+    return `migration-${table}-${row.migrationRowId}`;
+  }
+  return row[column] ?? null;
 }
 
 export async function migrateSqliteToPostgres({ source, target }) {
@@ -47,7 +65,7 @@ export async function migrateSqliteToPostgres({ source, target }) {
       const rows = sourceRows.get(table);
       const sql = insertionSql(table, columns);
       for (const row of rows) {
-        await target.run(sql, columns.map((column) => row[column] ?? null));
+        await target.run(sql, columns.map((column) => migrationValue(table, row, column)));
       }
 
       const countRow = await target.get(`SELECT COUNT(*) AS count FROM ${table}`);

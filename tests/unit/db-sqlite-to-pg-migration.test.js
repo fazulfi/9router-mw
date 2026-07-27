@@ -91,6 +91,19 @@ describe("SQLite to PostgreSQL migration", () => {
     expect(target.log.some((entry) => /setval/.test(entry[1] || ""))).toBe(true);
   });
 
+  it("assigns deterministic IDs to legacy rows with null text primary keys", async () => {
+    const { migrateSqliteToPostgres } = await import("../../src/lib/db/postgresMigration.js");
+    const source = new SourceAdapter({
+      combos: [{ migrationRowId: 7, id: null, name: "legacy", kind: "combo", models: "[]" }],
+    });
+    const target = new TargetAdapter();
+
+    await migrateSqliteToPostgres({ source, target });
+
+    const comboInsert = target.log.find((entry) => entry[0] === "run" && /INSERT INTO combos/.test(entry[1]));
+    expect(comboInsert[2][0]).toBe("migration-combos-7");
+  });
+
   it("fails the migration when target row counts diverge", async () => {
     const { migrateSqliteToPostgres } = await import("../../src/lib/db/postgresMigration.js");
     const source = new SourceAdapter({ settings: [{ id: 1, data: "{}" }] });
