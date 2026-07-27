@@ -4,8 +4,11 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
 import { enqueueUsageEvent } from "open-sse/services/usageBuffer.js";
 
-// Writer mode: if enabled, usage goes through Redis → dedicated writer process
-const MW_WRITER_MODE = process.env.MW_WRITER_MODE === "1";
+// Writer mode: if enabled, usage goes through Redis → dedicated writer process.
+// Auto-detected for cluster workers (MW_WORKER_ID set); explicit env override.
+// Cluster primary or standalone: default off unless MW_WRITER_MODE=1.
+const MW_WRITER_MODE = process.env.MW_WRITER_MODE === "1" ||
+  (Boolean(process.env.MW_WORKER_ID) && process.env.MW_WRITER_MODE !== "0");
 import {
   adjustPending,
   getPendingSnapshot,
@@ -282,11 +285,8 @@ export async function saveRequestUsageViaRedis(entry) {
   pushToRing(entry);
   scheduleStatsEvent("update", 250);
 
-  // Redis down fallback: write langsung ke SQLite lewat adapter
-  // enqueueUsageEvent fallback mengembalikan {mode:"direct"} tapi
-  // tidak persist data karena flushHandler=null di worker process.
   if (result.mode !== "redis") {
-    await saveRequestUsageDirect(entry);
+    throw new Error("usage writer queue unavailable");
   }
 }
 
