@@ -1,5 +1,6 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787";
@@ -106,6 +107,11 @@ export async function getSettings() {
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
 export async function updateSettings(updates) {
+  if (shouldUseWriterRpc()) {
+    const result = await executeWriterCommand("updateSettings", [updates]);
+    invalidateSettingsCache();
+    return result;
+  }
   const db = await getAdapter();
   let next;
   db.transaction(() => {

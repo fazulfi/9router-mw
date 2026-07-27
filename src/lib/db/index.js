@@ -2,6 +2,7 @@
 import { getAdapter } from "./driver.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 import { decryptSecretJson, encryptSecretJson } from "./helpers/secretCol.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "./writerRpc.js";
 
 // Settings
 export {
@@ -96,6 +97,7 @@ export async function exportDb() {
 }
 
 export async function importDb(payload) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("importDb", [payload]);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Invalid database payload");
   }
