@@ -334,6 +334,35 @@ stop_staging() {
   docker rm -f "${STAGE_REDIS}" >/dev/null 2>&1 || true
 }
 
+verify_writer_module_graph() {
+  local artifact="$1" probe_data
+  probe_data="$(mktemp -d)"
+  if ! DATA_DIR="${probe_data}" MW_WRITER_PROCESS=1 \
+    node --input-type=module - "${artifact}" <<'NODE'
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+const artifact = process.argv[2];
+const root = path.join(artifact, "src", "lib", "db");
+const files = [];
+function visit(directory) {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) visit(file);
+    else if (entry.name.endsWith(".js")) files.push(file);
+  }
+}
+visit(root);
+for (const file of files.sort()) await import(pathToFileURL(file).href);
+NODE
+  then
+    rm -rf "${probe_data}"
+    die "dedicated writer module graph is not runtime-resolvable"
+  fi
+  rm -rf "${probe_data}"
+}
+
 assemble_artifact() {
   local source="$1" artifact="$2" standalone="${source}/.next/standalone" package
   [[ -d "${standalone}" ]] || die "Next.js standalone output is missing"
@@ -359,6 +388,9 @@ assemble_artifact() {
     rm -rf "${artifact}/src/lib/db"
     mkdir -p "${artifact}/src/lib/db"
     cp -a "${source}/src/lib/db/." "${artifact}/src/lib/db/"
+    cp -a "${source}/src/lib/dataDir.js" "${artifact}/src/lib/dataDir.js"
+    mkdir -p "${artifact}/src/shared/utils"
+    cp -a "${source}/src/shared/utils/apiKey.js" "${artifact}/src/shared/utils/apiKey.js"
   fi
   for package in better-sqlite3 sql.js ioredis undici denque redis-errors \
     redis-parser standard-as-callback cluster-key-slot debug ms \
@@ -374,8 +406,11 @@ assemble_artifact() {
   [[ -f "${artifact}/src/lib/db/schema.js" ]] || die "writer dep schema.js is missing"
   [[ -f "${artifact}/src/lib/db/version.js" ]] || die "writer dep version.js is missing"
   [[ -f "${artifact}/src/lib/db/helpers/jsonCol.js" ]] || die "writer dep jsonCol.js is missing"
+  [[ -f "${artifact}/src/lib/dataDir.js" ]] || die "writer dep dataDir.js is missing"
+  [[ -f "${artifact}/src/shared/utils/apiKey.js" ]] || die "writer dep apiKey.js is missing"
   [[ -d "${artifact}/node_modules/better-sqlite3" ]] || die "better-sqlite3 is missing"
   [[ -d "${artifact}/node_modules/ioredis" ]] || die "ioredis is missing"
+  verify_writer_module_graph "${artifact}"
 }
 
 write_staging_unit() {

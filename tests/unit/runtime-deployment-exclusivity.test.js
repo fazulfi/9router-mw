@@ -104,12 +104,19 @@ describe("runtime deployment exclusivity", () => {
     expect(bootstrap.match(/reconcile_slot_enablement/g)).toHaveLength(3);
   });
 
-  it("assembles writer dependencies without nesting the DB directory", () => {
+  it("assembles the complete dedicated writer dependency tree", () => {
     const assemble = section(runtimeRelease, "assemble_artifact() {", "\n}\n\nwrite_staging_unit() {");
 
     expect(assemble).toContain('rm -rf "${artifact}/src/lib/db"');
     expect(assemble).toContain('cp -a "${source}/src/lib/db/." "${artifact}/src/lib/db/"');
     expect(assemble).not.toContain('cp -a "${source}/src/lib/db" "${artifact}/src/lib/db/"');
+    expect(assemble).toContain('cp -a "${source}/src/lib/dataDir.js" "${artifact}/src/lib/dataDir.js"');
+    expect(assemble).toContain('cp -a "${source}/src/shared/utils/apiKey.js" "${artifact}/src/shared/utils/apiKey.js"');
+    expect(assemble).toContain('[[ -f "${artifact}/src/lib/dataDir.js" ]] || die "writer dep dataDir.js is missing"');
+    expect(assemble).toContain('[[ -f "${artifact}/src/shared/utils/apiKey.js" ]] || die "writer dep apiKey.js is missing"');
+    expect(assemble).toContain('verify_writer_module_graph "${artifact}"');
+    expect(runtimeRelease).toContain('verify_writer_module_graph() {');
+    expect(runtimeRelease).toContain('await import(pathToFileURL(file).href);');
   });
 
   it("accepts four live workers without assuming cluster IDs reset to 1-4", () => {
