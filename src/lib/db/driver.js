@@ -4,6 +4,20 @@ import { ensureDirs, DATA_FILE } from "./paths.js";
 if (!global._dbAdapter) global._dbAdapter = { instance: null, initPromise: null, logged: false };
 const state = global._dbAdapter;
 
+async function tryPostgres(readOnly) {
+  const connectionString = process.env.DATABASE_URL?.trim();
+  if (!connectionString) return null;
+  const { createPgAdapter, createPgPool } = await import("./adapters/pgAdapter.js");
+  const pool = await createPgPool(connectionString);
+  const adapter = createPgAdapter({
+    pool,
+    readOnly,
+    onPoolError: (error) => console.error(`[DB] PostgreSQL idle client error: ${error?.message || "unknown"}`),
+  });
+  await adapter.get("SELECT 1 AS ok");
+  return adapter;
+}
+
 async function tryBunSqlite() {
   // Bun runtime only — built-in, no install needed
   if (!process.versions.bun) return null;
@@ -69,11 +83,16 @@ function isClusterWorker() {
 async function initAdapter() {
   ensureDirs();
   const readOnly = isClusterWorker();
+  const postgresConfigured = Boolean(process.env.DATABASE_URL?.trim());
   const nativeOnly = readOnly || requireNativeSqlite();
+  let adapter = await tryPostgres(readOnly);
+  if (postgresConfigured && !adapter) {
+    throw new Error("[DB] DATABASE_URL is configured but PostgreSQL initialization failed");
+  }
   // Order per runtime:
   //   Bun:  bun:sqlite → (sql.js only if native not required)
   //   Node: better-sqlite3 → node:sqlite (≥22.5) → (sql.js only if native not required)
-  let adapter = readOnly ? null : await tryBunSqlite();
+  if (!adapter) adapter = readOnly ? null : await tryBunSqlite();
   if (!adapter) adapter = await tryBetterSqlite(readOnly);
   if (!adapter) adapter = await tryNodeSqlite(readOnly);
   if (!adapter && !nativeOnly) adapter = await trySqlJs();
@@ -97,8 +116,13 @@ async function initAdapter() {
   }
 
   if (!readOnly) {
-    const { runMigrationOnce } = await import("./migrate.js");
-    await runMigrationOnce(adapter);
+    if (adapter.driver === "postgresql") {
+      const { ensurePostgresSchema } = await import("./adapters/pgSchema.js");
+      await ensurePostgresSchema(adapter);
+    } else {
+      const { runMigrationOnce } = await import("./migrate.js");
+      await runMigrationOnce(adapter);
+    }
   }
   return adapter;
 }
