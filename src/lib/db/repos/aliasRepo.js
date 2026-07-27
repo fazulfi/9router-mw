@@ -38,13 +38,11 @@ export async function addCustomModel({ providerAlias, id, type = "llm", name }) 
   const k = customKey(providerAlias, id, type);
   const db = await getAdapter();
   let added = false;
-  db.transaction(() => {
-    const row = db.get(`SELECT 1 FROM kv WHERE scope = 'customModels' AND key = ?`, [k]);
-    if (row) return;
-    const value = stringifyJson({ providerAlias, id, type, name: name || id });
-    db.run(`INSERT INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, value]);
-    added = true;
-  });
+  await db.transaction(async () => { const row = await db.get(`SELECT 1 FROM kv WHERE scope = 'customModels' AND key = ?`, [k]);
+  if (row) return;
+  const value = stringifyJson({ providerAlias, id, type, name: name || id });
+  await db.run(`INSERT INTO kv(scope, key, value) VALUES('customModels', ?, ?)`, [k, value]);
+  added = true; });
   return added;
 }
 
@@ -56,7 +54,7 @@ export async function deleteCustomModel({ providerAlias, id, type = "llm" }) {
 // mitmAlias: key=toolName, value=mappings object
 export async function getMitmAlias(toolName) {
   if (toolName) {
-    const v = await mitmKv.get(toolName);
+    const v = await await mitmKv.get(toolName);
     return v || {};
   }
   return await mitmKv.getAll();
