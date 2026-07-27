@@ -44,17 +44,15 @@ function connToRow(c) {
   };
 }
 
-function upsert(db, c) {
+async function upsert(db, c) {
   const r = connToRow(c);
-  db.run(
-    `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       provider=excluded.provider, authType=excluded.authType, name=excluded.name,
-       email=excluded.email, priority=excluded.priority, isActive=excluded.isActive,
-       data=excluded.data, updatedAt=excluded.updatedAt`,
-    [r.id, r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt]
-  );
+  await db.run(`INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt)
+   VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   ON CONFLICT(id) DO UPDATE SET
+     provider=excluded.provider, authType=excluded.authType, name=excluded.name,
+     email=excluded.email, priority=excluded.priority, isActive=excluded.isActive,
+     data=excluded.data, updatedAt=excluded.updatedAt`,
+  [r.id, r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt]);
 }
 
 function isCodexGoConnection(connection) {
@@ -68,7 +66,7 @@ export async function getProviderConnections(filter = {}) {
   if (filter.provider) { where.push("provider = ?"); params.push(filter.provider); }
   if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
   const sql = `SELECT * FROM providerConnections${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const rows = db.all(sql, params);
+  const rows = await db.all(sql, params);
   const list = rows.map(rowToConn);
   list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
   return list;
@@ -76,20 +74,20 @@ export async function getProviderConnections(filter = {}) {
 
 export async function getProviderConnectionById(id) {
   const db = await getAdapter();
-  const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
+  const row = await db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
   return rowToConn(row);
 }
 
 // Internal sync reorder — must be called INSIDE a transaction
-function reorderInTx(db, providerId) {
-  const list = db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [providerId]).map(rowToConn);
+async function reorderInTx(db, providerId) {
+  const list = (await db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [providerId])).map(rowToConn);
   list.sort((a, b) => {
     const pDiff = (a.priority || 0) - (b.priority || 0);
     if (pDiff !== 0) return pDiff;
     return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
   });
   list.forEach((c, i) => {
-    db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [i + 1, c.id]);
+    await db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [i + 1, c.id]);
   });
 }
 
@@ -99,66 +97,64 @@ export async function createProviderConnection(data) {
   const now = new Date().toISOString();
   let result;
 
-  db.transaction(() => {
-    const all = db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [data.provider]).map(rowToConn);
+  await db.transaction(async () => { const all = (await db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [data.provider])).map(rowToConn);
 
-    let existing = null;
-    if (data.authType === "oauth" && data.email) {
-      const incomingWs = data.providerSpecificData?.chatgptAccountId;
-      const incomingIsCodexGo = isCodexGoConnection(data);
-      existing = all.find(c => {
-        if (c.authType !== "oauth" || c.email !== data.email) return false;
-        if (data.provider === "codex" && isCodexGoConnection(c) !== incomingIsCodexGo) {
-          return false;
-        }
-        // If both sides have a workspace ID, they must match for dedup
-        const existingWs = c.providerSpecificData?.chatgptAccountId;
-        if (incomingWs && existingWs) return incomingWs === existingWs;
-        return true; // fallback: email-only match for non-workspace providers
-      });
-    } else if (data.authType === "apikey" && data.name) {
-      existing = all.find(c => c.authType === "apikey" && c.name === data.name);
-    }
-    // access_token: never dedup — user manages duplicates manually
+  let existing = null;
+  if (data.authType === "oauth" && data.email) {
+    const incomingWs = data.providerSpecificData?.chatgptAccountId;
+    const incomingIsCodexGo = isCodexGoConnection(data);
+    existing = all.find(c => {
+      if (c.authType !== "oauth" || c.email !== data.email) return false;
+      if (data.provider === "codex" && isCodexGoConnection(c) !== incomingIsCodexGo) {
+        return false;
+      }
+      // If both sides have a workspace ID, they must match for dedup
+      const existingWs = c.providerSpecificData?.chatgptAccountId;
+      if (incomingWs && existingWs) return incomingWs === existingWs;
+      return true; // fallback: email-only match for non-workspace providers
+    });
+  } else if (data.authType === "apikey" && data.name) {
+    existing = all.find(c => c.authType === "apikey" && c.name === data.name);
+  }
+  // access_token: never dedup — user manages duplicates manually
 
-    if (existing) {
-      const merged = { ...existing, ...data, updatedAt: now };
-      upsert(db, merged);
-      result = merged;
-      return;
-    }
+  if (existing) {
+    const merged = { ...existing, ...data, updatedAt: now };
+    await upsert(db, merged);
+    result = merged;
+    return;
+  }
 
-    let connectionName = data.name || null;
-    if (!connectionName && (data.authType === "oauth" || data.authType === "access_token")) {
-      connectionName = data.email || `Account ${all.length + 1}`;
-    }
-    let connectionPriority = data.priority;
-    if (!connectionPriority) {
-      connectionPriority = all.reduce((m, c) => Math.max(m, c.priority || 0), 0) + 1;
-    }
+  let connectionName = data.name || null;
+  if (!connectionName && (data.authType === "oauth" || data.authType === "access_token")) {
+    connectionName = data.email || `Account ${all.length + 1}`;
+  }
+  let connectionPriority = data.priority;
+  if (!connectionPriority) {
+    connectionPriority = all.reduce((m, c) => Math.max(m, c.priority || 0), 0) + 1;
+  }
 
-    const conn = {
-      id: uuidv4(),
-      provider: data.provider,
-      authType: data.authType || "oauth",
-      name: connectionName,
-      priority: connectionPriority,
-      isActive: data.isActive !== undefined ? data.isActive : true,
-      createdAt: now,
-      updatedAt: now,
-    };
-    for (const f of OPTIONAL_FIELDS) {
-      if (data[f] !== undefined && data[f] !== null) conn[f] = data[f];
-    }
-    if (data.providerSpecificData && Object.keys(data.providerSpecificData).length > 0) {
-      conn.providerSpecificData = data.providerSpecificData;
-    }
-    if (data.email !== undefined) conn.email = data.email;
+  const conn = {
+    id: uuidv4(),
+    provider: data.provider,
+    authType: data.authType || "oauth",
+    name: connectionName,
+    priority: connectionPriority,
+    isActive: data.isActive !== undefined ? data.isActive : true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  for (const f of OPTIONAL_FIELDS) {
+    if (data[f] !== undefined && data[f] !== null) conn[f] = data[f];
+  }
+  if (data.providerSpecificData && Object.keys(data.providerSpecificData).length > 0) {
+    conn.providerSpecificData = data.providerSpecificData;
+  }
+  if (data.email !== undefined) conn.email = data.email;
 
-    upsert(db, conn);
-    reorderInTx(db, data.provider);
-    result = conn;
-  });
+  await upsert(db, conn);
+  await reorderInTx(db, data.provider);
+  result = conn; });
 
   return result;
 }
@@ -168,15 +164,13 @@ export async function updateProviderConnection(id, data) {
   if (shouldUseWriterRpc()) return executeWriterCommand("updateProviderConnection", [id, data]);
   const db = await getAdapter();
   let result;
-  db.transaction(() => {
-    const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
-    if (!row) { result = null; return; }
-    const existing = rowToConn(row);
-    const merged = { ...existing, ...data, updatedAt: new Date().toISOString() };
-    upsert(db, merged);
-    if (data.priority !== undefined) reorderInTx(db, existing.provider);
-    result = merged;
-  });
+  await db.transaction(async () => { const row = await db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
+  if (!row) { result = null; return; }
+  const existing = rowToConn(row);
+  const merged = { ...existing, ...data, updatedAt: new Date().toISOString() };
+  await upsert(db, merged);
+  if (data.priority !== undefined) await reorderInTx(db, existing.provider);
+  result = merged; });
   return result;
 }
 
@@ -184,28 +178,26 @@ export async function deleteProviderConnection(id) {
   if (shouldUseWriterRpc()) return executeWriterCommand("deleteProviderConnection", [id]);
   const db = await getAdapter();
   let ok = false;
-  db.transaction(() => {
-    const row = db.get(`SELECT provider FROM providerConnections WHERE id = ?`, [id]);
-    if (!row) return;
-    db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
-    reorderInTx(db, row.provider);
-    ok = true;
-  });
+  await db.transaction(async () => { const row = await db.get(`SELECT provider FROM providerConnections WHERE id = ?`, [id]);
+  if (!row) return;
+  await db.run(`DELETE FROM providerConnections WHERE id = ?`, [id]);
+  await reorderInTx(db, row.provider);
+  ok = true; });
   return ok;
 }
 
 export async function deleteProviderConnectionsByProvider(providerId) {
   if (shouldUseWriterRpc()) return executeWriterCommand("deleteProviderConnectionsByProvider", [providerId]);
   const db = await getAdapter();
-  const before = db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]);
-  db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
+  const before = await db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]);
+  await db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
   return before?.n || 0;
 }
 
 export async function reorderProviderConnections(providerId) {
   if (shouldUseWriterRpc()) return executeWriterCommand("reorderProviderConnections", [providerId]);
   const db = await getAdapter();
-  db.transaction(() => reorderInTx(db, providerId));
+  await db.transaction(async () => reorderInTx(db, providerId));
 }
 
 export async function cleanupProviderConnections() {
@@ -219,23 +211,21 @@ export async function cleanupProviderConnections() {
     "consecutiveUseCount",
   ];
   let cleaned = 0;
-  db.transaction(() => {
-    const rows = db.all(`SELECT * FROM providerConnections`);
-    for (const row of rows) {
-      const conn = rowToConn(row);
-      let dirty = false;
-      for (const f of fieldsToCheck) {
-        if (conn[f] === null || conn[f] === undefined) {
-          if (f in conn) { delete conn[f]; cleaned++; dirty = true; }
-        }
+  await db.transaction(async () => { const rows = await db.all(`SELECT * FROM providerConnections`);
+  for (const row of rows) {
+    const conn = rowToConn(row);
+    let dirty = false;
+    for (const f of fieldsToCheck) {
+      if (conn[f] === null || conn[f] === undefined) {
+        if (f in conn) { delete conn[f]; cleaned++; dirty = true; }
       }
-      if (conn.providerSpecificData && Object.keys(conn.providerSpecificData).length === 0) {
-        delete conn.providerSpecificData;
-        cleaned++;
-        dirty = true;
-      }
-      if (dirty) upsert(db, conn);
     }
-  });
+    if (conn.providerSpecificData && Object.keys(conn.providerSpecificData).length === 0) {
+      delete conn.providerSpecificData;
+      cleaned++;
+      dirty = true;
+    }
+    if (dirty) await upsert(db, conn);
+  } });
   return cleaned;
 }
