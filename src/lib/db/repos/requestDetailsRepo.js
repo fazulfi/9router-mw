@@ -1,5 +1,11 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { enqueueDetailEvent } from "open-sse/services/detailsBuffer.js";
+
+// Writer mode: if true, details go through Redis -> dedicated writer process.
+// Auto-detected for cluster workers, explicit env override.
+const MW_WRITER_MODE = process.env.MW_WRITER_MODE === "1" ||
+  (Boolean(process.env.MW_WORKER_ID) && process.env.MW_WRITER_MODE !== "0");
 
 const DEFAULT_MAX_RECORDS = 200;
 const DEFAULT_BATCH_SIZE = 20;
@@ -37,6 +43,10 @@ async function getObservabilityConfig() {
   }
   cachedConfigTs = Date.now();
   return cachedConfig;
+}
+
+function isWriterMode() {
+  return MW_WRITER_MODE;
 }
 
 let writeBuffer = [];
@@ -130,6 +140,13 @@ async function flushToDatabase() {
 export async function saveRequestDetail(detail) {
   const config = await getObservabilityConfig();
   if (!config.enabled) return;
+
+  // Writer mode: enqueue via Redis -> dedicated writer process
+  if (isWriterMode()) {
+    const queued = await enqueueDetailEvent(detail);
+    if (!queued) throw new Error("request-details writer queue unavailable");
+    return;
+  }
 
   writeBuffer.push(detail);
 
