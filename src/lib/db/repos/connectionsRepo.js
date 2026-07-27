@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { decryptSecretJson, encryptSecretJson } from "../helpers/secretCol.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 const OPTIONAL_FIELDS = [
   "displayName", "email", "globalPriority", "defaultModel",
@@ -93,6 +94,7 @@ function reorderInTx(db, providerId) {
 }
 
 export async function createProviderConnection(data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("createProviderConnection", [data]);
   const db = await getAdapter();
   const now = new Date().toISOString();
   let result;
@@ -163,6 +165,7 @@ export async function createProviderConnection(data) {
 
 // Critical: OAuth refresh token race — atomic merge inside transaction
 export async function updateProviderConnection(id, data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("updateProviderConnection", [id, data]);
   const db = await getAdapter();
   let result;
   db.transaction(() => {
@@ -178,6 +181,7 @@ export async function updateProviderConnection(id, data) {
 }
 
 export async function deleteProviderConnection(id) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteProviderConnection", [id]);
   const db = await getAdapter();
   let ok = false;
   db.transaction(() => {
@@ -191,6 +195,7 @@ export async function deleteProviderConnection(id) {
 }
 
 export async function deleteProviderConnectionsByProvider(providerId) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteProviderConnectionsByProvider", [providerId]);
   const db = await getAdapter();
   const before = db.get(`SELECT COUNT(*) AS n FROM providerConnections WHERE provider = ?`, [providerId]);
   db.run(`DELETE FROM providerConnections WHERE provider = ?`, [providerId]);
@@ -198,11 +203,13 @@ export async function deleteProviderConnectionsByProvider(providerId) {
 }
 
 export async function reorderProviderConnections(providerId) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("reorderProviderConnections", [providerId]);
   const db = await getAdapter();
   db.transaction(() => reorderInTx(db, providerId));
 }
 
 export async function cleanupProviderConnections() {
+  if (shouldUseWriterRpc()) return executeWriterCommand("cleanupProviderConnections", []);
   const db = await getAdapter();
   const fieldsToCheck = [
     "displayName", "email", "globalPriority", "defaultModel",

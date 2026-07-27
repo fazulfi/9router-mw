@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 function rowToPool(row) {
   if (!row) return null;
@@ -57,6 +58,7 @@ export async function getProxyPoolById(id) {
 }
 
 export async function createProxyPool(data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("createProxyPool", [data]);
   const db = await getAdapter();
   const now = new Date().toISOString();
   const pool = {
@@ -78,6 +80,7 @@ export async function createProxyPool(data) {
 }
 
 export async function updateProxyPool(id, data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("updateProxyPool", [id, data]);
   const db = await getAdapter();
   let result = null;
   db.transaction(() => {
@@ -91,6 +94,7 @@ export async function updateProxyPool(id, data) {
 }
 
 export async function deleteProxyPool(id) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteProxyPool", [id]);
   const db = await getAdapter();
   let removed = null;
   db.transaction(() => {

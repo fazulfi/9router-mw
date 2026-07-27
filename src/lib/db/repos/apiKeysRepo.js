@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 function rowToKey(row) {
   if (!row) return null;
@@ -26,6 +27,7 @@ export async function getApiKeyById(id) {
 }
 
 export async function createApiKey(name, machineId) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("createApiKey", [name, machineId]);
   if (!machineId) throw new Error("machineId is required");
   const db = await getAdapter();
   const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
@@ -46,6 +48,7 @@ export async function createApiKey(name, machineId) {
 }
 
 export async function updateApiKey(id, data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("updateApiKey", [id, data]);
   const db = await getAdapter();
   let result = null;
   db.transaction(() => {
@@ -62,6 +65,7 @@ export async function updateApiKey(id, data) {
 }
 
 export async function deleteApiKey(id) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteApiKey", [id]);
   const db = await getAdapter();
   const res = db.run(`DELETE FROM apiKeys WHERE id = ?`, [id]);
   return (res?.changes ?? 0) > 0;

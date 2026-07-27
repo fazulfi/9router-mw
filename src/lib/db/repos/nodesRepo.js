@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 function rowToNode(row) {
   if (!row) return null;
@@ -53,6 +54,7 @@ export async function getProviderNodeById(id) {
 }
 
 export async function createProviderNode(data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("createProviderNode", [data]);
   const db = await getAdapter();
   const now = new Date().toISOString();
   const node = {
@@ -70,6 +72,7 @@ export async function createProviderNode(data) {
 }
 
 export async function updateProviderNode(id, data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("updateProviderNode", [id, data]);
   const db = await getAdapter();
   let result = null;
   db.transaction(() => {
@@ -83,6 +86,7 @@ export async function updateProviderNode(id, data) {
 }
 
 export async function deleteProviderNode(id) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteProviderNode", [id]);
   const db = await getAdapter();
   let removed = null;
   db.transaction(() => {
