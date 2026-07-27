@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -36,6 +37,14 @@ describe("async database repository contract", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("parses every converted database repository as valid JavaScript", () => {
+    for (const file of sourceFiles()) {
+      const source = readFileSync(file, "utf8");
+      expect(source).not.toContain("await await");
+      expect(() => execFileSync(process.execPath, ["--check", file], { stdio: "pipe" })).not.toThrow();
+    }
   });
 
   it("keeps runtime import queries portable across SQLite and PostgreSQL", () => {

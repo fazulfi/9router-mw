@@ -86,9 +86,9 @@ async function reorderInTx(db, providerId) {
     if (pDiff !== 0) return pDiff;
     return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
   });
-  list.forEach((c, i) => {
-    await db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [i + 1, c.id]);
-  });
+  for (const [index, connection] of list.entries()) {
+    await db.run(`UPDATE providerConnections SET priority = ? WHERE id = ?`, [index + 1, connection.id]);
+  }
 }
 
 export async function createProviderConnection(data) {

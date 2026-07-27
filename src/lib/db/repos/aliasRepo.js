@@ -54,7 +54,7 @@ export async function deleteCustomModel({ providerAlias, id, type = "llm" }) {
 // mitmAlias: key=toolName, value=mappings object
 export async function getMitmAlias(toolName) {
   if (toolName) {
-    const v = await await mitmKv.get(toolName);
+    const v = await mitmKv.get(toolName);
     return v || {};
   }
   return await mitmKv.getAll();

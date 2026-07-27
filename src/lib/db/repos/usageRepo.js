@@ -407,7 +407,7 @@ export async function getUsageHistory(filter = {}) {
   }));
 }
 
-function loadDaysInRange(adapter, maxDays) {
+async function loadDaysInRange(adapter, maxDays) {
   if (maxDays == null) {
     return await adapter.all(`SELECT dateKey, data FROM usageDaily`);
   }
@@ -420,7 +420,7 @@ function loadDaysInRange(adapter, maxDays) {
 export async function getUsageStats(period = "all") {
   const db = await getAdapter();
 
-  const [{ getProviderConnections }, { getApiKeys }, { getProviderNodes }] = await await Promise.all([
+  const [{ getProviderConnections }, { getApiKeys }, { getProviderNodes }] = await Promise.all([
     import("./connectionsRepo.js"),
     import("./apiKeysRepo.js"),
     import("./nodesRepo.js"),
@@ -508,7 +508,7 @@ export async function getUsageStats(period = "all") {
   if (useDailySummary) {
     const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
     const maxDays = periodDays[period] || null;
-    const dayRows = loadDaysInRange(db, maxDays);
+    const dayRows = await loadDaysInRange(db, maxDays);
 
     for (const dr of dayRows) {
       const dateKey = dr.dateKey;
@@ -766,7 +766,7 @@ export async function getChartData(period = "7d") {
   const labelFn = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   // Build map of dateKey → day data
-  const dayRows = loadDaysInRange(db, bucketCount);
+  const dayRows = await loadDaysInRange(db, bucketCount);
   const dayMap = {};
   for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
 
