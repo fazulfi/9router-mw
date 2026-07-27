@@ -126,7 +126,9 @@ describe("DB write lock guards", () => {
     };
     visit(dbRoot);
 
-    expect(sources.join("\n")).not.toMatch(/(?:from|import\()["']open-sse\//);
+    const combinedSource = sources.join("\n");
+    expect(combinedSource).not.toMatch(/(?:from|import\()["']open-sse\//);
+    expect(combinedSource).not.toMatch(/(?:from|import\()["']@\//);
   });
 
   it("dispatches only allowlisted repository commands in the writer process", () => {
