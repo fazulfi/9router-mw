@@ -114,6 +114,8 @@ describe("runtime deployment exclusivity", () => {
     expect(assemble).toContain('cp -a "${source}/src/shared/utils/apiKey.js" "${artifact}/src/shared/utils/apiKey.js"');
     expect(assemble).toContain('[[ -f "${artifact}/src/lib/dataDir.js" ]] || die "writer dep dataDir.js is missing"');
     expect(assemble).toContain('[[ -f "${artifact}/src/shared/utils/apiKey.js" ]] || die "writer dep apiKey.js is missing"');
+    expect(assemble).toMatch(/for package in [^;]*\buuid\b/);
+    expect(assemble).toContain('[[ -d "${artifact}/node_modules/uuid" ]] || die "uuid is missing"');
     expect(assemble).toContain('verify_writer_module_graph "${artifact}"');
     expect(runtimeRelease).toContain('verify_writer_module_graph() {');
     expect(runtimeRelease).toContain('await import(pathToFileURL(file).href);');

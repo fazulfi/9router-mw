@@ -392,7 +392,7 @@ assemble_artifact() {
     mkdir -p "${artifact}/src/shared/utils"
     cp -a "${source}/src/shared/utils/apiKey.js" "${artifact}/src/shared/utils/apiKey.js"
   fi
-  for package in better-sqlite3 sql.js ioredis undici denque redis-errors \
+  for package in better-sqlite3 sql.js ioredis uuid undici denque redis-errors \
     redis-parser standard-as-callback cluster-key-slot debug ms \
     lodash.defaults lodash.isarguments; do
     if [[ -d "${source}/node_modules/${package}" ]]; then
@@ -410,6 +410,7 @@ assemble_artifact() {
   [[ -f "${artifact}/src/shared/utils/apiKey.js" ]] || die "writer dep apiKey.js is missing"
   [[ -d "${artifact}/node_modules/better-sqlite3" ]] || die "better-sqlite3 is missing"
   [[ -d "${artifact}/node_modules/ioredis" ]] || die "ioredis is missing"
+  [[ -d "${artifact}/node_modules/uuid" ]] || die "uuid is missing"
   verify_writer_module_graph "${artifact}"
 }
 
