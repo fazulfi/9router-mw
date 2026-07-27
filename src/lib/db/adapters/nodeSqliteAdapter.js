@@ -4,9 +4,7 @@ import { PRAGMA_SQL } from "../schema.js";
 
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
 
-export async function createNodeSqliteAdapter(filePath) {
-  // Suppress "ExperimentalWarning: SQLite is an experimental feature" from node:sqlite.
-  // Stable enough for production use as of Node 22.x (RC quality).
+export async function createNodeSqliteAdapter(filePath, { readOnly = false } = {}) {
   const origEmit = process.emit;
   process.emit = function (name, data, ...rest) {
     if (name === "warning" && data?.name === "ExperimentalWarning" && /SQLite/i.test(data.message || "")) {
@@ -15,12 +13,12 @@ export async function createNodeSqliteAdapter(filePath) {
     return origEmit.call(process, name, data, ...rest);
   };
 
-  // Dynamic import — fails on Node < 22.5 → driver.js falls back to sql.js
   const sqlite = await import("node:sqlite");
   const Database = sqlite.DatabaseSync;
-  const db = new Database(filePath);
+  const timeout = Number(process.env.DB_BUSY_TIMEOUT) || 15000;
+  const db = new Database(filePath, { readOnly, timeout });
 
-  db.exec(PRAGMA_SQL);
+  if (!readOnly) db.exec(PRAGMA_SQL);
 
   const stmtCache = new Map();
   function prepare(sql) {
@@ -32,14 +30,22 @@ export async function createNodeSqliteAdapter(filePath) {
     return stmt;
   }
 
-  // Periodic WAL checkpoint to keep -wal/-shm small
-  const checkpointTimer = setInterval(() => {
-    try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
-  }, CHECKPOINT_INTERVAL_MS);
-  if (typeof checkpointTimer.unref === "function") checkpointTimer.unref();
+  function assertWritable() {
+    if (readOnly) throw new Error("Cannot write through read-only SQLite adapter");
+  }
+
+  let checkpointTimer = null;
+  if (!readOnly) {
+    checkpointTimer = setInterval(() => {
+      try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+    }, CHECKPOINT_INTERVAL_MS);
+    if (typeof checkpointTimer.unref === "function") checkpointTimer.unref();
+  }
 
   function gracefulClose() {
-    try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+    if (!readOnly) {
+      try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+    }
     try { stmtCache.clear(); } catch {}
     try { db.close(); } catch {}
   }
@@ -50,7 +56,9 @@ export async function createNodeSqliteAdapter(filePath) {
 
   return {
     driver: "node:sqlite",
+    readOnly,
     run(sql, params = []) {
+      assertWritable();
       const r = prepare(sql).run(...params);
       return { changes: Number(r.changes ?? 0), lastInsertRowid: Number(r.lastInsertRowid ?? 0) };
     },
@@ -60,9 +68,9 @@ export async function createNodeSqliteAdapter(filePath) {
     all(sql, params = []) {
       return prepare(sql).all(...params);
     },
-    exec(sql) { return db.exec(sql); },
+    exec(sql) { assertWritable(); return db.exec(sql); },
     transaction(fn) {
-      // node:sqlite has no transaction wrapper. Use SAVEPOINT for nested support.
+      assertWritable();
       const sp = `sp_${Math.random().toString(36).slice(2)}`;
       db.exec(`SAVEPOINT ${sp}`);
       try {
@@ -74,9 +82,12 @@ export async function createNodeSqliteAdapter(filePath) {
         throw e;
       }
     },
-    checkpoint() { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {} },
+    checkpoint() {
+      assertWritable();
+      try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+    },
     close() {
-      clearInterval(checkpointTimer);
+      if (checkpointTimer) clearInterval(checkpointTimer);
       gracefulClose();
     },
     raw: db,

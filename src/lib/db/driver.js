@@ -16,26 +16,26 @@ async function tryBunSqlite() {
   }
 }
 
-async function tryBetterSqlite() {
+async function tryBetterSqlite(readOnly) {
   // Skip on Bun — better-sqlite3 native bindings unsupported
   if (process.versions.bun) return null;
   try {
     const { createBetterSqliteAdapter } = await import("./adapters/betterSqliteAdapter.js");
-    return createBetterSqliteAdapter(DATA_FILE);
+    return createBetterSqliteAdapter(DATA_FILE, { readOnly });
   } catch (e) {
     console.warn(`[DB] better-sqlite3 unavailable: ${e.message}`);
     return null;
   }
 }
 
-async function tryNodeSqlite() {
+async function tryNodeSqlite(readOnly) {
   // Built-in since Node 22.5.0 — no install needed. Skip under Bun (no node:sqlite).
   if (process.versions.bun) return null;
   const [maj, min] = process.versions.node.split(".").map(Number);
   if (maj < 22 || (maj === 22 && min < 5)) return null;
   try {
     const { createNodeSqliteAdapter } = await import("./adapters/nodeSqliteAdapter.js");
-    return await createNodeSqliteAdapter(DATA_FILE);
+    return await createNodeSqliteAdapter(DATA_FILE, { readOnly });
   } catch (e) {
     console.warn(`[DB] node:sqlite unavailable: ${e.message}`);
     return null;
@@ -62,15 +62,20 @@ function requireNativeSqlite() {
   return process.env.NODE_ENV === "production";
 }
 
+function isClusterWorker() {
+  return Boolean(process.env.MW_WORKER_ID) && process.env.MW_WRITER_PROCESS !== "1";
+}
+
 async function initAdapter() {
   ensureDirs();
-  const nativeOnly = requireNativeSqlite();
+  const readOnly = isClusterWorker();
+  const nativeOnly = readOnly || requireNativeSqlite();
   // Order per runtime:
   //   Bun:  bun:sqlite → (sql.js only if native not required)
   //   Node: better-sqlite3 → node:sqlite (≥22.5) → (sql.js only if native not required)
-  let adapter = await tryBunSqlite();
-  if (!adapter) adapter = await tryBetterSqlite();
-  if (!adapter) adapter = await tryNodeSqlite();
+  let adapter = readOnly ? null : await tryBunSqlite();
+  if (!adapter) adapter = await tryBetterSqlite(readOnly);
+  if (!adapter) adapter = await tryNodeSqlite(readOnly);
   if (!adapter && !nativeOnly) adapter = await trySqlJs();
   if (!adapter) {
     if (nativeOnly) {
@@ -91,8 +96,10 @@ async function initAdapter() {
     state.logged = true;
   }
 
-  const { runMigrationOnce } = await import("./migrate.js");
-  await runMigrationOnce(adapter);
+  if (!readOnly) {
+    const { runMigrationOnce } = await import("./migrate.js");
+    await runMigrationOnce(adapter);
+  }
   return adapter;
 }
 
@@ -100,6 +107,15 @@ export async function getAdapter() {
   if (state.instance) return state.instance;
   if (!state.initPromise) state.initPromise = initAdapter().then((a) => { state.instance = a; return a; });
   return state.initPromise;
+}
+
+export function setAdapterForProcess(adapter) {
+  if (!adapter || typeof adapter.run !== "function" || typeof adapter.transaction !== "function") {
+    throw new Error("Invalid process database adapter");
+  }
+  state.instance = adapter;
+  state.initPromise = Promise.resolve(adapter);
+  state.logged = true;
 }
 
 export function getAdapterSync() {
