@@ -104,6 +104,14 @@ describe("runtime deployment exclusivity", () => {
     expect(bootstrap.match(/reconcile_slot_enablement/g)).toHaveLength(3);
   });
 
+  it("assembles writer dependencies without nesting the DB directory", () => {
+    const assemble = section(runtimeRelease, "assemble_artifact() {", "\n}\n\nwrite_staging_unit() {");
+
+    expect(assemble).toContain('rm -rf "${artifact}/src/lib/db"');
+    expect(assemble).toContain('cp -a "${source}/src/lib/db/." "${artifact}/src/lib/db/"');
+    expect(assemble).not.toContain('cp -a "${source}/src/lib/db" "${artifact}/src/lib/db/"');
+  });
+
   it("accepts four live workers without assuming cluster IDs reset to 1-4", () => {
     for (const source of [runtimeRelease, bootstrap]) {
       expect(source).toContain("unique_worker_count");

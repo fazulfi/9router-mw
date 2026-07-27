@@ -354,7 +354,12 @@ assemble_artifact() {
   [[ ! -f "${source}/VERSION" ]] || cp -a "${source}/VERSION" "${artifact}/VERSION"
   # Copy dedicated writer (forked by custom-server.js, not in Next.js bundle graph)
   [[ ! -f "${source}/primary-writer.mjs" ]] || cp -a "${source}/primary-writer.mjs" "${artifact}/primary-writer.mjs"
-  [[ ! -d "${source}/src/lib/db" ]] || { mkdir -p "${artifact}/src/lib"; cp -a "${source}/src/lib/db" "${artifact}/src/lib/db/"; }
+  if [[ -d "${source}/src/lib/db" ]]; then
+    mkdir -p "${artifact}/src/lib"
+    rm -rf "${artifact}/src/lib/db"
+    mkdir -p "${artifact}/src/lib/db"
+    cp -a "${source}/src/lib/db/." "${artifact}/src/lib/db/"
+  fi
   for package in better-sqlite3 sql.js ioredis undici denque redis-errors \
     redis-parser standard-as-callback cluster-key-slot debug ms \
     lodash.defaults lodash.isarguments; do
