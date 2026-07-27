@@ -9,6 +9,7 @@ PROD_PORT=20128
 PROD_REDIS_PORT=6381
 STAGE_ROOT="${STAGE_ROOT:-/opt/9router-mw-staging}"
 STAGE_CONFIG="${STAGE_CONFIG:-/etc/9router-mw-staging}"
+STAGE_POSTGRES_ENV_FILE="${STAGE_POSTGRES_ENV_FILE:-${STAGE_CONFIG}.postgres.env}"
 STAGE_DATA="${STAGE_DATA:-/var/lib/9router-mw-staging}"
 STAGE_PORT=20130
 STAGE_REDIS_PORT=6383
@@ -62,15 +63,20 @@ except Exception:
 redis = data.get("redis") or {}
 hotpath = data.get("hotpath") or {}
 undici = hotpath.get("undici") or {}
-sqlite = hotpath.get("sqlite") or {}
+database = hotpath.get("database") or hotpath.get("sqlite") or {}
+driver = database.get("driver")
+database_ok = (
+    driver == "postgresql"
+    or (driver == "better-sqlite3" and str(database.get("journalMode", "")).lower() == "wal")
+)
 ok = (
     data.get("ok") is True
     and data.get("workers") == 4
     and redis.get("ok") is True
     and redis.get("ready", True) is True
     and undici.get("enabled") is True
-    and sqlite.get("driver") == "better-sqlite3"
-    and str(sqlite.get("journalMode", "")).lower() == "wal"
+    and driver in {"better-sqlite3", "postgresql"}
+    and database_ok
 )
 raise SystemExit(0 if ok else 1)
 '
@@ -201,6 +207,14 @@ PY
   chown -R "${APP_USER}:${APP_USER}" "${STAGE_DATA}"
   chmod 0700 "${STAGE_DATA}" "${STAGE_DATA}/db"
   chmod 0600 "${target}"
+}
+
+migrate_staging_database_to_postgres() {
+  local artifact="$1" stage_database_url="$2"
+  sudo -u "${APP_USER}" env \
+    SQLITE_SOURCE_FILE="${STAGE_DATA}/db/data.sqlite" \
+    DATABASE_URL="${stage_database_url}" \
+    node "${artifact}/scripts/migrate-sqlite-to-postgres.mjs"
 }
 
 artifact_hash() {
@@ -392,9 +406,10 @@ assemble_artifact() {
     mkdir -p "${artifact}/src/shared/utils"
     cp -a "${source}/src/shared/utils/apiKey.js" "${artifact}/src/shared/utils/apiKey.js"
   fi
-  for package in better-sqlite3 sql.js ioredis uuid undici denque redis-errors \
-    redis-parser standard-as-callback cluster-key-slot debug ms \
-    lodash.defaults lodash.isarguments; do
+  for package in better-sqlite3 sql.js ioredis uuid undici pg pg-cloudflare pg-connection-string \
+    pg-int8 pg-pool pg-protocol pg-types pgpass postgres-array postgres-bytea postgres-date \
+    postgres-interval split2 xtend denque redis-errors redis-parser standard-as-callback \
+    cluster-key-slot debug ms lodash.defaults lodash.isarguments; do
     if [[ -d "${source}/node_modules/${package}" ]]; then
       mkdir -p "${artifact}/node_modules"
       rm -rf "${artifact}/node_modules/${package}"
@@ -411,6 +426,7 @@ assemble_artifact() {
   [[ -d "${artifact}/node_modules/better-sqlite3" ]] || die "better-sqlite3 is missing"
   [[ -d "${artifact}/node_modules/ioredis" ]] || die "ioredis is missing"
   [[ -d "${artifact}/node_modules/uuid" ]] || die "uuid is missing"
+  [[ -d "${artifact}/node_modules/pg" ]] || die "pg is missing"
   verify_writer_module_graph "${artifact}"
 }
 
@@ -491,13 +507,17 @@ stage_release() {
   write_manifest "${manifest}" "${release_id}" "${source_ref}" "${commit}" "${checksum}"
   chmod 0644 "${manifest}"
 
-  local redis_password jwt_secret api_key_secret initial_password
+  local redis_password jwt_secret api_key_secret initial_password stage_database_url
   redis_password="$(openssl rand -hex 32)"
   jwt_secret="$(openssl rand -hex 32)"
   api_key_secret="$(read_env_value "${PROD_CONFIG}/env" API_KEY_SECRET)" \
     || die "production API_KEY_SECRET is required for the isolated smoke-test snapshot"
   initial_password="$(openssl rand -hex 16)"
+  [[ -r "${STAGE_POSTGRES_ENV_FILE}" ]] || die "staging PostgreSQL environment file is not readable"
+  stage_database_url="$(read_env_value "${STAGE_POSTGRES_ENV_FILE}" DATABASE_URL)" \
+    || die "staging DATABASE_URL is required"
   clone_production_database_to_staging
+  migrate_staging_database_to_postgres "${artifact}" "${stage_database_url}"
   cat >"${STAGE_CONFIG}/env" <<EOF
 PORT=${STAGE_PORT}
 HOST=127.0.0.1
@@ -505,6 +525,8 @@ HOSTNAME=127.0.0.1
 WORKERS=4
 NODE_ENV=production
 DATA_DIR=${STAGE_DATA}
+DATABASE_URL=${stage_database_url}
+MW_RUNTIME_NAMESPACE=staging-${STAGE_PORT}
 NEXT_TELEMETRY_DISABLED=1
 NODE_OPTIONS=--dns-result-order=ipv4first
 LOG_LEVEL=debug
