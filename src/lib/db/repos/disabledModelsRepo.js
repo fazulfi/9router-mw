@@ -1,5 +1,6 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 const SCOPE = "disabledModels";
 
@@ -19,6 +20,7 @@ export async function getDisabledByProvider(providerAlias) {
 
 // Atomic read-merge-write inside a transaction (no JS yield mid-transaction).
 export async function disableModels(providerAlias, ids) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("disableModels", [providerAlias, ids]);
   if (!providerAlias || !Array.isArray(ids)) return;
   const db = await getAdapter();
   db.transaction(() => {
@@ -33,6 +35,7 @@ export async function disableModels(providerAlias, ids) {
 }
 
 export async function enableModels(providerAlias, ids) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("enableModels", [providerAlias, ids]);
   if (!providerAlias) return;
   const db = await getAdapter();
   db.transaction(() => {

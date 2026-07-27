@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 function rowToCombo(row) {
   if (!row) return null;
@@ -33,6 +34,7 @@ export async function getComboByName(name) {
 }
 
 export async function createCombo(data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("createCombo", [data]);
   const db = await getAdapter();
   const now = new Date().toISOString();
   const combo = {
@@ -51,6 +53,7 @@ export async function createCombo(data) {
 }
 
 export async function updateCombo(id, data) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("updateCombo", [id, data]);
   const db = await getAdapter();
   let result = null;
   db.transaction(() => {
@@ -67,6 +70,7 @@ export async function updateCombo(id, data) {
 }
 
 export async function deleteCombo(id) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteCombo", [id]);
   const db = await getAdapter();
   const res = db.run(`DELETE FROM combos WHERE id = ?`, [id]);
   return (res?.changes ?? 0) > 0;

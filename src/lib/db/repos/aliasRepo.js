@@ -1,6 +1,7 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { makeKv } from "../helpers/kvStore.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 const aliasKv = makeKv("modelAliases");
 const customKv = makeKv("customModels");
@@ -12,10 +13,12 @@ export async function getModelAliases() {
 }
 
 export async function setModelAlias(alias, model) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("setModelAlias", [alias, model]);
   await aliasKv.set(alias, model);
 }
 
 export async function deleteModelAlias(alias) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteModelAlias", [alias]);
   await aliasKv.remove(alias);
 }
 
@@ -31,6 +34,7 @@ export async function getCustomModels() {
 
 // Atomic check-then-insert inside transaction to prevent duplicate races
 export async function addCustomModel({ providerAlias, id, type = "llm", name }) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("addCustomModel", [{ providerAlias, id, type, name }]);
   const k = customKey(providerAlias, id, type);
   const db = await getAdapter();
   let added = false;
@@ -45,6 +49,7 @@ export async function addCustomModel({ providerAlias, id, type = "llm", name }) 
 }
 
 export async function deleteCustomModel({ providerAlias, id, type = "llm" }) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("deleteCustomModel", [{ providerAlias, id, type }]);
   await customKv.remove(customKey(providerAlias, id, type));
 }
 
@@ -58,5 +63,6 @@ export async function getMitmAlias(toolName) {
 }
 
 export async function setMitmAliasAll(toolName, mappings) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("setMitmAliasAll", [toolName, mappings]);
   await mitmKv.set(toolName, mappings || {});
 }

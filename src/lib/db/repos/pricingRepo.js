@@ -1,6 +1,7 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { makeKv } from "../helpers/kvStore.js";
+import { executeWriterCommand, shouldUseWriterRpc } from "../writerRpc.js";
 
 const pricingKv = makeKv("pricing");
 const CACHE_TTL_MS = 5000;
@@ -58,6 +59,7 @@ export async function getPricingForModel(provider, model) {
 
 // Atomic merge inside transaction (per-provider read-modify-write)
 export async function updatePricing(pricingData) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("updatePricing", [pricingData]);
   const db = await getAdapter();
   db.transaction(() => {
     for (const [provider, models] of Object.entries(pricingData)) {
@@ -78,6 +80,7 @@ export async function updatePricing(pricingData) {
 }
 
 export async function resetPricing(provider, model) {
+  if (shouldUseWriterRpc()) return executeWriterCommand("resetPricing", [provider, model]);
   if (!provider) return await getUserPricing();
   const db = await getAdapter();
   db.transaction(() => {
@@ -102,6 +105,7 @@ export async function resetPricing(provider, model) {
 }
 
 export async function resetAllPricing() {
+  if (shouldUseWriterRpc()) return executeWriterCommand("resetAllPricing", []);
   await pricingKv.clear();
   invalidate();
   return {};
