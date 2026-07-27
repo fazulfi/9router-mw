@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
-import { enqueueUsageEvent } from "open-sse/services/usageBuffer.js";
+import { enqueueUsageEvent } from "../../../../open-sse/services/usageBuffer.js";
 
 // Writer mode: if enabled, usage goes through Redis → dedicated writer process.
 // Auto-detected for cluster workers (MW_WORKER_ID set); explicit env override.
@@ -15,7 +15,7 @@ import {
   pushRecentEntry,
   getRecentEntries,
   getLastErrorProvider,
-} from "open-sse/services/liveUsageState.js";
+} from "../../../../open-sse/services/liveUsageState.js";
 
 function maskApiKey(key) {
   if (!key || typeof key !== "string") return null;
@@ -150,7 +150,7 @@ async function calculateCost(provider, model, tokens) {
     // Delegate the actual math to the single source of truth (avoids the two
     // copies drifting apart — see open-sse/providers/pricing.js for the
     // cache-inclusive prompt_tokens convention this assumes).
-    const { calculateCostFromTokens } = await import("open-sse/providers/pricing.js");
+    const { calculateCostFromTokens } = await import("../../../../open-sse/providers/pricing.js");
     return calculateCostFromTokens(tokens, pricing);
   } catch (e) {
     console.error("Error calculating cost:", e);

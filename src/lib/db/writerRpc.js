@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getRedis } from "open-sse/services/redisClient.js";
+import { getRedis } from "../../../open-sse/services/redisClient.js";
 
 const RUNTIME_NAMESPACE = process.env.MW_RUNTIME_NAMESPACE?.trim() || process.env.PORT?.trim() || "default";
 const WRITE_QUEUE_KEY = `mw:${RUNTIME_NAMESPACE}:write:queue`;

@@ -114,6 +114,21 @@ describe("DB write lock guards", () => {
     expect(src).not.toMatch(/\bsql\b\s*:/);
   });
 
+  it("uses runtime-resolvable relative imports from the dedicated writer DB tree", () => {
+    const dbRoot = require("path").resolve(__dirname, "../../src/lib/db");
+    const sources = [];
+    const visit = (directory) => {
+      for (const entry of require("fs").readdirSync(directory, { withFileTypes: true })) {
+        const entryPath = require("path").join(directory, entry.name);
+        if (entry.isDirectory()) visit(entryPath);
+        else if (entry.name.endsWith(".js")) sources.push(require("fs").readFileSync(entryPath, "utf-8"));
+      }
+    };
+    visit(dbRoot);
+
+    expect(sources.join("\n")).not.toMatch(/(?:from|import\()["']open-sse\//);
+  });
+
   it("dispatches only allowlisted repository commands in the writer process", () => {
     const src = require("fs").readFileSync(
       require("path").resolve(__dirname, "../../src/lib/db/writerCommands.js"),

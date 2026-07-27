@@ -1,6 +1,6 @@
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
-import { enqueueDetailEvent } from "open-sse/services/detailsBuffer.js";
+import { enqueueDetailEvent } from "../../../../open-sse/services/detailsBuffer.js";
 
 // Writer mode: if true, details go through Redis -> dedicated writer process.
 // Auto-detected for cluster workers, explicit env override.
