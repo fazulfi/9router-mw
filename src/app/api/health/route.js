@@ -47,7 +47,8 @@ export async function GET() {
   try {
     const r = await getRedis();
     if (r) {
-      const raw = await r.get("mw:writer:health");
+      const namespace = process.env.MW_RUNTIME_NAMESPACE || process.env.PORT || "default";
+      const raw = await r.get(`mw:${namespace}:writer:health`);
       if (raw) {
         writer = { ...JSON.parse(raw), status: "online" };
       }

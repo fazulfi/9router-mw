@@ -168,6 +168,12 @@ describe("DB write lock guards", () => {
     expect(writer).toMatch(/getWriterRuntimeNamespace/);
     expect(writer).toMatch(/WRITER_HEALTH_KEY/);
     expect(writer).not.toMatch(/redis\.set\("mw:writer:health"/);
+    const healthRoute = require("fs").readFileSync(
+      require("path").resolve(__dirname, "../../src/app/api/health/route.js"),
+      "utf-8"
+    );
+    expect(healthRoute).toMatch(/MW_RUNTIME_NAMESPACE/);
+    expect(healthRoute).not.toContain('r.get("mw:writer:health")');
   });
 
   it("opens native SQLite adapters read-only inside cluster workers", () => {
