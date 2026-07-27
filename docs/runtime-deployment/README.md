@@ -14,6 +14,11 @@ resources, and promoted without moving the production consumer endpoint.
 - Nginx owns the stable production listener on port `20128`.
 - Runtime slots `20131` and `20132` are private backends. They must never be
   written to bot or provider configuration.
+- In steady state, exactly the slot recorded in `runtime-active-port` is active
+  and enabled for reboot recovery; the standby slot is stopped and not enabled.
+  Two slots may overlap only during a guarded promotion or rollback drain.
+- Legacy units `9router-mw.service` and `9router-mw-slot@20128.service` must be
+  inactive and masked after topology bootstrap.
 - Promotion copies the exact artifact tested in staging. It never rebuilds.
 - Production is never restarted in place during promotion.
 - Staging intentionally clones the production database (read-only snapshot) and
@@ -47,7 +52,11 @@ curl -fsS http://127.0.0.1:20128/api/health
 ```
 
 The process owning `20128` must be Nginx. A healthy Node runtime must own one
-private slot.
+private slot. Bootstrap archives any legacy unit file under
+`/etc/9router-mw/retired-units`, masks both legacy unit names, enables the active
+slot for reboot recovery, and disables the standby slot without restarting the
+runtime. If the proxy is already bootstrapped, rerunning bootstrap performs the
+same retirement, enablement reconciliation, and steady-state checks idempotently.
 
 ## Release eligibility
 
@@ -83,7 +92,7 @@ sudo .docs/runtime-deployment/runtime-release.sh status
 Stop if production is not green. The health contract requires:
 
 - `ok: true` and exactly four workers;
-- worker IDs 1, 2, 3, and 4 observed across repeated requests;
+- four distinct positive worker IDs observed across parallel requests;
 - Redis connected and ready;
 - Undici enabled;
 - `better-sqlite3` with WAL journal mode;
@@ -106,6 +115,7 @@ No build output from a local workstation is accepted by this workflow.
 ### 4. Test and approve staging
 
 The build output automatically gates on:
+
 - Health contract (`ok:true`, 4 workers, Redis OK/ready, undici, better-sqlite3/WAL)
 - All four unique worker IDs sampled across 300 requests
 - Authenticated provider request through the exact handler path (uses cloned
@@ -133,7 +143,9 @@ Promotion performs these gates in order:
 
 1. Revalidate staging health, worker IDs, authenticated provider smoke, approval,
    and artifact checksum.
-2. Revalidate the current production endpoint.
+2. Revalidate the current production endpoint and enforce the unit lifecycle:
+   legacy units masked, both slots stoppable, active slot restartable, and candidate
+   slot inactive, unmasked, and startable.
 3. Create an online SQLite backup.
 4. Copy the exact staged artifact into an immutable production release path.
 5. Start it on the inactive private runtime slot with production configuration.

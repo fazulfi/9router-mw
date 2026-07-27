@@ -16,6 +16,8 @@ STAGE_SERVICE="9router-mw-staging.service"
 STAGE_REDIS="9router-mw-staging-redis"
 SLOTS=(20131 20132)
 SLOT_SERVICE="9router-mw-slot@"
+LEGACY_SERVICE="9router-mw.service"
+LEGACY_SLOT_SERVICE="9router-mw-slot@20128.service"
 UPSTREAM_FILE="${UPSTREAM_FILE:-/etc/nginx/9router-mw-upstream.conf}"
 LOCAL_PROXY_CONFIG="${LOCAL_PROXY_CONFIG:-/etc/nginx/conf.d/9router-mw-local.conf}"
 ACTIVE_STATE="${ACTIVE_STATE:-${PROD_CONFIG}/runtime-active-port}"
@@ -88,16 +90,20 @@ wait_healthy() {
 }
 
 require_workers() {
-  local port="$1" label="$2" seen
+  local port="$1" label="$2" seen unique_worker_count
   seen="$({
-    for _ in $(seq 1 300); do
-      health_json "${port}" 2>/dev/null | python3 -c \
+    for request in $(seq 1 300); do
+      (health_json "${port}" 2>/dev/null | python3 -c \
         'import json,sys; print(json.load(sys.stdin).get("workerId", ""))' \
-        2>/dev/null || true
+        2>/dev/null || true) &
+      if (( request % 16 == 0 )); then wait; fi
     done
-  } | grep -E '^[1-4]$' | sort -nu | tr '\n' ' ')"
-  [[ "${seen}" == "1 2 3 4 " ]] || die "${label}: expected workers 1-4; saw ${seen:-none}"
-  log "${label} workers observed: ${seen}"
+    wait
+  } | grep -E '^[1-9][0-9]*$' | sort -nu)"
+  unique_worker_count="$(printf '%s\n' "${seen}" | sed '/^$/d' | wc -l | tr -d ' ')"
+  [[ "${unique_worker_count}" == "4" ]] \
+    || die "${label}: expected four unique workers; saw ${seen:-none}"
+  log "${label} workers observed: $(printf '%s' "${seen}" | tr '\n' ' ')"
 }
 
 repeated_health() {
@@ -227,11 +233,69 @@ with open(path, "w", encoding="utf-8") as stream:
 PY
 }
 
+assert_legacy_service_retired() {
+  local unit state
+  for unit in "${LEGACY_SERVICE}" "${LEGACY_SLOT_SERVICE}"; do
+    ! systemctl is-active --quiet "${unit}" || die "legacy ${unit} is still active"
+    state="$(systemctl is-enabled "${unit}" 2>/dev/null || true)"
+    [[ "${state}" == "masked" || "${state}" == "not-found" ]] \
+      || die "legacy ${unit} must be masked or absent; state=${state:-unknown}"
+  done
+}
+
+assert_unit_stoppable() {
+  local unit="$1" refuse_stop
+  refuse_stop="$(systemctl show --property=RefuseManualStop --value "${unit}")"
+  [[ "${refuse_stop}" != "yes" ]] || die "${unit} has RefuseManualStop=yes"
+}
+
+assert_unit_startable() {
+  local unit="$1" refuse_start state
+  refuse_start="$(systemctl show --property=RefuseManualStart --value "${unit}")"
+  state="$(systemctl is-enabled "${unit}" 2>/dev/null || true)"
+  [[ "${refuse_start}" != "yes" ]] || die "${unit} has RefuseManualStart=yes"
+  [[ "${state}" != "masked" ]] || die "${unit} is masked"
+}
+
+assert_steady_state_runtime() {
+  local active_port standby_port active_state standby_state
+  active_port="$(tr -d '[:space:]' <"${ACTIVE_STATE}")"
+  case "${active_port}" in
+    20131) standby_port=20132 ;;
+    20132) standby_port=20131 ;;
+    *) die "active runtime slot state is invalid" ;;
+  esac
+  assert_legacy_service_retired
+  systemctl is-active --quiet "${SLOT_SERVICE}${active_port}.service" \
+    || die "active runtime slot ${active_port} is not active"
+  ! systemctl is-active --quiet "${SLOT_SERVICE}${standby_port}.service" \
+    || die "standby runtime slot ${standby_port} is unexpectedly active"
+  active_state="$(systemctl is-enabled "${SLOT_SERVICE}${active_port}.service" 2>/dev/null || true)"
+  standby_state="$(systemctl is-enabled "${SLOT_SERVICE}${standby_port}.service" 2>/dev/null || true)"
+  [[ "${active_state}" == "enabled" ]] \
+    || die "active runtime slot ${active_port} must be enabled; state=${active_state:-unknown}"
+  [[ "${standby_state}" == "disabled" || "${standby_state}" == "masked" || "${standby_state}" == "not-found" ]] \
+    || die "standby runtime slot ${standby_port} must not be enabled; state=${standby_state:-unknown}"
+}
+
 assert_proxy_topology() {
   [[ -f "${LOCAL_PROXY_CONFIG}" ]] || die "fixed production proxy is not bootstrapped"
   [[ -f "${UPSTREAM_FILE}" && -f "${ACTIVE_STATE}" ]] || die "runtime proxy state is incomplete"
   ss -ltnp '( sport = :20128 )' 2>/dev/null | grep -q nginx || die "Nginx does not own port 20128"
   grep -Eq '^2013[12]$' "${ACTIVE_STATE}" || die "active runtime slot state is invalid"
+}
+
+assert_transition_ready() {
+  local active_port="$1" candidate_port="$2"
+  assert_legacy_service_retired
+  systemctl is-active --quiet "${SLOT_SERVICE}${active_port}.service" \
+    || die "active runtime slot ${active_port} is not active"
+  ! systemctl is-active --quiet "${SLOT_SERVICE}${candidate_port}.service" \
+    || die "candidate runtime slot ${candidate_port} is already active"
+  assert_unit_stoppable "${SLOT_SERVICE}${active_port}.service"
+  assert_unit_startable "${SLOT_SERVICE}${active_port}.service"
+  assert_unit_stoppable "${SLOT_SERVICE}${candidate_port}.service"
+  assert_unit_startable "${SLOT_SERVICE}${candidate_port}.service"
 }
 
 assert_gateways() {
@@ -245,6 +309,7 @@ assert_gateways() {
 
 assert_production() {
   assert_proxy_topology
+  assert_steady_state_runtime
   systemctl is-active --quiet nginx || die "Nginx is not active"
   wait_healthy "${PROD_PORT}" "stable production"
   require_workers "${PROD_PORT}" "stable production"
@@ -514,7 +579,7 @@ promote_release() {
     20132) new_port=20131 ;;
     *) die "invalid active slot: ${old_port}" ;;
   esac
-  systemctl is-active --quiet "${SLOT_SERVICE}${old_port}.service" || die "active runtime is not active"
+  assert_transition_ready "${old_port}" "${new_port}"
   old_target="$(readlink -f "${APP_ROOT}/current")"
   old_upstream="$(cat "${UPSTREAM_FILE}")"
   backup_path="$(backup_database "${release_id}")"
@@ -547,6 +612,7 @@ promote_release() {
       fi
       systemctl start "${SLOT_SERVICE}${old_port}.service" || true
       systemctl stop "${SLOT_SERVICE}${new_port}.service" || true
+      systemctl disable "${SLOT_SERVICE}${new_port}.service" >/dev/null 2>&1 || true
       ln -sfn "${old_target}" "${APP_ROOT}/current"
       printf '%s\n' "${old_port}" >"${ACTIVE_STATE}"
       log "rollback complete"
@@ -603,10 +669,34 @@ rollback_release() {
   [[ "${current}" =~ ^2013[12]$ && "${previous}" =~ ^2013[12]$ && "${current}" != "${previous}" ]] \
     || die "invalid rollback state"
   [[ -L "${APP_ROOT}/slots/${previous}" ]] || die "previous slot artifact is missing"
+  assert_transition_ready "${current}" "${previous}"
+
+  local old_upstream switched=0 committed=0
+  old_upstream="$(cat "${UPSTREAM_FILE}")"
+  rollback_failed_rollback() {
+    local rc=$?
+    trap - ERR INT TERM EXIT
+    if [[ "${committed}" -eq 0 ]]; then
+      log "rollback failed; restoring current runtime"
+      if [[ "${switched}" -eq 1 ]]; then
+        printf '%s\n' "${old_upstream}" >"${UPSTREAM_FILE}"
+        nginx -t >/dev/null 2>&1 && systemctl reload nginx || true
+      fi
+      systemctl start "${SLOT_SERVICE}${current}.service" || true
+      systemctl stop "${SLOT_SERVICE}${previous}.service" || true
+      systemctl disable "${SLOT_SERVICE}${previous}.service" >/dev/null 2>&1 || true
+      printf '%s\n' "${current}" >"${ACTIVE_STATE}"
+      log "rollback recovery complete"
+    fi
+    exit "${rc}"
+  }
+  trap rollback_failed_rollback ERR INT TERM EXIT
+
   systemctl enable --now "${SLOT_SERVICE}${previous}.service"
   wait_healthy "${previous}" "rollback candidate"
   require_workers "${previous}" "rollback candidate"
   switch_upstream "${previous}"
+  switched=1
   wait_healthy "${PROD_PORT}" "stable production after rollback"
   repeated_health "${PROD_PORT}" 20
   assert_gateways
@@ -616,6 +706,10 @@ rollback_release() {
   printf '%s\n' "${current}" >"${PREVIOUS_STATE}"
   printf '%s\n' "${previous}" >"${ACTIVE_STATE}"
   ln -sfn "$(readlink -f "${APP_ROOT}/slots/${previous}")" "${APP_ROOT}/current"
+  assert_production
+  repeated_health "${PROD_PORT}" 20
+  committed=1
+  trap - ERR INT TERM EXIT
   log "ROLLBACK PASS: endpoint 20128 now uses slot ${previous}; database unchanged"
 }
 
