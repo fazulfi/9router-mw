@@ -17,7 +17,7 @@ export function shouldUseWriterRpc() {
 async function startResponseLoop(redis) {
   if (responseLoopStarted) return;
   responseLoopStarted = true;
-  responseClient = redis.duplicate({ commandTimeout: 0 });
+  responseClient = redis.duplicate({ commandTimeout: undefined });
   await responseClient.connect();
 
   void (async () => {
