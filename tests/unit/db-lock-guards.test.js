@@ -109,7 +109,7 @@ describe("DB write lock guards", () => {
     );
     expect(src).toMatch(/WRITE_QUEUE_KEY/);
     expect(src).toMatch(/correlationId/);
-    expect(src).toMatch(/duplicate\(\)/);
+    expect(src).toMatch(/duplicate\(\{ commandTimeout: 0 \}\)/);
     expect(src).toMatch(/blpop/);
     expect(src).not.toMatch(/\bsql\b\s*:/);
   });

@@ -78,6 +78,7 @@ describe("writer RPC behavior", () => {
       saved: "updateSettings",
     });
     expect(harness.duplicateCalls).toBe(1);
+    expect(harness.shared.duplicate).toHaveBeenCalledWith({ commandTimeout: 0 });
     expect(harness.blockingConnectCalls).toBe(1);
     expect(harness.shared.rpush).toHaveBeenCalledTimes(1);
     expect(harness.blocking.blpop).toHaveBeenCalledWith("mw:test-slot:write:responses:7", 1);
