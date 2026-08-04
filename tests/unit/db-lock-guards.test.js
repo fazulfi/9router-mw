@@ -24,6 +24,15 @@ describe("DB write lock guards", () => {
     expect(src).toMatch(/\|\|\s*15000/);
   });
 
+  it("shares the async-capable better-sqlite3 transaction runner with the writer", () => {
+    const src = require("fs").readFileSync(
+      require("path").resolve(__dirname, "../../primary-writer.mjs"),
+      "utf-8"
+    );
+    expect(src).toMatch(/createBetterSqliteTransaction\(sqliteDb\)/);
+    expect(src).not.toMatch(/sqliteDb\.transaction\(fn\)/);
+  });
+
   it("requestDetailsRepo has writer mode routing", () => {
     const src = require("fs").readFileSync(
       require("path").resolve(__dirname, "../../src/lib/db/repos/requestDetailsRepo.js"),
@@ -264,5 +273,62 @@ describe("DB write lock guards", () => {
     expect(() => reader.transaction(() => {})).toThrow("read-only SQLite adapter");
     reader.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("supports synchronous and asynchronous better-sqlite3 transactions", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-async-transaction-"));
+    const dbPath = path.join(tempDir, "data.sqlite");
+    const adapter = createBetterSqliteAdapter(dbPath);
+
+    try {
+      adapter.exec("CREATE TABLE probe (id INTEGER PRIMARY KEY, value TEXT NOT NULL)");
+      const syncResult = adapter.transaction(() => {
+        adapter.run("INSERT INTO probe(value) VALUES(?)", ["sync"]);
+        return "sync-result";
+      });
+      expect(syncResult).toBe("sync-result");
+
+      await adapter.transaction(async () => {
+        adapter.run("INSERT INTO probe(value) VALUES(?)", ["async-before"]);
+        await Promise.resolve();
+        adapter.run("INSERT INTO probe(value) VALUES(?)", ["async-after"]);
+      });
+
+      expect(adapter.all("SELECT value FROM probe ORDER BY id")).toEqual([
+        { value: "sync" },
+        { value: "async-before" },
+        { value: "async-after" },
+      ]);
+    } finally {
+      adapter.close();
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("rolls back rejected async transactions and serializes the next transaction", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-async-rollback-"));
+    const dbPath = path.join(tempDir, "data.sqlite");
+    const adapter = createBetterSqliteAdapter(dbPath);
+
+    try {
+      adapter.exec("CREATE TABLE probe (id INTEGER PRIMARY KEY, value TEXT NOT NULL)");
+      const rejected = adapter.transaction(async () => {
+        adapter.run("INSERT INTO probe(value) VALUES(?)", ["rolled-back"]);
+        await Promise.resolve();
+        throw new Error("reject transaction");
+      });
+      const queued = adapter.transaction(async () => {
+        adapter.run("INSERT INTO probe(value) VALUES(?)", ["committed"]);
+      });
+
+      await expect(rejected).rejects.toThrow("reject transaction");
+      await queued;
+      expect(adapter.all("SELECT value FROM probe ORDER BY id")).toEqual([
+        { value: "committed" },
+      ]);
+    } finally {
+      adapter.close();
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });

@@ -17,6 +17,7 @@ import path from "node:path";
 import os from "node:os";
 import Database from "better-sqlite3";
 import { PRAGMA_SQL } from "./src/lib/db/schema.js";
+import { createBetterSqliteTransaction } from "./src/lib/db/adapters/betterSqliteAdapter.js";
 import { runMigrationOnce } from "./src/lib/db/migrate.js";
 import { createPgAdapter, createPgPool } from "./src/lib/db/adapters/pgAdapter.js";
 import { ensurePostgresSchema } from "./src/lib/db/adapters/pgSchema.js";
@@ -80,13 +81,14 @@ function createSqliteWriterAdapter() {
     }
     return statement;
   }
+  const transaction = createBetterSqliteTransaction(sqliteDb);
   return {
     driver: "better-sqlite3",
     run(sql, params = []) { return prepare(sql).run(...params); },
     get(sql, params = []) { return prepare(sql).get(...params); },
     all(sql, params = []) { return prepare(sql).all(...params); },
     exec(sql) { return sqliteDb.exec(sql); },
-    transaction(fn) { return sqliteDb.transaction(fn)(); },
+    transaction,
     close() { sqliteDb.close(); },
     raw: sqliteDb,
   };
